@@ -1,0 +1,548 @@
+// Centralised data: rooms, menu, lake pricing, events packages
+// All prices in BGN. Update here to update across all pages.
+
+export const IMG = "https://rayagarden.bg/wp-content/uploads/2022/01";
+
+export const rooms = {
+  bg: [
+    {
+      id: "standard-park",
+      name: "Стандартна стая · парк гледка",
+      price: 140,
+      size: 22,
+      sleeps: 2,
+      view: "Парк „Света гора“",
+      image: `${IMG}/hotel-all-2.png`,
+      amenities: [
+        "Двойно или две единични легла",
+        "Безплатен Wi-Fi",
+        "Климатик · геотермално отопление",
+        "Сейф, минибар, телевизор",
+        "Самостоятелна баня с душ",
+        "Безплатни тоалетни принадлежности",
+      ],
+    },
+    {
+      id: "standard-city",
+      name: "Стандартна стая · градска гледка",
+      price: 160,
+      size: 22,
+      sleeps: 2,
+      view: "Велико Търново",
+      image: `${IMG}/hotel-all-3.png`,
+      amenities: [
+        "Двойно или две единични легла",
+        "Панорамна гледка към града",
+        "Безплатен Wi-Fi",
+        "Климатик · геотермално отопление",
+        "Минибар, телевизор, сейф",
+        "Премиум тоалетни принадлежности",
+      ],
+    },
+    {
+      id: "deluxe",
+      name: "Deluxe стая",
+      price: 220,
+      size: 28,
+      sleeps: 2,
+      view: "Велико Търново · с балкон",
+      image: `${IMG}/hotel-all-5.png`,
+      amenities: [
+        "Кинг сайз легло",
+        "Собствен балкон с гледка",
+        "Просторна баня с вана",
+        "Кафе и чай зона (Nespresso)",
+        "Халати и чехли",
+        "Late check-out при възможност",
+      ],
+    },
+    {
+      id: "junior-suite",
+      name: "Junior Suite",
+      price: 320,
+      size: 38,
+      sleeps: 3,
+      view: "Велико Търново · с дневна зона",
+      image: `${IMG}/hotel-all-8.png`,
+      amenities: [
+        "Кинг сайз легло + диван",
+        "Отделна дневна зона",
+        "Премиум баня с вана и душ",
+        "Бутилка вино при посрещане",
+        "Безплатен ранен check-in / късен check-out",
+        "Закуска до стаята при заявка",
+      ],
+    },
+    {
+      id: "luxury-suite",
+      name: "Luxury Suite",
+      price: 480,
+      size: 52,
+      sleeps: 4,
+      view: "Панорамна · отделна спалня и хол",
+      image: `${IMG}/hotel-all-11.png`,
+      amenities: [
+        "Отделна спалня и хол",
+        "Кинг сайз легло + разтегателен диван",
+        "Луксозна баня с джакузи",
+        "Бутилка шампанско + плато при посрещане",
+        "VIP трансфер по заявка",
+        "Личен консиерж по време на престоя",
+      ],
+    },
+  ],
+  en: [
+    {
+      id: "standard-park",
+      name: "Standard Room · park view",
+      price: 140,
+      size: 22,
+      sleeps: 2,
+      view: "Sveta Gora park",
+      image: `${IMG}/hotel-all-2.png`,
+      amenities: [
+        "Double or twin beds",
+        "Free Wi-Fi",
+        "AC · geothermal heating",
+        "Safe, minibar, TV",
+        "Private bathroom with shower",
+        "Complimentary toiletries",
+      ],
+    },
+    {
+      id: "standard-city",
+      name: "Standard Room · city view",
+      price: 160,
+      size: 22,
+      sleeps: 2,
+      view: "Veliko Tarnovo",
+      image: `${IMG}/hotel-all-3.png`,
+      amenities: [
+        "Double or twin beds",
+        "Panoramic city view",
+        "Free Wi-Fi",
+        "AC · geothermal heating",
+        "Minibar, TV, safe",
+        "Premium toiletries",
+      ],
+    },
+    {
+      id: "deluxe",
+      name: "Deluxe Room",
+      price: 220,
+      size: 28,
+      sleeps: 2,
+      view: "Veliko Tarnovo · with balcony",
+      image: `${IMG}/hotel-all-5.png`,
+      amenities: [
+        "King-size bed",
+        "Private balcony with a view",
+        "Spacious bathroom with bathtub",
+        "Nespresso coffee & tea station",
+        "Robes and slippers",
+        "Late check-out on request",
+      ],
+    },
+    {
+      id: "junior-suite",
+      name: "Junior Suite",
+      price: 320,
+      size: 38,
+      sleeps: 3,
+      view: "Veliko Tarnovo · with living area",
+      image: `${IMG}/hotel-all-8.png`,
+      amenities: [
+        "King-size bed + sofa",
+        "Separate living area",
+        "Premium bathroom with tub and shower",
+        "Welcome bottle of wine",
+        "Free early check-in / late check-out",
+        "In-room breakfast on request",
+      ],
+    },
+    {
+      id: "luxury-suite",
+      name: "Luxury Suite",
+      price: 480,
+      size: 52,
+      sleeps: 4,
+      view: "Panoramic · separate bedroom & lounge",
+      image: `${IMG}/hotel-all-11.png`,
+      amenities: [
+        "Separate bedroom and lounge",
+        "King-size bed + pull-out sofa",
+        "Luxury bathroom with jacuzzi",
+        "Welcome champagne and fruit platter",
+        "VIP airport transfer on request",
+        "Personal concierge during your stay",
+      ],
+    },
+  ],
+};
+
+export const menu = {
+  bg: [
+    {
+      title: "Студени предястия",
+      items: [
+        { name: "Шопска салата", desc: "Класика с домати, краставици, чушки и бяло саламурено сирене", price: 14 },
+        { name: "Капрезе на хълма", desc: "Българска моцарела, домати рома, прясен босилек, олио", price: 16 },
+        { name: "Тартар от телешко филе", desc: "Каперси, корнишони, жълтък, пармезан, препечен хляб", price: 28 },
+        { name: "Селекция местни сирена и колбаси", desc: "Дъска с 5 вида сирена, луканка, конфитюри, орехи", price: 32 },
+        { name: "Брускети с домашен пастет", desc: "Пилешки пастет, ябълков чътни, трюфелово масло", price: 18 },
+      ],
+    },
+    {
+      title: "Топли предястия",
+      items: [
+        { name: "Пържени тиквички", desc: "С чеснов сос и копър", price: 12 },
+        { name: "Запечено топено сирене", desc: "С пресни домати и риган", price: 14 },
+        { name: "Пилешки шашлик", desc: "Маринован в местни подправки, с барбекю сос", price: 16 },
+        { name: "Калмари на скара", desc: "С лимон, рукола и алиоли", price: 22 },
+        { name: "Раци на бутер тесто", desc: "С босилекова крем сметана", price: 24 },
+      ],
+    },
+    {
+      title: "Супи",
+      items: [
+        { name: "Таратор", desc: "Кисело мляко, краставица, орех, копър", price: 8 },
+        { name: "Боб чорба по манастирски", desc: "С чубрица, лук и домашен хляб", price: 10 },
+        { name: "Бульон от диви гъби", desc: "С пресен магданоз и сметана", price: 12 },
+        { name: "Френска лучена супа", desc: "С гратенирано сирене", price: 14 },
+      ],
+    },
+    {
+      title: "Основни · месо",
+      items: [
+        { name: "Свинско по сватбарски", desc: "Бавно печено в кафяв сос, с картофено пюре", price: 22 },
+        { name: "Пиле „Сачирмалии“", desc: "Местна рецепта с лук, чушки и винен сос", price: 24 },
+        { name: "Дроб сарма по търновски", desc: "Класическа балканска рецепта", price: 20 },
+        { name: "Ягнешко на барбекю", desc: "От градината ни, с печени зеленчуци", price: 36 },
+        { name: "Телешко филе на жар", desc: "200г, демигляс с червено вино, гратен дофиноа", price: 42 },
+        { name: "Магданоз с ребра по селянски", desc: "Бавно томене с кореноплодни", price: 28 },
+      ],
+    },
+    {
+      title: "Основни · риба",
+      items: [
+        { name: "Пъстърва от нашето езеро", desc: "На скара, с лимон, чесън и магданоз", price: 28 },
+        { name: "Сьомга с лимоново масло", desc: "С печени аспержи и киноа", price: 34 },
+        { name: "Морски костур по средиземноморски", desc: "С маслини, домати и каперси", price: 38 },
+        { name: "Тигрови скариди на скара", desc: "С лимонена крем сметана", price: 36 },
+      ],
+    },
+    {
+      title: "Паста и Ризото",
+      items: [
+        { name: "Спагети болонезе", desc: "Класическа италианска рецепта", price: 18 },
+        { name: "Талиатели с гъби и трюфел", desc: "С пармезан и пресен босилек", price: 24 },
+        { name: "Ризото с морски дарове", desc: "Скариди, миди, калмари, шафран", price: 28 },
+        { name: "Равиоли с тиква и сладко сирене", desc: "С масло шалвия", price: 22 },
+      ],
+    },
+    {
+      title: "Десерти",
+      items: [
+        { name: "Тиквеник с орехи", desc: "Бабината рецепта · с топка ванилов сладолед", price: 8 },
+        { name: "Чийзкейк с горски плодове", desc: "Домашна основа от бисквити", price: 10 },
+        { name: "Тирамису", desc: "Маскарпоне, кафе еспресо, какао", price: 10 },
+        { name: "Шоколадов фондан", desc: "С течно сърце и ванилов сладолед", price: 12 },
+        { name: "Крем брюле с лавандула", desc: "С карамелна коричка", price: 11 },
+      ],
+    },
+  ],
+  en: [
+    {
+      title: "Cold Starters",
+      items: [
+        { name: "Shopska Salad", desc: "Classic Bulgarian — tomato, cucumber, peppers and white brine cheese", price: 14 },
+        { name: "Hilltop Caprese", desc: "Bulgarian mozzarella, Roma tomatoes, fresh basil, olive oil", price: 16 },
+        { name: "Beef Fillet Tartare", desc: "Capers, gherkins, yolk, parmesan, sourdough toast", price: 28 },
+        { name: "Local Cheese & Charcuterie Board", desc: "5 cheeses, lukanka, jams, walnuts", price: 32 },
+        { name: "Bruschetta with House Pâté", desc: "Chicken pâté, apple chutney, truffle butter", price: 18 },
+      ],
+    },
+    {
+      title: "Warm Starters",
+      items: [
+        { name: "Fried Zucchini", desc: "With garlic sauce and dill", price: 12 },
+        { name: "Baked Kashkaval", desc: "With fresh tomatoes and oregano", price: 14 },
+        { name: "Chicken Skewers", desc: "Marinated in local spices, BBQ sauce", price: 16 },
+        { name: "Grilled Calamari", desc: "With lemon, rocket and aioli", price: 22 },
+        { name: "Crab in Puff Pastry", desc: "With basil cream sauce", price: 24 },
+      ],
+    },
+    {
+      title: "Soups",
+      items: [
+        { name: "Tarator", desc: "Cold yoghurt, cucumber, walnut, dill", price: 8 },
+        { name: "Monastery Bean Soup", desc: "With savory, onion and house bread", price: 10 },
+        { name: "Wild Mushroom Broth", desc: "With fresh parsley and cream", price: 12 },
+        { name: "French Onion Soup", desc: "With gratin cheese crust", price: 14 },
+      ],
+    },
+    {
+      title: "Mains · Meat",
+      items: [
+        { name: "Wedding-style Pork", desc: "Slow-roasted in brown sauce, mashed potatoes", price: 22 },
+        { name: "Chicken Sachirmalii", desc: "Local recipe with onion, peppers and wine sauce", price: 24 },
+        { name: "Tarnovo-style Drob Sarma", desc: "Classic Balkan lamb-and-rice dish", price: 20 },
+        { name: "BBQ Lamb", desc: "From our garden, with roasted vegetables", price: 36 },
+        { name: "Grilled Beef Fillet", desc: "200g, red-wine demi-glace, dauphinoise gratin", price: 42 },
+        { name: "Country-style Ribs", desc: "Slow-braised with root vegetables", price: 28 },
+      ],
+    },
+    {
+      title: "Mains · Fish",
+      items: [
+        { name: "Trout from Our Lake", desc: "Grilled with lemon, garlic and parsley", price: 28 },
+        { name: "Salmon with Lemon Butter", desc: "Roasted asparagus and quinoa", price: 34 },
+        { name: "Mediterranean Sea Bass", desc: "With olives, tomatoes and capers", price: 38 },
+        { name: "Grilled Tiger Prawns", desc: "Lemon cream sauce", price: 36 },
+      ],
+    },
+    {
+      title: "Pasta & Risotto",
+      items: [
+        { name: "Spaghetti Bolognese", desc: "Classic Italian recipe", price: 18 },
+        { name: "Tagliatelle with Mushrooms & Truffle", desc: "Parmesan and fresh basil", price: 24 },
+        { name: "Seafood Risotto", desc: "Prawns, mussels, calamari, saffron", price: 28 },
+        { name: "Pumpkin & Ricotta Ravioli", desc: "Sage butter", price: 22 },
+      ],
+    },
+    {
+      title: "Desserts",
+      items: [
+        { name: "Pumpkin Walnut Tikvenik", desc: "Grandma's recipe with vanilla ice cream", price: 8 },
+        { name: "Berry Cheesecake", desc: "House biscuit base", price: 10 },
+        { name: "Tiramisu", desc: "Mascarpone, espresso, cocoa", price: 10 },
+        { name: "Chocolate Fondant", desc: "Molten centre with vanilla ice cream", price: 12 },
+        { name: "Lavender Crème Brûlée", desc: "With caramelised crust", price: 11 },
+      ],
+    },
+  ],
+};
+
+export const lakePricing = {
+  bg: {
+    daily: [
+      { label: "Цял ден · 06:00 – 20:00", price: "25 лв" },
+      { label: "Половин ден · 06:00 – 13:00 или 13:00 – 20:00", price: "15 лв" },
+      { label: "Деца до 12 г. (придружени)", price: "Безплатно" },
+      { label: "Втора пръчка", price: "+10 лв" },
+    ],
+    fish: [
+      { name: "Шаран", price: "12 лв / кг" },
+      { name: "Толстолоб", price: "10 лв / кг" },
+      { name: "Бял амур", price: "12 лв / кг" },
+      { name: "Сом", price: "14 лв / кг" },
+      { name: "Щука", price: "16 лв / кг" },
+      { name: "Есетра (екзотична)", price: "28 лв / кг" },
+    ],
+    rules: [
+      "Безветрилни (бодлести) куки забранени",
+      "Лимит за ден: 5 кг на риболовец",
+      "Деца под 12 г. винаги под надзор",
+      "Хранителни добавки разрешени в умерени количества",
+      "Връщане на дребна и плодна риба",
+      "Без алкохол по време на риболов",
+    ],
+    includes: [
+      "Места с пейка и маса",
+      "Безплатен паркинг",
+      "Кепче на разположение",
+      "Тоалетна и мивка",
+      "Възможност за приготвяне на улова в ресторанта",
+    ],
+  },
+  en: {
+    daily: [
+      { label: "Full day · 06:00 – 20:00", price: "25 BGN" },
+      { label: "Half day · 06:00 – 13:00 or 13:00 – 20:00", price: "15 BGN" },
+      { label: "Children under 12 (with adult)", price: "Free" },
+      { label: "Second rod", price: "+10 BGN" },
+    ],
+    fish: [
+      { name: "Carp", price: "12 BGN / kg" },
+      { name: "Silver Carp", price: "10 BGN / kg" },
+      { name: "Grass Carp", price: "12 BGN / kg" },
+      { name: "Catfish", price: "14 BGN / kg" },
+      { name: "Pike", price: "16 BGN / kg" },
+      { name: "Sturgeon (exotic)", price: "28 BGN / kg" },
+    ],
+    rules: [
+      "Barbed hooks not allowed",
+      "Daily limit: 5 kg per angler",
+      "Children under 12 always supervised",
+      "Bait additives allowed in moderation",
+      "Small and gravid fish must be released",
+      "No alcohol while fishing",
+    ],
+    includes: [
+      "Pitch with bench and table",
+      "Free parking",
+      "Landing nets available",
+      "Toilets and washbasin",
+      "Restaurant can prepare your catch",
+    ],
+  },
+};
+
+export const eventsPackages = {
+  bg: {
+    weddings: [
+      {
+        tier: "Класически пакет",
+        from: "от 80 лв / гост",
+        capacity: "до 270 гости",
+        includes: [
+          "Меню от 5 предястия и 2 основни",
+          "Безалкохолни напитки и вода",
+          "Декорация на маси",
+          "Сватбен координатор",
+          "Безплатна стая за младоженците",
+          "Озвучителна и осветителна система",
+        ],
+      },
+      {
+        tier: "Премиум пакет",
+        from: "от 150 лв / гост",
+        capacity: "до 200 гости",
+        includes: [
+          "Меню от 7 предястия, 3 основни, селекция десерти",
+          "Селекция вина от Винарна Ялово",
+          "Жива музика (квартет)",
+          "Професионален фотограф (4 часа)",
+          "Луксозен апартамент за младоженците",
+          "Фойерверки за първия танц",
+          "Безплатна стая за родителите",
+        ],
+      },
+      {
+        tier: "Сватбен ден извън сезон",
+        from: "от 60 лв / гост",
+        capacity: "до 150 гости",
+        includes: [
+          "Намалена цена ноември–март",
+          "Същото качество и обслужване",
+          "Възможност за зимна сватба сред природата",
+          "Стая за младоженците с -50%",
+        ],
+      },
+    ],
+    corporate: [
+      {
+        tier: "Конференция · половин ден",
+        from: "от 45 лв / участник",
+        capacity: "до 80 души",
+        includes: [
+          "Зала с проектор и Wi-Fi",
+          "Бутилирана вода и кафе/чай",
+          "Една кафе пауза със сладко и солено",
+          "Бележник и химикал",
+        ],
+      },
+      {
+        tier: "Целодневна конференция",
+        from: "от 65 лв / участник",
+        capacity: "до 80 души",
+        includes: [
+          "Зала с пълно техническо оборудване",
+          "Две кафе паузи",
+          "Бизнес обяд (3 блюда)",
+          "Безплатен паркинг",
+        ],
+      },
+      {
+        tier: "Тиймбилдинг 2 дни",
+        from: "от 240 лв / участник",
+        capacity: "до 120 души",
+        includes: [
+          "1 нощувка в стандартна стая",
+          "Закуска, обяд, вечеря",
+          "Активности в парк „Света гора“",
+          "Винена дегустация във Винарна Ялово",
+          "Координатор за програмата",
+        ],
+      },
+    ],
+  },
+  en: {
+    weddings: [
+      {
+        tier: "Classic Package",
+        from: "from 80 BGN / guest",
+        capacity: "up to 270 guests",
+        includes: [
+          "5 starters and 2 main courses",
+          "Soft drinks and water",
+          "Table decoration",
+          "Wedding coordinator",
+          "Free suite for the newlyweds",
+          "Sound and lighting system",
+        ],
+      },
+      {
+        tier: "Premium Package",
+        from: "from 150 BGN / guest",
+        capacity: "up to 200 guests",
+        includes: [
+          "7 starters, 3 mains, dessert selection",
+          "Wine pairing from Yalovo Winery",
+          "Live music (quartet)",
+          "Professional photographer (4 hours)",
+          "Luxury suite for the newlyweds",
+          "Fireworks for the first dance",
+          "Complimentary room for parents",
+        ],
+      },
+      {
+        tier: "Off-season Wedding",
+        from: "from 60 BGN / guest",
+        capacity: "up to 150 guests",
+        includes: [
+          "Reduced rate November–March",
+          "Same quality and service",
+          "Winter wedding in nature",
+          "Suite for newlyweds at -50%",
+        ],
+      },
+    ],
+    corporate: [
+      {
+        tier: "Half-day Conference",
+        from: "from 45 BGN / participant",
+        capacity: "up to 80 people",
+        includes: [
+          "Hall with projector and Wi-Fi",
+          "Bottled water and coffee/tea",
+          "One coffee break (sweet & savoury)",
+          "Notepad and pen",
+        ],
+      },
+      {
+        tier: "Full-day Conference",
+        from: "from 65 BGN / participant",
+        capacity: "up to 80 people",
+        includes: [
+          "Hall with full AV setup",
+          "Two coffee breaks",
+          "Business lunch (3 courses)",
+          "Free parking",
+        ],
+      },
+      {
+        tier: "2-day Team Building",
+        from: "from 240 BGN / participant",
+        capacity: "up to 120 people",
+        includes: [
+          "1 night in standard room",
+          "Breakfast, lunch, dinner",
+          "Activities in Sveta Gora park",
+          "Wine tasting at Yalovo Winery",
+          "Program coordinator",
+        ],
+      },
+    ],
+  },
+};

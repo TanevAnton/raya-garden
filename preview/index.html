@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="https://rayagarden.bg/wp-content/uploads/2021/12/cropped-Logo-Raya-270x270.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0908" />
+  <title>Начало — Park Hotel RAYA Garden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          ink: { 950: '#0a0908', 900: '#100e0c', 800: '#1a1714', 700: '#241f1a' },
+          gold: { 50: '#fbf6e9', 100: '#f2e6c0', 200: '#e6d295', 300: '#d7b85f', 400: '#c69b3b', 500: '#a87f28', 600: '#8a661c' },
+          cream: { 50: '#faf7f0', 100: '#f3ecdb', 200: '#e6d8b8' },
+        },
+        fontFamily: {
+          display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+          sans: ['Inter', 'system-ui', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+        animation: {
+          'fade-up': 'fadeUp 1.2s cubic-bezier(0.22, 1, 0.36, 1) both',
+          'slow-zoom': 'slowZoom 20s ease-out infinite alternate',
+          'scroll-hint': 'scrollHint 2s ease-in-out infinite',
+        },
+        keyframes: {
+          fadeUp: { '0%': { opacity: 0, transform: 'translateY(40px)' }, '100%': { opacity: 1, transform: 'translateY(0)' } },
+          slowZoom: { '0%': { transform: 'scale(1.05)' }, '100%': { transform: 'scale(1.15)' } },
+          scrollHint: { '0%, 100%': { transform: 'translateY(0)', opacity: 0.4 }, '50%': { transform: 'translateY(8px)', opacity: 1 } },
+        },
+      }},
+    };
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0a0908; color: #faf7f0; overflow-x: hidden; }
+    ::selection { background: #c69b3b; color: #0a0908; }
+    ::-webkit-scrollbar { width: 10px; background: #0a0908; }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #8a661c, #c69b3b); border-radius: 10px; }
+    .font-display { font-family: 'Cormorant Garamond', Georgia, serif; }
+    .text-balance { text-wrap: balance; }
+    .text-shadow-lg { text-shadow: 0 4px 30px rgba(0,0,0,0.6); }
+    .gradient-gold { background: linear-gradient(135deg, #d7b85f 0%, #f2e6c0 50%, #a87f28 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+    .gradient-overlay-dark { background: linear-gradient(180deg, rgba(10,9,8,0.2) 0%, rgba(10,9,8,0.5) 60%, rgba(10,9,8,0.95) 100%); }
+    .gradient-overlay-vignette { background: radial-gradient(ellipse at center, rgba(10,9,8,0) 30%, rgba(10,9,8,0.85) 100%); }
+    .divider-gold { height: 1px; background: linear-gradient(90deg, transparent, rgba(214,184,95,0.6), transparent); }
+    .btn-gold { background: linear-gradient(135deg, #d7b85f, #a87f28); color: #0a0908; transition: all 0.4s cubic-bezier(0.22,1,0.36,1); position: relative; overflow: hidden; }
+    .btn-gold::before { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); transition: left 0.6s; }
+    .btn-gold:hover::before { left: 100%; }
+    .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 20px 40px -10px rgba(214,184,95,0.35); }
+    .btn-ghost { border: 1px solid rgba(214,184,95,0.5); color: #f2e6c0; transition: all 0.4s cubic-bezier(0.22,1,0.36,1); }
+    .btn-ghost:hover { background: rgba(214,184,95,0.1); border-color: #d7b85f; transform: translateY(-2px); }
+    .reveal { opacity: 0; transform: translateY(40px); transition: opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .img-luxury { filter: brightness(0.92) contrast(1.05) saturate(1.05); transition: filter 0.6s, transform 0.8s cubic-bezier(0.22,1,0.36,1); }
+    .img-luxury:hover { filter: brightness(1) contrast(1.08) saturate(1.1); }
+    .grain::after { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E"); opacity: 0.08; mix-blend-mode: overlay; z-index: 1; }
+    .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 2.5s ease; }
+    .hero-slide.active { opacity: 1; }
+    .lang-link.active { color: #d7b85f; }
+    .nav-link.active { color: #d7b85f; }
+    .nav-link.active .underline { width: 100%; }
+  </style>
+</head>
+<body class="bg-ink-950 text-cream-50 antialiased">
+
+  <header id="nav" class="fixed top-0 left-0 right-0 z-50 py-3 bg-ink-950/85 backdrop-blur-xl border-b border-gold-300/10 transition-all duration-500">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-full border border-gold-300/60 flex items-center justify-center transition-transform duration-700 group-hover:rotate-180">
+          <span class="font-display text-gold-200 text-xl leading-none">R</span>
+        </div>
+        <div class="leading-tight">
+          <div class="font-display text-xl tracking-wider text-cream-50">RAYA <span class="text-gold-300">Garden</span></div>
+          <div class="text-[10px] tracking-[0.3em] uppercase text-gold-200/70">Park Hotel</div>
+        </div>
+      </a>
+      <nav class="hidden lg:flex items-center gap-7"><a href="hotel.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Хотелът" data-en="The Hotel">Хотелът<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="restaurant.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Ресторантът" data-en="Restaurant">Ресторантът<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="winery.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Винарната" data-en="Winery">Винарната<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="lake.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Езерото" data-en="The Lake">Езерото<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="park.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Паркът и градът" data-en="Park &amp; Town">Паркът и градът<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="events.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Събития" data-en="Events">Събития<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a><a href="contact.html" class="nav-link  text-sm tracking-wide text-cream-100/80 hover:text-gold-200 transition-colors relative group" data-bg="Контакти" data-en="Contact">Контакти<span class="underline absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 w-0 group-hover:w-full"></span></a></nav>
+      <div class="flex items-center gap-4">
+        <div class="hidden sm:flex items-center gap-1 text-xs tracking-wider">
+          <button class="lang-link active px-2 py-1 transition-colors" data-lang="bg">BG</button>
+          <span class="text-cream-100/30">|</span>
+          <button class="lang-link px-2 py-1 transition-colors text-cream-100/50 hover:text-cream-100" data-lang="en">EN</button>
+        </div>
+        <a href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new" target="_blank" class="hidden md:inline-flex items-center gap-2 btn-gold px-5 py-2.5 text-xs tracking-[0.2em] uppercase font-medium rounded-sm" data-bg="Резервирай" data-en="Book Now">Резервирай →</a>
+      </div>
+    </div>
+  </header>
+  <!-- HERO -->
+  <section class="relative h-screen min-h-[700px] w-full overflow-hidden grain">
+    <div class="hero-slide active"><img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-1.png" class="w-full h-full object-cover animate-slow-zoom" alt=""></div>
+    <div class="hero-slide"><img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-5.png" class="w-full h-full object-cover animate-slow-zoom" alt=""></div>
+    <div class="hero-slide"><img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-9.png" class="w-full h-full object-cover animate-slow-zoom" alt=""></div>
+    <div class="hero-slide"><img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-14.png" class="w-full h-full object-cover animate-slow-zoom" alt=""></div>
+    <div class="absolute inset-0 gradient-overlay-dark"></div>
+    <div class="absolute inset-0 gradient-overlay-vignette"></div>
+    <div class="relative z-10 h-full flex flex-col justify-center max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="max-w-3xl animate-fade-up">
+        <div class="flex items-center gap-3 mb-8">
+          <div class="w-10 h-px bg-gold-300"></div>
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-200/90" data-bg="Park Hotel · Велико Търново" data-en="Park Hotel · Veliko Tarnovo">Park Hotel · Велико Търново</span>
+        </div>
+        <h1 class="font-display text-6xl sm:text-7xl lg:text-8xl xl:text-9xl leading-[0.95] text-cream-50 text-shadow-lg mb-8 text-balance">
+          <span data-bg="Уют сред" data-en="Serenity in">Уют сред</span><br>
+          <em class="italic gradient-gold font-light" data-bg="тиха природа" data-en="quiet nature">тиха природа</em>
+        </h1>
+        <p class="text-base sm:text-lg text-cream-100/85 max-w-xl leading-relaxed mb-10 text-shadow-lg" data-bg="Бутиков хотел, ресторант и градина на хълм Света гора — място за почивка, вкусна храна и хубави моменти, само на 1.5 км от Велико Търново." data-en="A boutique hotel, restaurant and garden on Sveta Gora hill — a place to rest, dine and live beautiful moments, just 1.5 km from Veliko Tarnovo.">Бутиков хотел, ресторант и градина на хълм Света гора — място за почивка, вкусна храна и хубави моменти, само на 1.5 км от Велико Търново.</p>
+        <div class="flex flex-wrap gap-4">
+          <a href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new" target="_blank" class="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3" data-bg="Резервирай престой" data-en="Reserve your stay">Резервирай престой →</a>
+          <a href="restaurant.html" class="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3" data-bg="Разгледай ресторанта" data-en="Explore the restaurant">Разгледай ресторанта</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- WELCOME -->
+  <section class="relative py-24 md:py-32 bg-ink-950">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-20 items-start">
+        <div class="md:col-span-5 reveal">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="Добре дошли" data-en="Welcome">Добре дошли</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-6 text-balance" data-bg="Хотел, ресторант и градина — на един дъх от града" data-en="Hotel, restaurant and garden — a breath away from the city">Хотел, ресторант и градина — на един дъх от града</h2>
+          <div class="divider-gold mt-10 w-32"></div>
+        </div>
+        <div class="md:col-span-7 reveal">
+          <p class="text-lg text-cream-100/85 leading-relaxed mb-6 font-light" data-bg="Закътан сред тихата природа на хълм „Света гора“, Парк Хотел RAYA Garden е райско кътче насред гората. Сградата работи с геотермална енергия — природосъобразно решение с минимални въглеродни емисии." data-en="Tucked in the calm nature of Sveta Gora hill, Park Hotel RAYA Garden is a small paradise in the forest. The building runs on geothermal energy.">Закътан сред тихата природа на хълм „Света гора“, Парк Хотел RAYA Garden е райско кътче насред гората. Сградата работи с геотермална енергия — природосъобразно решение с минимални въглеродни емисии.</p>
+          <p class="text-base text-cream-100/65 leading-relaxed" data-bg="Хотелът разполага с 5 апартамента и 45 двойни стаи. Очакваме Ви целогодишно — за уикенд почивка, спа преживяване, романтика, бизнес среща или сватба." data-en="We offer 5 suites and 45 double rooms. Open all year, for weekend getaways, spa breaks, romance, business and weddings.">Хотелът разполага с 5 апартамента и 45 двойни стаи. Очакваме Ви целогодишно — за уикенд почивка, спа преживяване, романтика, бизнес среща или сватба.</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-gold-300/10 mt-20 border border-gold-300/10 reveal">
+        <div class="bg-ink-950 p-8 md:p-10 text-center"><div class="font-display text-5xl md:text-6xl gradient-gold">5</div><div class="mt-3 text-xs tracking-[0.3em] uppercase text-cream-100/60" data-bg="Апартамента" data-en="Suites">Апартамента</div></div>
+        <div class="bg-ink-950 p-8 md:p-10 text-center"><div class="font-display text-5xl md:text-6xl gradient-gold">45</div><div class="mt-3 text-xs tracking-[0.3em] uppercase text-cream-100/60" data-bg="Двойни стаи" data-en="Double Rooms">Двойни стаи</div></div>
+        <div class="bg-ink-950 p-8 md:p-10 text-center"><div class="font-display text-5xl md:text-6xl gradient-gold">270</div><div class="mt-3 text-xs tracking-[0.3em] uppercase text-cream-100/60" data-bg="Места в ресторанта" data-en="Restaurant Seats">Места в ресторанта</div></div>
+        <div class="bg-ink-950 p-8 md:p-10 text-center"><div class="font-display text-5xl md:text-6xl gradient-gold">24/7</div><div class="mt-3 text-xs tracking-[0.3em] uppercase text-cream-100/60" data-bg="Рецепция" data-en="Reception">Рецепция</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section cards -->
+  
+  <section class="relative py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-16 items-center ">
+        <div class="md:col-span-7 reveal ">
+          <a href="hotel.html" class="block">
+            <div class="relative aspect-[4/3] overflow-hidden group">
+              <img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-3.png" class="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]" alt="">
+              <div class="absolute inset-0 ring-1 ring-inset ring-gold-300/10"></div>
+              <div class="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300"></div>
+              <div class="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/50"></div>
+            </div>
+          </a>
+        </div>
+        <div class="md:col-span-5 reveal ">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="01 · Настаняване" data-en="01 · Stay">01 · Настаняване</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-5 mb-8 text-balance" data-bg="Хотелът" data-en="The Hotel">Хотелът</h2>
+          <p class="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-8 font-light" data-bg="Удобни открити и закрити пространства, неповторима атмосфера, конферентна зала, охраняем паркинг и геотермално отопление." data-en="Comfortable indoor and outdoor spaces, a singular atmosphere, conference hall, secure parking and geothermal heating.">Удобни открити и закрити пространства, неповторима атмосфера, конферентна зала, охраняем паркинг и геотермално отопление.</p>
+          <a href="hotel.html" class="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all group" data-bg="Научи повече" data-en="Learn more"><span>Научи повече</span><span class="w-8 h-px bg-gold-300 group-hover:w-12 transition-all"></span>→</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="relative py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-16 items-center md:[direction:rtl]">
+        <div class="md:col-span-7 reveal md:[direction:ltr]">
+          <a href="restaurant.html" class="block">
+            <div class="relative aspect-[4/3] overflow-hidden group">
+              <img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-8.png" class="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]" alt="">
+              <div class="absolute inset-0 ring-1 ring-inset ring-gold-300/10"></div>
+              <div class="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300"></div>
+              <div class="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/50"></div>
+            </div>
+          </a>
+        </div>
+        <div class="md:col-span-5 reveal md:[direction:ltr]">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="02 · Кулинария" data-en="02 · Cuisine">02 · Кулинария</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-5 mb-8 text-balance" data-bg="Ресторантът" data-en="The Restaurant">Ресторантът</h2>
+          <p class="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-8 font-light" data-bg="Капацитет 270 души, незабравима гледка, приказен интериор и градина с барбекю и жива риба." data-en="Seats up to 270, unforgettable views, fairytale interior and a garden with BBQ and live fish.">Капацитет 270 души, незабравима гледка, приказен интериор и градина с барбекю и жива риба.</p>
+          <a href="restaurant.html" class="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all group" data-bg="Научи повече" data-en="Learn more"><span>Научи повече</span><span class="w-8 h-px bg-gold-300 group-hover:w-12 transition-all"></span>→</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="relative py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-16 items-center ">
+        <div class="md:col-span-7 reveal ">
+          <a href="winery.html" class="block">
+            <div class="relative aspect-[4/3] overflow-hidden group">
+              <img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-11.png" class="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]" alt="">
+              <div class="absolute inset-0 ring-1 ring-inset ring-gold-300/10"></div>
+              <div class="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300"></div>
+              <div class="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/50"></div>
+            </div>
+          </a>
+        </div>
+        <div class="md:col-span-5 reveal ">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="03 · Винарна Ялово" data-en="03 · Yalovo Winery">03 · Винарна Ялово</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-5 mb-8 text-balance" data-bg="Винарната" data-en="The Winery">Винарната</h2>
+          <p class="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-8 font-light" data-bg="Малка бутикова изба в старото училище на с. Ялово — на 15 км от хотела." data-en="A small boutique winery in the former Yalovo schoolhouse — 15 km away.">Малка бутикова изба в старото училище на с. Ялово — на 15 км от хотела.</p>
+          <a href="winery.html" class="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all group" data-bg="Научи повече" data-en="Learn more"><span>Научи повече</span><span class="w-8 h-px bg-gold-300 group-hover:w-12 transition-all"></span>→</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="relative py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-16 items-center md:[direction:rtl]">
+        <div class="md:col-span-7 reveal md:[direction:ltr]">
+          <a href="lake.html" class="block">
+            <div class="relative aspect-[4/3] overflow-hidden group">
+              <img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-14.png" class="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]" alt="">
+              <div class="absolute inset-0 ring-1 ring-inset ring-gold-300/10"></div>
+              <div class="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300"></div>
+              <div class="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/50"></div>
+            </div>
+          </a>
+        </div>
+        <div class="md:col-span-5 reveal md:[direction:ltr]">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="04 · Езеро Света Гора" data-en="04 · Sveta Gora Lake">04 · Езеро Света Гора</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-5 mb-8 text-balance" data-bg="Езерото" data-en="The Lake">Езерото</h2>
+          <p class="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-8 font-light" data-bg="Спортен риболов на 3 минути с кола от хотела. Зарибено с разнообразни видове." data-en="Sport fishing 3 minutes away by car. Stocked with various species.">Спортен риболов на 3 минути с кола от хотела. Зарибено с разнообразни видове.</p>
+          <a href="lake.html" class="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all group" data-bg="Научи повече" data-en="Learn more"><span>Научи повече</span><span class="w-8 h-px bg-gold-300 group-hover:w-12 transition-all"></span>→</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="relative py-20 md:py-28 overflow-hidden">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10">
+      <div class="grid md:grid-cols-12 gap-10 lg:gap-16 items-center ">
+        <div class="md:col-span-7 reveal ">
+          <a href="park.html" class="block">
+            <div class="relative aspect-[4/3] overflow-hidden group">
+              <img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-17.png" class="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]" alt="">
+              <div class="absolute inset-0 ring-1 ring-inset ring-gold-300/10"></div>
+              <div class="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300"></div>
+              <div class="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/50"></div>
+            </div>
+          </a>
+        </div>
+        <div class="md:col-span-5 reveal ">
+          <span class="text-xs tracking-[0.4em] uppercase text-gold-300/80" data-bg="05 · Природа и история" data-en="05 · Nature & history">05 · Природа и история</span>
+          <h2 class="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-5 mb-8 text-balance" data-bg="Паркът и градът" data-en="Park &amp; Town">Паркът и градът</h2>
+          <p class="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-8 font-light" data-bg="Парк „Света гора“ и старопрестолно Велико Търново на 1.5 км от комплекса." data-en="Sveta Gora park and historic Veliko Tarnovo, 1.5 km away.">Парк „Света гора“ и старопрестолно Велико Търново на 1.5 км от комплекса.</p>
+          <a href="park.html" class="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all group" data-bg="Научи повече" data-en="Learn more"><span>Научи повече</span><span class="w-8 h-px bg-gold-300 group-hover:w-12 transition-all"></span>→</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="relative py-24 md:py-32 overflow-hidden">
+    <div class="absolute inset-0"><img src="https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-16.png" class="w-full h-full object-cover" alt=""><div class="absolute inset-0 bg-ink-950/80"></div><div class="absolute inset-0 gradient-overlay-vignette"></div></div>
+    <div class="relative z-10 max-w-4xl mx-auto px-6 text-center reveal">
+      <span class="text-xs tracking-[0.4em] uppercase text-gold-300/90" data-bg="Резервирайте престой" data-en="Book your stay">Резервирайте престой</span>
+      <h2 class="font-display text-4xl md:text-6xl lg:text-7xl text-cream-50 mt-6 mb-8 text-balance leading-[1.05]" data-bg="Ваше райско кътче ви очаква" data-en="Your private corner of paradise awaits">Ваше райско кътче ви очаква</h2>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new" target="_blank" class="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm" data-bg="Резервирай онлайн" data-en="Book online">Резервирай онлайн</a>
+        <a href="tel:+359879107500" class="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm" data-bg="+359 879 107 500" data-en="+359 879 107 500">+359 879 107 500</a>
+      </div>
+    </div>
+  </section>
+  <footer class="bg-ink-950 border-t border-gold-300/10">
+    <div class="max-w-7xl mx-auto px-6 lg:px-10 py-16">
+      <div class="grid md:grid-cols-12 gap-10">
+        <div class="md:col-span-4">
+          <a href="index.html" class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full border border-gold-300/60 flex items-center justify-center">
+              <span class="font-display text-gold-200 text-xl leading-none">R</span>
+            </div>
+            <div class="leading-tight">
+              <div class="font-display text-xl tracking-wider text-cream-50">RAYA <span class="text-gold-300">Garden</span></div>
+              <div class="text-[10px] tracking-[0.3em] uppercase text-gold-200/70">Park Hotel</div>
+            </div>
+          </a>
+          <p class="text-sm text-cream-100/60 mt-6 max-w-sm leading-relaxed" data-bg="Хотел · Ресторант · Градина" data-en="Hotel · Restaurant · Garden">Хотел · Ресторант · Градина</p>
+        </div>
+        <div class="md:col-span-3">
+          <div class="text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5" data-bg="Разгледай" data-en="Explore">Разгледай</div>
+          <ul class="space-y-2 text-sm text-cream-100/70">
+            <li><a href="hotel.html" class="hover:text-gold-200" data-bg="Хотелът" data-en="The Hotel">Хотелът</a></li>
+            <li><a href="restaurant.html" class="hover:text-gold-200" data-bg="Ресторантът" data-en="Restaurant">Ресторантът</a></li>
+            <li><a href="winery.html" class="hover:text-gold-200" data-bg="Винарната" data-en="Winery">Винарната</a></li>
+            <li><a href="lake.html" class="hover:text-gold-200" data-bg="Езерото" data-en="The Lake">Езерото</a></li>
+            <li><a href="events.html" class="hover:text-gold-200" data-bg="Събития" data-en="Events">Събития</a></li>
+          </ul>
+        </div>
+        <div class="md:col-span-3">
+          <div class="text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5" data-bg="Контакти" data-en="Contact">Контакти</div>
+          <div class="space-y-2 text-sm text-cream-100/70">
+            <div data-bg="Парк „Света гора“, 5000 Велико Търново" data-en="Sveta Gora Park, 5000 Veliko Tarnovo">Парк „Света гора“, 5000 Велико Търново</div>
+            <a href="tel:+359879107500" class="block hover:text-gold-200">+359 879 107 500</a>
+            <a href="mailto:hotel@svetagora.bg" class="block hover:text-gold-200">hotel@svetagora.bg</a>
+          </div>
+        </div>
+        <div class="md:col-span-2">
+          <div class="text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5">Social</div>
+          <div class="flex gap-3">
+            <a href="https://www.instagram.com/raya.garden/" target="_blank" class="w-10 h-10 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 transition-all"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/></svg></a>
+            <a href="https://www.facebook.com/hotel.sveta.gora" target="_blank" class="w-10 h-10 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 transition-all"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+          </div>
+        </div>
+      </div>
+      <div class="divider-gold mt-16"></div>
+      <div class="flex flex-col sm:flex-row justify-between gap-4 mt-8 text-xs text-cream-100/45">
+        <div>© <span id="year"></span> Park Hotel RAYA Garden. <span data-bg="Всички права запазени." data-en="All rights reserved.">Всички права запазени.</span></div>
+      </div>
+    </div>
+  </footer>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    // Reveals
+    const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } }), { threshold: 0.12, rootMargin: '0px 0px -80px 0px' });
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+    // Language switcher (persists across pages via localStorage)
+    function setLang(lang) {
+      try { localStorage.setItem('rayaLang', lang); } catch(e){}
+      document.documentElement.lang = lang;
+      document.querySelectorAll('[data-bg]').forEach(el => { const v = el.getAttribute('data-' + lang); if (v != null) el.innerHTML = v; });
+      document.querySelectorAll('.lang-link').forEach(b => {
+        const active = b.dataset.lang === lang;
+        b.classList.toggle('active', active);
+        if (active) { b.classList.add('text-gold-300'); b.classList.remove('text-cream-100/50','hover:text-cream-100'); }
+        else { b.classList.remove('text-gold-300'); b.classList.add('text-cream-100/50','hover:text-cream-100'); }
+      });
+    }
+    document.querySelectorAll('.lang-link').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+    try { const saved = localStorage.getItem('rayaLang'); if (saved && saved !== 'bg') setLang(saved); } catch(e){}
+    // Hero crossfade if slides exist
+    const slides = document.querySelectorAll('.hero-slide');
+    if (slides.length > 1) {
+      let c = 0;
+      setInterval(() => { slides[c].classList.remove('active'); c = (c+1) % slides.length; slides[c].classList.add('active'); }, 6500);
+    }
+  </script>
+</body>
+</html>

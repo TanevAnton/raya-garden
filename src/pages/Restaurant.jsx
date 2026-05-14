@@ -15,6 +15,9 @@ const MENU_QUERY = `*[_type == "menuCategory"] | order(order asc) {
     name, price, desc
   }
 }`;
+const MENU_PDF_QUERY = `*[_type == "siteSettings"][0]{ "url": menuPdf.asset->url }`;
+const FALLBACK_MENU_PDF =
+  "https://rayagarden.bg/wp-content/uploads/2022/06/Menu-Raya-2025.pdf";
 
 export default function Restaurant() {
   const { lang, t } = useOutletContext();
@@ -22,6 +25,8 @@ export default function Restaurant() {
 
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
   const { data: menuData } = useSanityQuery(MENU_QUERY);
+  const { data: menuPdfData } = useSanityQuery(MENU_PDF_QUERY);
+  const menuPdfUrl = menuPdfData?.url || FALLBACK_MENU_PDF;
 
   const hero = pageData
     ? {
@@ -77,7 +82,7 @@ export default function Restaurant() {
               {tp.reservations}
             </a>
             <a
-              href="https://rayagarden.bg/wp-content/uploads/2022/06/Menu-Raya-2025.pdf"
+              href={menuPdfUrl}
               target="_blank"
               rel="noreferrer"
               className="btn-ghost px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"

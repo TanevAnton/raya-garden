@@ -15,6 +15,14 @@ export const siteSettings = {
     { name: "instagramUrl", title: "Instagram URL", type: "url" },
     { name: "facebookUrl", title: "Facebook URL", type: "url" },
     { name: "googleMapsUrl", title: "Google Maps share URL", type: "url" },
+    {
+      name: "menuPdf",
+      title: "Restaurant menu (PDF)",
+      description:
+        "Upload the current menu PDF. The Download button on /restaurant will link to this.",
+      type: "file",
+      options: { accept: "application/pdf" },
+    },
   ],
   preview: { prepare: () => ({ title: "Site settings" }) },
 };

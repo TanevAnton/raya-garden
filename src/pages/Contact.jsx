@@ -14,6 +14,12 @@ import {
 import PageHero from "../components/PageHero.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor, pickLocale } from "../lib/sanity.js";
+
+const PAGE_QUERY = `*[_type == "pageContent" && page == "contact"][0]{
+  eyebrow, title, subtitle, heroImage
+}`;
 
 const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || "";
 const HOTEL_EMAIL = "hotel@svetagora.bg";
@@ -38,10 +44,23 @@ function buildMailto(form, lang) {
 export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
+  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+
+  const hero = pageData
+    ? {
+        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
+        title: pickLocale(pageData.title, lang) || tp.title,
+        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
+        image: pageData.heroImage
+          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+          : `${IMG}/hotel-all-7.png`,
+      }
+    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, image: `${IMG}/hotel-all-7.png` };
+
   useSeo({
-    title: tp.title,
-    description: tp.subtitle,
-    image: `${IMG}/hotel-all-7.png`,
+    title: hero.title,
+    description: hero.subtitle,
+    image: hero.image,
     path: "/contact",
     lang,
   });
@@ -107,10 +126,10 @@ export default function Contact() {
   return (
     <>
       <PageHero
-        image={`${IMG}/hotel-all-7.png`}
-        eyebrow={tp.eyebrow}
-        title={tp.title}
-        subtitle={tp.subtitle}
+        image={hero.image}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
       />
 
       <section className="py-24 bg-ink-950">

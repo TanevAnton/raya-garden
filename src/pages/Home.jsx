@@ -14,6 +14,16 @@ import {
 } from "lucide-react";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor, pickLocale } from "../lib/sanity.js";
+
+const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
+  eyebrow, title, titleAccent, subtitle, heroImage,
+  blocks[]{key, body}
+}`;
+const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order asc){
+  _id, tag, title, text, image, ctaLink
+}`;
 
 const heroImages = [
   `${IMG}/hotel-all-1.png`,
@@ -22,16 +32,22 @@ const heroImages = [
   `${IMG}/hotel-all-14.png`,
 ];
 
-function Hero({ t }) {
+function Hero({ t, heroImageOverride }) {
+  // If Sanity has a hero image, lead with it and rotate through the
+  // remaining static photos. Otherwise rotate through the static list.
+  const slides = heroImageOverride
+    ? [heroImageOverride, ...heroImages.slice(1)]
+    : heroImages;
+
   const [current, setCurrent] = useState(0);
   useEffect(() => {
-    const i = setInterval(() => setCurrent((c) => (c + 1) % heroImages.length), 6500);
+    const i = setInterval(() => setCurrent((c) => (c + 1) % slides.length), 6500);
     return () => clearInterval(i);
-  }, []);
+  }, [slides.length]);
 
   return (
     <section id="home" className="relative h-screen min-h-[700px] w-full overflow-hidden grain">
-      {heroImages.map((src, i) => (
+      {slides.map((src, i) => (
         <div
           key={src}
           className={`absolute inset-0 transition-opacity duration-[2500ms] ${
@@ -85,7 +101,7 @@ function Hero({ t }) {
         </div>
 
         <div className="absolute bottom-12 right-6 lg:right-10 flex gap-2">
-          {heroImages.map((_, i) => (
+          {slides.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
@@ -283,19 +299,113 @@ function CtaBanner({ t }) {
   );
 }
 
+function Offers({ t, lang, offers }) {
+  return (
+    <section className="relative py-24 md:py-32 bg-ink-900">
+      <div className="max-w-7xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-16 reveal">
+          <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
+            {t.offers.eyebrow}
+          </span>
+          <h2 className="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-6 text-balance">
+            {t.offers.title}
+          </h2>
+          <div className="divider-gold mt-10 w-32 mx-auto" />
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 reveal">
+          {offers.map((o) => {
+            const image = o.image ? urlFor(o.image).width(800).quality(80).url() : null;
+            return (
+              <article
+                key={o._id}
+                className="group bg-ink-950 border border-gold-300/10 hover:border-gold-300/30 transition-colors duration-700 overflow-hidden flex flex-col"
+              >
+                {image && (
+                  <div className="aspect-[4/3] overflow-hidden">
+                    <img
+                      src={image}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover img-luxury group-hover:scale-105 transition-transform duration-[1200ms]"
+                    />
+                  </div>
+                )}
+                <div className="p-8 flex flex-col flex-1">
+                  <span className="text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-3">
+                    {pickLocale(o.tag, lang)}
+                  </span>
+                  <h3 className="font-display text-2xl text-cream-50 mb-3 leading-tight">
+                    {pickLocale(o.title, lang)}
+                  </h3>
+                  <p className="text-sm text-cream-100/70 leading-relaxed flex-1">
+                    {pickLocale(o.text, lang)}
+                  </p>
+                  <a
+                    href={o.ctaLink || "/contact"}
+                    target={o.ctaLink ? "_blank" : undefined}
+                    rel={o.ctaLink ? "noreferrer" : undefined}
+                    className="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all duration-500 mt-6"
+                  >
+                    {t.offers.cta}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const { lang, t } = useOutletContext();
+  const { data: pageData } = useSanityQuery(HOME_QUERY);
+  const { data: offers } = useSanityQuery(OFFERS_QUERY);
+
+  // Compose a tCMS object that mirrors the shape Hero/Welcome/CtaBanner
+  // expect, with Sanity values when present and translations.js as fallback.
+  const findBlock = (key) => pageData?.blocks?.find((b) => b.key === key);
+  const heroImage = pageData?.heroImage
+    ? urlFor(pageData.heroImage).width(2400).quality(85).url()
+    : null;
+
+  const tCMS = {
+    ...t,
+    hero: {
+      ...t.hero,
+      eyebrow: pickLocale(pageData?.eyebrow, lang) || t.hero.eyebrow,
+      title: pickLocale(pageData?.title, lang) || t.hero.title,
+      titleAccent: pickLocale(pageData?.titleAccent, lang) || t.hero.titleAccent,
+      subtitle: pickLocale(pageData?.subtitle, lang) || t.hero.subtitle,
+    },
+    welcome: {
+      ...t.welcome,
+      lead: pickLocale(pageData?.intro, lang) || t.welcome.lead,
+      body: pickLocale(findBlock("welcomeBody")?.body, lang) || t.welcome.body,
+    },
+    cta: {
+      ...t.cta,
+      title: pickLocale(findBlock("ctaTitle")?.body, lang) || t.cta.title,
+      text: pickLocale(findBlock("ctaText")?.body, lang) || t.cta.text,
+    },
+  };
+
   useSeo({
     title: null,
-    description: t.hero.subtitle,
-    image: `${IMG}/hotel-all-1.png`,
+    description: tCMS.hero.subtitle,
+    image: heroImage || `${IMG}/hotel-all-1.png`,
     path: "/",
     lang,
   });
+
   return (
     <>
-      <Hero t={t} />
-      <Welcome t={t} />
+      <Hero t={tCMS} heroImageOverride={heroImage} />
+      <Welcome t={tCMS} />
+      {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       <SectionCard
         to="/hotel"
         tag={t.sections.hotel.tag}
@@ -338,8 +448,8 @@ export default function Home() {
         cta={t.sections.park.cta}
         image={`${IMG}/hotel-all-17.png`}
       />
-      <Experience t={t} />
-      <CtaBanner t={t} />
+      <Experience t={tCMS} />
+      <CtaBanner t={tCMS} />
     </>
   );
 }

@@ -1,17 +1,58 @@
 import { useOutletContext } from "react-router-dom";
 import { Fish, Check, ArrowRight } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
-import { lakePricing, IMG } from "../data.js";
+import { lakePricing as fallback, IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor, pickLocale } from "../lib/sanity.js";
+
+const PAGE_QUERY = `*[_type == "pageContent" && page == "lake"][0]{
+  eyebrow, title, subtitle, intro, heroImage
+}`;
+const PRICING_QUERY = `*[_type == "lakePricing"][0]{
+  daily[]{label, price},
+  fish[]{name, price},
+  rules, includes
+}`;
 
 export default function Lake() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.lake;
-  const data = lakePricing[lang];
+
+  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: pricing } = useSanityQuery(PRICING_QUERY);
+
+  const hero = pageData
+    ? {
+        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
+        title: pickLocale(pageData.title, lang) || tp.title,
+        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
+        intro: pickLocale(pageData.intro, lang) || tp.intro,
+        image: pageData.heroImage
+          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+          : `${IMG}/hotel-all-14.png`,
+      }
+    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, intro: tp.intro, image: `${IMG}/hotel-all-14.png` };
+
+  const data = pricing
+    ? {
+        daily: pricing.daily.map((d) => ({
+          label: pickLocale(d.label, lang),
+          price: pickLocale(d.price, lang),
+        })),
+        fish: pricing.fish.map((f) => ({
+          name: pickLocale(f.name, lang),
+          price: pickLocale(f.price, lang),
+        })),
+        rules: pricing.rules?.[lang] || pricing.rules?.bg || [],
+        includes: pricing.includes?.[lang] || pricing.includes?.bg || [],
+      }
+    : fallback[lang];
+
   useSeo({
-    title: tp.title,
-    description: tp.subtitle,
-    image: `${IMG}/hotel-all-14.png`,
+    title: hero.title,
+    description: hero.subtitle,
+    image: hero.image,
     path: "/lake",
     lang,
   });
@@ -19,22 +60,21 @@ export default function Lake() {
   return (
     <>
       <PageHero
-        image={`${IMG}/hotel-all-14.png`}
-        eyebrow={tp.eyebrow}
-        title={tp.title}
-        subtitle={tp.subtitle}
+        image={hero.image}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
       />
 
       <section className="py-20 bg-ink-950">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center reveal">
           <p className="text-lg text-cream-100/85 leading-relaxed font-light">
-            {tp.intro}
+            {hero.intro}
           </p>
           <div className="divider-gold mt-10 w-32 mx-auto" />
         </div>
       </section>
 
-      {/* Daily pricing */}
       <section className="pb-12 bg-ink-950">
         <div className="max-w-5xl mx-auto px-6 lg:px-10">
           <div className="flex items-baseline gap-5 mb-10 reveal">
@@ -59,7 +99,6 @@ export default function Lake() {
         </div>
       </section>
 
-      {/* Fish species pricing */}
       <section className="py-12 bg-ink-950">
         <div className="max-w-5xl mx-auto px-6 lg:px-10">
           <div className="flex items-baseline gap-5 mb-10 reveal">
@@ -83,7 +122,6 @@ export default function Lake() {
         </div>
       </section>
 
-      {/* Rules + Included two-column */}
       <section className="py-16 bg-ink-900">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-2 gap-10 lg:gap-16">
           <div className="reveal">
@@ -121,7 +159,6 @@ export default function Lake() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-20 bg-ink-950 text-center">
         <div className="max-w-3xl mx-auto px-6 reveal">
           <a

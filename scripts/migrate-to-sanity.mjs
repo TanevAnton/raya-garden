@@ -14,8 +14,12 @@
  *
  * Idempotent: re-running replaces documents instead of duplicating.
  */
-import "dotenv/config";
+import dotenv from "dotenv";
 import { createClient } from "@sanity/client";
+
+// Same precedence as Vite: .env.local overrides .env.
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env" });
 import { rooms, menu, lakePricing, eventsPackages, IMG } from "../src/data.js";
 import { translations as t } from "../src/translations.js";
 

@@ -1,8 +1,22 @@
 import { useOutletContext } from "react-router-dom";
 import { Heart, Briefcase, Users, Check, ArrowRight, Phone } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
-import { eventsPackages, IMG } from "../data.js";
+import { eventsPackages as fallback, IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor, pickLocale } from "../lib/sanity.js";
+
+const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
+  eyebrow, title, subtitle, intro, heroImage,
+  blocks[]{key, title, body}
+}`;
+const PACKAGES_QUERY = `*[_type == "eventPackage"] | order(kind asc, order asc){
+  _id, kind, tier, from, capacity, includes
+}`;
+
+function findBlock(blocks, key) {
+  return blocks?.find((b) => b.key === key);
+}
 
 function PackageCard({ p, i, tp }) {
   return (
@@ -50,11 +64,44 @@ function PackageCard({ p, i, tp }) {
 export default function Events() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.events;
-  const data = eventsPackages[lang];
+
+  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: packages } = useSanityQuery(PACKAGES_QUERY);
+
+  const hero = pageData
+    ? {
+        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
+        title: pickLocale(pageData.title, lang) || tp.title,
+        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
+        intro: pickLocale(pageData.intro, lang) || tp.intro,
+        image: pageData.heroImage
+          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+          : `${IMG}/hotel-all-9.png`,
+      }
+    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, intro: tp.intro, image: `${IMG}/hotel-all-9.png` };
+
+  const consultingBlock = findBlock(pageData?.blocks, "consulting");
+  const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
+  const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
+
+  const localize = (pkg) => ({
+    tier: pickLocale(pkg.tier, lang),
+    from: pickLocale(pkg.from, lang),
+    capacity: pickLocale(pkg.capacity, lang),
+    includes: pkg.includes?.[lang] || pkg.includes?.bg || [],
+  });
+
+  const weddings = packages
+    ? packages.filter((p) => p.kind === "wedding").map(localize)
+    : fallback[lang].weddings;
+  const corporate = packages
+    ? packages.filter((p) => p.kind === "corporate").map(localize)
+    : fallback[lang].corporate;
+
   useSeo({
-    title: tp.title,
-    description: tp.subtitle,
-    image: `${IMG}/hotel-all-9.png`,
+    title: hero.title,
+    description: hero.subtitle,
+    image: hero.image,
     path: "/events",
     lang,
   });
@@ -62,22 +109,21 @@ export default function Events() {
   return (
     <>
       <PageHero
-        image={`${IMG}/hotel-all-9.png`}
-        eyebrow={tp.eyebrow}
-        title={tp.title}
-        subtitle={tp.subtitle}
+        image={hero.image}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
       />
 
       <section className="py-20 bg-ink-950">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center reveal">
           <p className="text-lg text-cream-100/85 leading-relaxed font-light">
-            {tp.intro}
+            {hero.intro}
           </p>
           <div className="divider-gold mt-10 w-32 mx-auto" />
         </div>
       </section>
 
-      {/* Weddings */}
       <section className="pb-20 bg-ink-950">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex items-center gap-5 mb-12 reveal">
@@ -88,14 +134,13 @@ export default function Events() {
             <div className="divider-gold flex-1" />
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {data.weddings.map((p, i) => (
+            {weddings.map((p, i) => (
               <PackageCard key={i} p={p} i={i} tp={tp} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* Corporate */}
       <section className="py-20 bg-ink-900">
         <div className="max-w-7xl mx-auto px-6 lg:px-10">
           <div className="flex items-center gap-5 mb-12 reveal">
@@ -106,24 +151,23 @@ export default function Events() {
             <div className="divider-gold flex-1" />
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {data.corporate.map((p, i) => (
+            {corporate.map((p, i) => (
               <PackageCard key={i} p={p} i={i} tp={tp} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* Consulting CTA */}
       <section className="py-24 bg-ink-950">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
-            {tp.eyebrow}
+            {hero.eyebrow}
           </span>
           <h3 className="font-display text-3xl md:text-5xl text-cream-50 mt-5 mb-6 text-balance leading-tight">
-            {tp.consulting}
+            {consulting}
           </h3>
           <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed mb-10">
-            {tp.consultingText}
+            {consultingText}
           </p>
           <a
             href="tel:+359879107500"

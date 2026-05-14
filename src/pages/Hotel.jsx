@@ -1,17 +1,60 @@
 import { useOutletContext } from "react-router-dom";
-import { Users, Ruler, Eye, Check, ArrowRight } from "lucide-react";
+import { Users, Ruler, Check, ArrowRight } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
-import { rooms, IMG } from "../data.js";
+import { rooms as fallbackRooms, IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor, pickLocale, SANITY_ENABLED } from "../lib/sanity.js";
+
+const ROOMS_QUERY = `*[_type == "room"] | order(order asc) {
+  _id,
+  "slug": slug.current,
+  name, image, price, size, sleeps, view, amenities
+}`;
+const PAGE_QUERY = `*[_type == "pageContent" && page == "hotel"][0]{
+  eyebrow, title, subtitle, intro, heroImage
+}`;
 
 export default function Hotel() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.hotel;
-  const list = rooms[lang];
+
+  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: roomsData } = useSanityQuery(ROOMS_QUERY);
+
+  // Hero copy: prefer Sanity, fall back to translations file.
+  const hero = pageData
+    ? {
+        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
+        title: pickLocale(pageData.title, lang) || tp.title,
+        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
+        image: pageData.heroImage
+          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+          : `${IMG}/hotel-all-5.png`,
+        intro: pickLocale(pageData.intro, lang) || tp.intro,
+      }
+    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, image: `${IMG}/hotel-all-5.png`, intro: tp.intro };
+
+  // Room list: prefer Sanity, fall back to data.js.
+  const list = roomsData
+    ? roomsData.map((r) => ({
+        id: r.slug || r._id,
+        name: pickLocale(r.name, lang),
+        price: r.price,
+        size: r.size,
+        sleeps: r.sleeps,
+        view: pickLocale(r.view, lang),
+        image: r.image
+          ? urlFor(r.image).width(1200).quality(80).url()
+          : "",
+        amenities: (r.amenities?.[lang] || r.amenities?.bg || []).slice(),
+      }))
+    : fallbackRooms[lang];
+
   useSeo({
-    title: tp.title,
-    description: tp.subtitle,
-    image: `${IMG}/hotel-all-5.png`,
+    title: hero.title,
+    description: hero.subtitle,
+    image: hero.image,
     path: "/hotel",
     lang,
   });
@@ -19,23 +62,21 @@ export default function Hotel() {
   return (
     <>
       <PageHero
-        image={`${IMG}/hotel-all-5.png`}
-        eyebrow={tp.eyebrow}
-        title={tp.title}
-        subtitle={tp.subtitle}
+        image={hero.image}
+        eyebrow={hero.eyebrow}
+        title={hero.title}
+        subtitle={hero.subtitle}
       />
 
-      {/* Intro */}
       <section className="py-20 md:py-28 bg-ink-950">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center reveal">
           <p className="text-lg lg:text-xl text-cream-100/85 leading-relaxed font-light">
-            {tp.intro}
+            {hero.intro}
           </p>
           <div className="divider-gold mt-10 w-32 mx-auto" />
         </div>
       </section>
 
-      {/* Rooms */}
       <section className="bg-ink-950 pb-24">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 space-y-10">
           {list.map((r, i) => (
@@ -43,7 +84,11 @@ export default function Hotel() {
               key={r.id}
               className="reveal grid md:grid-cols-12 gap-0 bg-ink-900 border border-gold-300/10 overflow-hidden group hover:border-gold-300/30 transition-colors duration-700"
             >
-              <div className={`md:col-span-7 relative aspect-[4/3] md:aspect-auto overflow-hidden ${i % 2 ? "md:order-2" : ""}`}>
+              <div
+                className={`md:col-span-7 relative aspect-[4/3] md:aspect-auto overflow-hidden ${
+                  i % 2 ? "md:order-2" : ""
+                }`}
+              >
                 <img
                   src={r.image}
                   alt={r.name}
@@ -115,7 +160,6 @@ export default function Hotel() {
         </div>
       </section>
 
-      {/* Included */}
       <section className="py-24 bg-ink-900">
         <div className="max-w-5xl mx-auto px-6 lg:px-10">
           <div className="text-center mb-12 reveal">

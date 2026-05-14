@@ -89,6 +89,53 @@ RAYA Garden/
 - **Images:** currently loaded from the existing `rayagarden.bg` CDN. To use your own photos, drop them in `public/images/` and update `IMG` in `src/data.js`.
 - **Colours / typography:** open `tailwind.config.js` and adjust the `colors` block. The gold/ink/cream scales drive the whole look.
 
+## Content management (Sanity CMS)
+
+Long-term content is managed in **Sanity Studio** — staff log in, edit text inline, upload images, create offers, etc. Changes are saved to Sanity's cloud and the public site picks them up on the next request (or after a redeploy for the static build).
+
+**Schemas** (`studio/schemas/`):
+- `siteSettings` — global phone, email, address, social links (singleton)
+- `pageContent` — per-page hero copy & intro for Home, Hotel, Restaurant, Winery, Lake, Park, Events, Contact
+- `room` — rooms & suites (price, size, amenities, photo)
+- `menuCategory` — menu categories with nested dishes
+- `wine` — Yalovo wine list
+- `lakePricing` — daily rates, species, rules (singleton)
+- `eventPackage` — wedding + corporate tiers
+- `specialOffer` — toggleable offers with valid-from/to dates
+- `attraction` — nearby attractions
+
+**Running Studio locally:**
+
+```bash
+npm install
+# fill .env.local with VITE_SANITY_PROJECT_ID + VITE_SANITY_DATASET
+npm run studio:dev      # opens http://localhost:3333
+```
+
+**Deploying Studio:**
+
+```bash
+npm run studio:deploy   # hosted free at https://<projectName>.sanity.studio
+```
+
+This gives the hotel staff a permanent login URL where they can manage all content.
+
+**Migrating existing data into Sanity (one-shot):**
+
+```bash
+# 1. Create a write token at sanity.io/manage → your project → API → Tokens
+# 2. Add SANITY_WRITE_TOKEN=... to .env.local
+npm run migrate
+```
+
+The migration is idempotent — re-running just refreshes documents instead of duplicating.
+
+**CORS:** in Sanity Studio dashboard → API → CORS origins, add:
+- `http://localhost:5173` (local dev)
+- `https://rayagarden.bg` (production)
+
+Without these, the frontend can't read from Sanity.
+
 ## Contact form
 
 The `/contact` form posts JSON to a [Formspree](https://formspree.io) endpoint and is configured to deliver to **hotel@svetagora.bg**.

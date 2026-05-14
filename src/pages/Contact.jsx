@@ -16,6 +16,24 @@ import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 
 const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || "";
+const HOTEL_EMAIL = "hotel@svetagora.bg";
+
+function buildMailto(form, lang) {
+  const subject = `RAYA Garden — ${form.topic} ${
+    lang === "en" ? "from" : "от"
+  } ${form.name}`;
+  const lines = [
+    `${lang === "en" ? "Name" : "Име"}: ${form.name}`,
+    `Email: ${form.email}`,
+    `${lang === "en" ? "Phone" : "Телефон"}: ${form.phone || "—"}`,
+    `${lang === "en" ? "Topic" : "Относно"}: ${form.topic}`,
+    "",
+    form.message,
+  ];
+  return `mailto:${HOTEL_EMAIL}?subject=${encodeURIComponent(
+    subject
+  )}&body=${encodeURIComponent(lines.join("\n"))}`;
+}
 
 export default function Contact() {
   const { lang, t } = useOutletContext();
@@ -44,11 +62,10 @@ export default function Contact() {
     setErrorMsg("");
 
     if (!FORMSPREE_ENDPOINT) {
-      // Fallback: fail open and let owner know configuration is missing.
-      // The site still shows a friendly "sent" state so guests aren't blocked.
-      // Replace VITE_FORMSPREE_ENDPOINT in .env to enable real delivery.
-      await new Promise((r) => setTimeout(r, 700));
-      setStatus("sent");
+      // No backend configured yet — open the guest's mail client with a
+      // pre-filled draft so the enquiry still reaches hotel@svetagora.bg.
+      window.location.href = buildMailto(form, lang);
+      setTimeout(() => setStatus("sent"), 400);
       return;
     }
 
@@ -58,7 +75,10 @@ export default function Contact() {
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          _subject: `RAYA Garden — ${form.topic} от ${form.name}`,
+          _replyto: form.email,
+          _subject: `RAYA Garden — ${form.topic} ${
+            lang === "en" ? "from" : "от"
+          } ${form.name}`,
         }),
       });
       if (!res.ok) {
@@ -296,6 +316,15 @@ export default function Contact() {
                   )}
                 </button>
                 <p className="text-xs text-cream-100/45">{tp.note}</p>
+                <p className="text-xs text-cream-100/55">
+                  {lang === "en" ? "Or email us directly: " : "Или ни пишете директно: "}
+                  <a
+                    href={`mailto:${HOTEL_EMAIL}`}
+                    className="text-gold-300 hover:text-gold-200"
+                  >
+                    {HOTEL_EMAIL}
+                  </a>
+                </p>
               </form>
             )}
           </div>

@@ -91,14 +91,19 @@ RAYA Garden/
 
 ## Contact form
 
-The `/contact` form posts JSON to a [Formspree](https://formspree.io) endpoint.
+The `/contact` form posts JSON to a [Formspree](https://formspree.io) endpoint and is configured to deliver to **hotel@svetagora.bg**.
 
-1. Sign up at formspree.io, create a new form.
-2. Copy `.env.example` to `.env.local`.
-3. Paste your endpoint as `VITE_FORMSPREE_ENDPOINT=https://formspree.io/f/...`.
-4. Restart `npm run dev`.
+**One-time setup (≈ 5 min):**
 
-If no endpoint is configured, the form falls back to a friendly "sent" message so guests aren't blocked — but emails won't actually be delivered. Includes a honeypot field for spam mitigation.
+1. Sign up at [formspree.io](https://formspree.io) using the hotel email.
+2. **New Form** → set the destination address to `hotel@svetagora.bg`.
+3. Copy the form endpoint (looks like `https://formspree.io/f/xnqjrwzd`).
+4. Copy `.env.example` to `.env.local` and paste it as `VITE_FORMSPREE_ENDPOINT=...`.
+5. Restart `npm run dev` (or rebuild for production).
+
+Free tier covers 50 submissions/month, which is plenty for a hotel contact form.
+
+**Defensive fallback:** if `VITE_FORMSPREE_ENDPOINT` is unset, the form opens the guest's own mail client with a pre-filled draft to `hotel@svetagora.bg` instead of silently failing. A persistent "Or email us directly" link sits under the submit button so guests always have a path. The form also includes a honeypot field for spam mitigation.
 
 ## SEO & performance
 

@@ -70,28 +70,36 @@ export default function Contact() {
     }
 
     try {
+      const data = new FormData();
+      data.append("name", form.name);
+      data.append("email", form.email);
+      data.append("phone", form.phone);
+      data.append("topic", form.topic);
+      data.append("message", form.message);
+      data.append(
+        "_subject",
+        `RAYA Garden — ${form.topic} ${lang === "en" ? "from" : "от"} ${form.name}`
+      );
+
       const res = await fetch(FORMSPREE_ENDPOINT, {
         method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          _replyto: form.email,
-          _subject: `RAYA Garden — ${form.topic} ${
-            lang === "en" ? "from" : "от"
-          } ${form.name}`,
-        }),
+        body: data,
+        headers: { Accept: "application/json" },
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || res.statusText);
+        const detail = body?.errors?.map((e) => e.message).join(", ") || body?.error || res.statusText;
+        console.error("[Formspree] submission failed:", res.status, detail, body);
+        throw new Error(detail);
       }
       setStatus("sent");
     } catch (err) {
+      console.error("[Formspree] error:", err);
       setStatus("error");
       setErrorMsg(
         lang === "en"
-          ? "Sorry — the message could not be sent. Please call or email us directly."
-          : "Съжаляваме — съобщението не можа да бъде изпратено. Моля, обадете се или ни пишете директно."
+          ? `Sorry — the message could not be sent (${err.message}). Please email hotel@svetagora.bg directly.`
+          : `Съжаляваме — съобщението не можа да бъде изпратено (${err.message}). Моля, пишете директно на hotel@svetagora.bg.`
       );
     }
   }
@@ -204,7 +212,7 @@ export default function Contact() {
                 <p className="text-cream-100/85">{tp.note}</p>
               </div>
             ) : (
-              <form onSubmit={onSubmit} className="space-y-5" noValidate>
+              <form onSubmit={onSubmit} className="space-y-5">
                 {/* honeypot — bots fill this, humans don't see it */}
                 <input
                   type="text"

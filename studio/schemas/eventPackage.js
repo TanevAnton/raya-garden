@@ -29,7 +29,7 @@ export const eventPackage = {
     ]},
   ],
   preview: {
-    select: { title: "tier.bg", subtitle: "kind", media: undefined },
+    select: { title: "tier.bg", subtitle: "kind" },
     prepare: ({ title, subtitle }) => ({
       title,
       subtitle: subtitle === "wedding" ? "Wedding" : "Corporate",

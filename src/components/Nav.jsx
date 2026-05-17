@@ -1,12 +1,27 @@
 import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, X, ArrowRight } from "lucide-react";
+import { useSanityQuery } from "../hooks/useSanity.js";
+import { urlFor } from "../lib/sanity.js";
+
+const FALLBACK_LOGO =
+  "https://rayagarden.bg/wp-content/uploads/2021/12/cropped-Logo-Raya-270x270.png";
+const LOGO_QUERY = `*[_type == "siteSettings"][0]{ logo }`;
 
 export function Logo({ className = "" }) {
+  const { data } = useSanityQuery(LOGO_QUERY);
+  const logoUrl = data?.logo
+    ? urlFor(data.logo).width(160).height(160).fit("max").url()
+    : FALLBACK_LOGO;
+
   return (
     <Link to="/" className={`flex items-center gap-3 group ${className}`}>
-      <div className="w-10 h-10 rounded-full border border-gold-300/60 flex items-center justify-center transition-transform duration-700 group-hover:rotate-180">
-        <span className="font-display text-gold-200 text-xl leading-none">R</span>
+      <div className="w-10 h-10 rounded-full border border-gold-300/60 overflow-hidden flex items-center justify-center bg-ink-950 transition-transform duration-700 group-hover:rotate-[12deg]">
+        <img
+          src={logoUrl}
+          alt="RAYA Garden"
+          className="w-full h-full object-cover"
+        />
       </div>
       <div className="leading-tight">
         <div className="font-display text-xl tracking-wider text-cream-50">

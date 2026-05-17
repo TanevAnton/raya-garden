@@ -5,6 +5,14 @@ export const siteSettings = {
   type: "document",
   __experimental_actions: ["update", "publish"],
   fields: [
+    {
+      name: "logo",
+      title: "Logo",
+      description:
+        "Square logo shown in the top-left of the navigation. Best uploaded as a PNG with transparent background, at least 200×200 px.",
+      type: "image",
+      options: { hotspot: true },
+    },
     { name: "phone", title: "Main phone", type: "string" },
     { name: "restaurantPhone", title: "Restaurant phone", type: "string" },
     { name: "email", title: "Contact email", type: "string" },

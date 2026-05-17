@@ -559,4 +559,298 @@ export const translations = {
       },
     },
   },
+  ro: {
+    nav: {
+      home: "Acasă",
+      hotel: "Hotelul",
+      restaurant: "Restaurantul",
+      winery: "Crama",
+      lake: "Lacul",
+      park: "Parcul și orașul",
+      events: "Evenimente",
+      contact: "Contact",
+      book: "Rezervă",
+      reservation: "Cerere",
+    },
+    hero: {
+      eyebrow: "Park Hotel · Veliko Tarnovo",
+      title: "Liniște în",
+      titleAccent: "natura calmă",
+      subtitle:
+        "Hotel boutique, restaurant și grădină pe dealul Sveta Gora — un loc pentru odihnă, gastronomie și momente frumoase, la doar 1,5 km de Veliko Tarnovo.",
+      cta1: "Rezervă sejurul",
+      cta2: "Descoperă restaurantul",
+      scroll: "Derulează pentru a descoperi",
+    },
+    welcome: {
+      eyebrow: "Bun venit",
+      title: "Hotel, restaurant și grădină — la o respirație de oraș",
+      lead:
+        "Ascuns în natura liniștită a dealului Sveta Gora, Park Hotel RAYA Garden este un mic paradis în pădure. Clădirea funcționează cu energie geotermală — o alegere ecologică, cu emisii minime de carbon.",
+      body:
+        "Oferim 5 apartamente și 45 de camere duble — cu vedere panoramică spre vechea capitală Veliko Tarnovo sau spre liniștea verde a parcului Sveta Gora. Deschis tot anul, pentru escapade de weekend, sejururi spa, romantism, business și nunți.",
+      stat1: { num: "5", label: "Apartamente" },
+      stat2: { num: "45", label: "Camere duble" },
+      stat3: { num: "270", label: "Locuri restaurant" },
+      stat4: { num: "24/7", label: "Recepție" },
+    },
+    sections: {
+      hotel: {
+        tag: "01 · Cazare",
+        title: "Hotelul",
+        text:
+          "Spații interioare și exterioare confortabile, o atmosferă aparte și un serviciu impecabil. Sală de conferințe pentru 80 de persoane, lobby, loc de joacă și 200 de locuri de parcare securizate.",
+        bullets: [
+          "Camere standard și de lux",
+          "Vedere spre Veliko Tarnovo sau parcul Sveta Gora",
+          "Încălzire și răcire geotermală",
+          "Parcare gratuită securizată (200 locuri)",
+        ],
+        cta: "Vezi camerele",
+      },
+      restaurant: {
+        tag: "02 · Bucătărie",
+        title: "Restaurantul",
+        text:
+          "Restaurantul RAYA Garden are 270 de locuri și oferă o priveliște de neuitat, un interior de poveste inspirat de Alice în Țara Minunilor și o grădină cu grătar și pește viu.",
+        bullets: [
+          "Grădină deschisă cu grătar",
+          "Specialități săptămânale ale bucătarului",
+          "Muzică live și seri tematice",
+          "Nunți și evenimente corporative",
+        ],
+        cta: "Răsfoiește meniul",
+        reservation: "Rezervări: +359 896 100 100",
+      },
+      winery: {
+        tag: "03 · Crama Yalovo",
+        title: "Crama",
+        text:
+          "La 15 km de complex se află Yalovo — o mică cramă boutique în fosta școală a satului. Vinurile se maturează în ceea ce era cândva o sală de clasă — un loc cu un caracter aparte.",
+        cta: "Despre cramă",
+      },
+      lake: {
+        tag: "04 · Lacul Sveta Gora",
+        title: "Lacul",
+        text:
+          "La 3 minute cu mașina de complex, chiar lângă autostrada Sofia–Varna. Condiții excelente pentru pescuit sportiv și timp în natură. Populat cu diverse specii de pești de râu și exotice.",
+        cta: "Info și prețuri",
+      },
+      park: {
+        tag: "05 · Natură și istorie",
+        title: "Parcul și orașul",
+        text:
+          "Parcul Sveta Gora este la câțiva pași de complex — perfect pentru întreaga familie. Veliko Tarnovo, vechea capitală, este la doar 1,5 km, cu nenumărate atracții naturale și culturale.",
+        cta: "Explorează zona",
+      },
+    },
+    experience: {
+      eyebrow: "De ce RAYA Garden",
+      title: "Un singur loc, multe experiențe",
+      items: [
+        {
+          title: "Natura la ușă",
+          text: "Aer proaspăt de pădure, liniște și vedere panoramică de pe deal.",
+        },
+        {
+          title: "Serviciu premium",
+          text: "Recepție 24/7 și atenție personalizată pentru fiecare oaspete.",
+        },
+        {
+          title: "Nunți și evenimente",
+          text: "Organizare impecabilă pentru ziua dvs. specială — până la 270 de invitați.",
+        },
+        {
+          title: "Sejururi business",
+          text: "Sală de conferințe pentru 80 de persoane și programe dedicate de teambuilding.",
+        },
+        {
+          title: "Familie și copii",
+          text: "Loc de joacă, lac și trasee de drumeție prin parc.",
+        },
+        {
+          title: "Sustenabilitate",
+          text: "Energie geotermală și produse locale, de sezon, în bucătărie.",
+        },
+      ],
+    },
+    offers: {
+      eyebrow: "Oferte actuale",
+      title: "Momente speciale",
+      items: [
+        {
+          tag: "Anul Nou 2026",
+          title: "Anul Nou festiv la RAYA",
+          text:
+            "Un pachet pe mai multe zile cu cină de gală, muzică live și momente spa în natură.",
+        },
+        {
+          tag: "Weekend",
+          title: "Weekend romantic pentru doi",
+          text:
+            "Două nopți, cină la lumina lumânărilor și un mic dejun târziu cu vedere spre Veliko Tarnovo.",
+        },
+        {
+          tag: "Spa",
+          title: "Escapadă spa",
+          text:
+            "Două nopți într-un apartament de lux, masaje și liniște într-o natură neatinsă.",
+        },
+      ],
+      cta: "Trimite cerere",
+    },
+    gallery: {
+      eyebrow: "Galerie",
+      title: "O privire asupra RAYA Garden",
+    },
+    cta: {
+      eyebrow: "Rezervă-ți sejurul",
+      title: "Colțul tău privat de paradis te așteaptă",
+      text:
+        "Contactează-ne sau rezervă direct online. Deschis tot anul, cu opțiuni flexibile pentru grupuri și evenimente.",
+      btn1: "Rezervă online",
+      btn2: "Sună: +359 879 107 500",
+    },
+    contact: {
+      eyebrow: "Găsește-ne",
+      title: "Contact",
+      address: "Parcul Sveta Gora, 5000 Veliko Tarnovo, Bulgaria",
+      phone: "+359 879 107 500",
+      restaurantPhone: "+359 896 100 100 · Rezervări la restaurant",
+      email: "hotel@svetagora.bg",
+      hours: "Recepție: 24/7 · Check-in: după 14:00 · Check-out: până la 12:00",
+    },
+    footer: {
+      tagline: "Hotel · Restaurant · Grădină",
+      explore: "Descoperă",
+      rights: "Toate drepturile rezervate.",
+      links: {
+        privacy: "Politica de confidențialitate",
+        cookies: "Cookie-uri",
+        terms: "Termeni și condiții",
+      },
+    },
+    pages: {
+      hotel: {
+        eyebrow: "Cazare",
+        title: "Camere și apartamente",
+        subtitle:
+          "5 apartamente și 45 de camere duble — cu vedere spre Veliko Tarnovo sau spre liniștea verde a parcului Sveta Gora.",
+        intro:
+          "Fiecare cameră este proiectată pentru confort și calm. Încălzire și răcire geotermală, lenjerie premium și articole de toaletă, Wi-Fi gratuit și vederi panoramice.",
+        amenities: "Facilități",
+        book: "Rezervă",
+        size: "mp",
+        sleeps: "pentru",
+        guests: "oaspeți",
+        view: "Vedere",
+        from: "de la",
+        perNight: "BGN / noapte",
+        included: "Inclus la fiecare sejur",
+        includedItems: [
+          "Wi-Fi gratuit în întreaga clădire",
+          "Recepție și pază 24/7",
+          "Parcare gratuită securizată (200 locuri)",
+          "Încălzire și răcire geotermală",
+          "Acces în lobby și spațiile comune",
+          "Folosirea gratuită a locului de joacă",
+          "Mic dejun târziu disponibil până la 11:00",
+        ],
+      },
+      restaurant: {
+        eyebrow: "Bucătărie",
+        title: "Meniul restaurantului",
+        subtitle:
+          "Preparate de sezon, produse locale și o atmosferă de poveste pentru până la 270 de invitați.",
+        intro:
+          "Capacitate de până la 270 · Deschis zilnic · Grădină exterioară cu grătar · Pește viu din lacul nostru · Muzică live și seri tematice.",
+        reservations: "Rezervări: +359 896 100 100",
+        note: "Prețurile sunt în leva bulgărești (BGN) și includ TVA.",
+        downloadMenu: "Descarcă meniul complet (PDF)",
+      },
+      winery: {
+        eyebrow: "Crama Yalovo",
+        title: "Crama",
+        subtitle:
+          "O mică cramă boutique în fosta școală a satului Yalovo — la 15 km de hotel.",
+        story:
+          "În fosta școală a satului Yalovo, la 15 km de Park Hotel RAYA Garden, se află o cramă boutique cu un caracter autentic. Producția are loc într-o anexă amenajată, iar vinurile se maturează în ceea ce era cândva o sală de clasă — un spațiu liniștit, istoric, cu temperatură controlată.",
+        story2:
+          "Producem loturi mici din soiuri locale — Gamza, Mavrud, Pamid — și internaționale precum Cabernet Sauvignon, Merlot și Chardonnay. Fiecare sticlă trece printr-o culegere manuală și o vinificație delicată.",
+        visit: "Vizite și degustări",
+        visitText:
+          "Crama poate fi vizitată pe bază de programare. Oferim sesiuni de degustare însoțite de brânzeturi și mezeluri locale.",
+        wines: "Selecție de vinuri",
+        wineList: [
+          { name: "Gamza Reserva", type: "Roșu sec", year: "2022", note: "Soi local, maturat 12 luni în butoaie de stejar" },
+          { name: "Mavrud", type: "Roșu sec", year: "2021", note: "Corp plin, intens, note de fructe uscate" },
+          { name: "Cabernet Sauvignon", type: "Roșu sec", year: "2022", note: "Profil clasic, taninuri moi" },
+          { name: "Chardonnay", type: "Alb sec", year: "2023", note: "Proaspăt, note de citrice, echilibrat" },
+          { name: "Rosé de Mavrud", type: "Rosé sec", year: "2023", note: "Culoare coral, fructat și ușor" },
+          { name: "Pamid Cules Târziu", type: "Demisec", year: "2022", note: "Soi local, fructat și catifelat" },
+        ],
+      },
+      lake: {
+        eyebrow: "Lacul Sveta Gora",
+        title: "Lacul",
+        subtitle: "Pescuit sportiv și timp în natură — la 3 minute cu mașina de hotel.",
+        intro:
+          "Lacul Sveta Gora se află chiar lângă autostrada Sofia–Varna. Condiții excelente pentru pescuit sportiv în natură. Populat cu diverse specii de pești de râu și exotice.",
+        daily: "Tarife zilnice",
+        species: "Specii și preț pe kilogram",
+        rules: "Reguli",
+        included: "Inclus în tarif",
+        reserve: "Rezervă un loc",
+      },
+      park: {
+        eyebrow: "Natură și istorie",
+        title: "Parcul și orașul",
+        subtitle: "Parcul Sveta Gora și vechea capitală Veliko Tarnovo, ambele la câțiva pași de hotel.",
+        parkTitle: "Parcul Sveta Gora",
+        parkText:
+          "La doar câțiva pași de complex, parcul este perfect pentru întreaga familie — trasee de drumeție, piste de bicicletă, observarea păsărilor și locuri de picnic.",
+        cityTitle: "Veliko Tarnovo",
+        cityText:
+          "Vechea capitală este la doar 1,5 km. Aici veți găsi Cetatea Tsarevets, Strada meșteșugarilor Samovodska, biserica celor 40 de Sfinți Mucenici și numeroase muzee și galerii.",
+        attractions: "Locuri preferate",
+        attractionsList: [
+          { name: "Cetatea Tsarevets", note: "Spectacol de sunet și lumină în fiecare seară de sezon" },
+          { name: "Samovodska Charshia", note: "Stradă meșteșugărească cu olari, țesători, suveniruri" },
+          { name: "Arbanasi", note: "Sat istoric din apropiere cu biserici din secolul XVII" },
+          { name: "Mănăstirea Transfigurarea", note: "La 7 km — liniște și fresce de Zahari Zograf" },
+          { name: "Mănăstirea Sokolski", note: "Priveliște asupra Balcanilor și o fântână istorică" },
+          { name: "Pista de biciclete Yantra", note: "De-a lungul râului — ușoară și umbroasă" },
+        ],
+      },
+      events: {
+        eyebrow: "Nunți și evenimente",
+        title: "Ziua dvs. specială",
+        subtitle: "Capacitate până la 270 · sală de conferințe · grădină deschisă · restaurant cu vedere.",
+        intro:
+          "Cu spații interioare și exterioare confortabile, o atmosferă aparte și un serviciu impecabil, Park Hotel RAYA Garden este alegerea perfectă pentru nunți, petreceri, aniversări sau evenimente corporative.",
+        weddings: "Pachete de nuntă",
+        corporate: "Evenimente corporative",
+        whatsIncluded: "Ce include",
+        capacity: "Capacitate",
+        inquire: "Cerere",
+        consulting: "Consultanță gratuită pentru evenimentul dvs.",
+        consultingText:
+          "Contactați-ne pentru o ofertă personalizată. Avem grijă de fiecare detaliu — de la meniu și decor, până la program și cazare.",
+      },
+      contact: {
+        eyebrow: "Contact",
+        title: "Luați legătura",
+        subtitle: "Recepție 24/7 · Rezervări · Cereri pentru evenimente",
+        formTitle: "Trimite o cerere",
+        nameLabel: "Nume",
+        emailLabel: "Email",
+        phoneLabel: "Telefon",
+        topicLabel: "Subiect",
+        topics: ["Rezervare", "Nuntă sau eveniment", "Restaurant", "Lac", "Altele"],
+        messageLabel: "Mesaj",
+        send: "Trimite cererea",
+        note: "Vă vom contacta în maxim 24 de ore.",
+      },
+    },
+  },
 };

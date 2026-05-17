@@ -39,7 +39,9 @@ export function useSeo({ title, description, image, path, lang }) {
     setMeta('meta[property="og:image"]', "content", image || DEFAULT_IMAGE);
     setMeta('meta[property="og:type"]', "content", "website");
     setMeta('meta[property="og:site_name"]', "content", SITE_NAME);
-    setMeta('meta[property="og:locale"]', "content", lang === "en" ? "en_US" : "bg_BG");
+    const ogLocale =
+      lang === "en" ? "en_US" : lang === "ro" ? "ro_RO" : "bg_BG";
+    setMeta('meta[property="og:locale"]', "content", ogLocale);
     setMeta('meta[name="twitter:card"]', "content", "summary_large_image");
     setMeta('meta[name="twitter:title"]', "content", fullTitle);
     setMeta('meta[name="twitter:description"]', "content", description);

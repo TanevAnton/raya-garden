@@ -90,27 +90,27 @@ export default function Nav({ lang, setLang, t }) {
             role="group"
             aria-label="Language"
           >
-            <button
-              type="button"
-              onClick={() => setLang("bg")}
-              aria-pressed={lang === "bg"}
-              className={`px-2 py-1 transition-colors ${
-                lang === "bg" ? "text-gold-300" : "text-cream-100/50 hover:text-cream-100"
-              }`}
-            >
-              BG
-            </button>
-            <span className="text-cream-100/30" aria-hidden="true">|</span>
-            <button
-              type="button"
-              onClick={() => setLang("en")}
-              aria-pressed={lang === "en"}
-              className={`px-2 py-1 transition-colors ${
-                lang === "en" ? "text-gold-300" : "text-cream-100/50 hover:text-cream-100"
-              }`}
-            >
-              EN
-            </button>
+            {["bg", "en", "ro"].map((code, idx) => (
+              <span key={code} className="flex items-center">
+                {idx > 0 && (
+                  <span className="text-cream-100/30 mx-1" aria-hidden="true">
+                    |
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setLang(code)}
+                  aria-pressed={lang === code}
+                  className={`px-2 py-1 transition-colors ${
+                    lang === code
+                      ? "text-gold-300"
+                      : "text-cream-100/50 hover:text-cream-100"
+                  }`}
+                >
+                  {code.toUpperCase()}
+                </button>
+              </span>
+            ))}
           </div>
 
           <a
@@ -154,22 +154,17 @@ export default function Nav({ lang, setLang, t }) {
               </Link>
             ))}
             <div className="flex gap-3 pt-4 border-t border-gold-300/10">
-              <button
-                onClick={() => setLang("bg")}
-                className={`px-3 py-1.5 text-xs tracking-wider ${
-                  lang === "bg" ? "text-gold-300" : "text-cream-100/50"
-                }`}
-              >
-                BG
-              </button>
-              <button
-                onClick={() => setLang("en")}
-                className={`px-3 py-1.5 text-xs tracking-wider ${
-                  lang === "en" ? "text-gold-300" : "text-cream-100/50"
-                }`}
-              >
-                EN
-              </button>
+              {["bg", "en", "ro"].map((code) => (
+                <button
+                  key={code}
+                  onClick={() => setLang(code)}
+                  className={`px-3 py-1.5 text-xs tracking-wider ${
+                    lang === code ? "text-gold-300" : "text-cream-100/50"
+                  }`}
+                >
+                  {code.toUpperCase()}
+                </button>
+              ))}
             </div>
             <a
               href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"

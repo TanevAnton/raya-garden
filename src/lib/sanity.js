@@ -22,10 +22,11 @@ export function urlFor(source) {
   return builder.image(source);
 }
 
-// Pick the active language out of a localeString / localeText, falling
-// back to BG if EN is missing.
+// Pick the active language out of a localeString / localeText.
+// Fallback order: requested lang → EN → BG. A Romanian visitor whose
+// RO content isn't filled in yet sees EN rather than BG they can't read.
 export function pickLocale(field, lang) {
   if (!field) return "";
   if (typeof field === "string") return field;
-  return field[lang] || field.bg || field.en || "";
+  return field[lang] || field.en || field.bg || "";
 }

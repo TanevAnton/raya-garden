@@ -1,4 +1,4 @@
-// Reusable bilingual (BG/EN) string + text + portable text types.
+// Reusable trilingual (BG/EN/RO) string + text + portable text types.
 // Every translatable field on a document uses one of these.
 
 export const localeString = {
@@ -8,8 +8,9 @@ export const localeString = {
   fields: [
     { name: "bg", type: "string", title: "Български", validation: (Rule) => Rule.required() },
     { name: "en", type: "string", title: "English" },
+    { name: "ro", type: "string", title: "Română" },
   ],
-  options: { columns: 2 },
+  options: { columns: 3 },
 };
 
 export const localeText = {
@@ -19,6 +20,7 @@ export const localeText = {
   fields: [
     { name: "bg", type: "text", title: "Български", rows: 4, validation: (Rule) => Rule.required() },
     { name: "en", type: "text", title: "English", rows: 4 },
+    { name: "ro", type: "text", title: "Română", rows: 4 },
   ],
 };
 
@@ -39,6 +41,13 @@ export const localeArray = {
       name: "en",
       type: "array",
       title: "English",
+      of: [{ type: "string" }],
+      options: { layout: "list" },
+    },
+    {
+      name: "ro",
+      type: "array",
+      title: "Română",
       of: [{ type: "string" }],
       options: { layout: "list" },
     },

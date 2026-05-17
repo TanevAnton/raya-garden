@@ -17,9 +17,11 @@ const LANG_KEY = "raya.lang";
 function getInitialLang() {
   if (typeof window === "undefined") return "bg";
   const saved = window.localStorage.getItem(LANG_KEY);
-  if (saved === "bg" || saved === "en") return saved;
+  if (saved === "bg" || saved === "en" || saved === "ro") return saved;
   const browser = (navigator.language || "bg").toLowerCase();
-  return browser.startsWith("en") ? "en" : "bg";
+  if (browser.startsWith("ro")) return "ro";
+  if (browser.startsWith("en")) return "en";
+  return "bg";
 }
 
 export default function App() {

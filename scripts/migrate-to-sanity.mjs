@@ -86,7 +86,7 @@ async function migrateSiteSettings() {
     address: tri("contact.address"),
     hours: tri("contact.hours"),
     footerTagline: tri("footer.tagline"),
-    bookingUrl: "https://sky-eu1.clock-software.com/60837/10183/wbe/products/new",
+    bookingUrl: "https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003",
     instagramUrl: "https://www.instagram.com/raya.garden/",
     facebookUrl: "https://www.facebook.com/hotel.sveta.gora",
     googleMapsUrl: "https://g.page/Park-Hotel-RAYA-Garden?share",

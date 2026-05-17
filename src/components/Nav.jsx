@@ -114,7 +114,7 @@ export default function Nav({ lang, setLang, t }) {
           </div>
 
           <a
-            href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"
+            href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
             target="_blank"
             rel="noreferrer"
             className="hidden md:inline-flex items-center gap-2 btn-gold px-5 py-2.5 text-xs tracking-[0.2em] uppercase font-medium rounded-sm"
@@ -167,7 +167,7 @@ export default function Nav({ lang, setLang, t }) {
               ))}
             </div>
             <a
-              href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"
+              href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
               target="_blank"
               rel="noreferrer"
               className="btn-gold px-5 py-3 text-xs tracking-[0.2em] uppercase text-center rounded-sm mt-2"

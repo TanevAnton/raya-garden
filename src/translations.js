@@ -18,7 +18,7 @@ export const translations = {
       title: "Уют сред",
       titleAccent: "тиха природа",
       subtitle:
-        "Бутиков хотел, ресторант и градина на хълм Света гора — място за почивка, вкусна храна и хубави моменти, само на 1.5 км от Велико Търново.",
+        "Бутиков хотел, ресторант и градина на хълм Света гора — място за почивка, вкусна храна и хубави моменти, на пешеходно разстояние от Велико Търново.",
       cta1: "Резервирай престой",
       cta2: "Разгледай ресторанта",
       scroll: "Превърти надолу",
@@ -40,12 +40,12 @@ export const translations = {
         tag: "01 · Настаняване",
         title: "Хотелът",
         text:
-          "Удобни открити и закрити пространства, неповторима атмосфера и безупречна организация. Конферентна зала за 80 души, лоби, детска площадка и охраняем паркинг с 200 места.",
+          "Удобни открити и закрити пространства, неповторима атмосфера и безупречна организация. Конферентна зала за 80 души, лоби, детска площадка и охраняем паркинг с 240 безплатни места за гости на хотела.",
         bullets: [
           "Стандартни и луксозни стаи",
           "Гледка към Велико Търново или парк Света гора",
           "Геотермално отопление и охлаждане",
-          "Безплатен паркинг (200 места)",
+          "Безплатен паркинг (240 места за гости)",
         ],
         cta: "Разгледай стаите",
       },
@@ -81,7 +81,7 @@ export const translations = {
         tag: "05 · Природа и история",
         title: "Паркът и градът",
         text:
-          "На метри от комплекса се намира парк „Света гора“ — забавление и разтуха за цялото семейство. Велико Търново е само на 1.5 км и предлага природни, туристически и исторически забележителности.",
+          "На метри от комплекса се намира парк „Света гора“ — забавление и разтуха за цялото семейство. Велико Търново е на пешеходно разстояние и предлага природни, туристически и исторически забележителности.",
         cta: "Виж околностите",
       },
     },
@@ -189,7 +189,7 @@ export const translations = {
         includedItems: [
           "Безплатен Wi-Fi в цялата сграда",
           "Денонощна рецепция и охрана",
-          "Безплатен охраняем паркинг (200 места)",
+          "Безплатен охраняем паркинг (240 места за гости)",
           "Геотермално отопление и охлаждане",
           "Достъп до лоби и общи пространства",
           "Безплатно ползване на детската площадка",
@@ -241,7 +241,7 @@ export const translations = {
         parkTitle: "Парк „Света гора“",
         parkText: "На метри от комплекса се намира паркът, който осигурява забавление и разтуха за цялото семейство — пешеходни маршрути, велоалеи, наблюдение на птици и пикник зони.",
         cityTitle: "Велико Търново",
-        cityText: "Старопрестолният град е на едва 1.5 км. Тук ще откриете Царевец, Самоводската чаршия, църквата „Св. 40 мъченици“ и редица музеи и галерии.",
+        cityText: "Старопрестолният град е на пешеходно разстояние. Тук ще откриете Царевец, Самоводската чаршия, църквата „Св. 40 мъченици“ и редица музеи и галерии.",
         attractions: "Любими атракции",
         attractionsList: [
           { name: "Крепостта Царевец", note: "Звук и светлина шоу всяка вечер през сезона" },
@@ -299,7 +299,7 @@ export const translations = {
       title: "Serenity in",
       titleAccent: "quiet nature",
       subtitle:
-        "A boutique hotel, restaurant and garden on Sveta Gora hill — a place to rest, dine and live beautiful moments, just 1.5 km from Veliko Tarnovo.",
+        "A boutique hotel, restaurant and garden on Sveta Gora hill — a place to rest, dine and live beautiful moments, within walking distance of Veliko Tarnovo.",
       cta1: "Reserve your stay",
       cta2: "Explore the restaurant",
       scroll: "Scroll to discover",
@@ -321,12 +321,12 @@ export const translations = {
         tag: "01 · Stay",
         title: "The Hotel",
         text:
-          "Comfortable indoor and outdoor spaces, a singular atmosphere and impeccable service. A conference hall for 80, a lobby, a playground and 200 secure parking spaces.",
+          "Comfortable indoor and outdoor spaces, a singular atmosphere and impeccable service. A conference hall for 80, a lobby, a playground and 240 free parking spaces for hotel guests.",
         bullets: [
           "Standard and luxury rooms",
           "Views over Veliko Tarnovo or Sveta Gora park",
           "Geothermal heating & cooling",
-          "Free secure parking (200 spots)",
+          "Free parking (240 spots for hotel guests)",
         ],
         cta: "View the rooms",
       },
@@ -362,7 +362,7 @@ export const translations = {
         tag: "05 · Nature & history",
         title: "Park & Town",
         text:
-          "Sveta Gora park is moments from the resort — perfect for the whole family. Veliko Tarnovo, the historic capital, is just 1.5 km away with countless natural and cultural landmarks.",
+          "Sveta Gora park is moments from the resort — perfect for the whole family. Veliko Tarnovo, the historic capital, is within walking distance with countless natural and cultural landmarks.",
         cta: "Explore the area",
       },
     },
@@ -467,7 +467,7 @@ export const translations = {
         includedItems: [
           "Free Wi-Fi throughout the building",
           "24/7 reception and security",
-          "Free secure parking (200 spots)",
+          "Free parking (240 spots for hotel guests)",
           "Geothermal heating and cooling",
           "Lobby and common-area access",
           "Free use of the playground",
@@ -519,7 +519,7 @@ export const translations = {
         parkTitle: "Sveta Gora park",
         parkText: "Just steps from the resort, the park is perfect for the whole family — walking trails, bike paths, bird-watching and picnic spots.",
         cityTitle: "Veliko Tarnovo",
-        cityText: "The historic capital is just 1.5 km away. Here you'll find Tsarevets Fortress, Samovodska Charshia, the church of the 40 Holy Martyrs and many museums and galleries.",
+        cityText: "The historic capital is within walking distance. Here you'll find Tsarevets Fortress, Samovodska Charshia, the church of the 40 Holy Martyrs and many museums and galleries.",
         attractions: "Favourite places",
         attractionsList: [
           { name: "Tsarevets Fortress", note: "Sound-and-light show every evening in season" },
@@ -577,7 +577,7 @@ export const translations = {
       title: "Liniște în",
       titleAccent: "natura calmă",
       subtitle:
-        "Hotel boutique, restaurant și grădină pe dealul Sveta Gora — un loc pentru odihnă, gastronomie și momente frumoase, la doar 1,5 km de Veliko Tarnovo.",
+        "Hotel boutique, restaurant și grădină pe dealul Sveta Gora — un loc pentru odihnă, gastronomie și momente frumoase, la o plimbare de Veliko Tarnovo.",
       cta1: "Rezervă sejurul",
       cta2: "Descoperă restaurantul",
       scroll: "Derulează pentru a descoperi",
@@ -599,12 +599,12 @@ export const translations = {
         tag: "01 · Cazare",
         title: "Hotelul",
         text:
-          "Spații interioare și exterioare confortabile, o atmosferă aparte și un serviciu impecabil. Sală de conferințe pentru 80 de persoane, lobby, loc de joacă și 200 de locuri de parcare securizate.",
+          "Spații interioare și exterioare confortabile, o atmosferă aparte și un serviciu impecabil. Sală de conferințe pentru 80 de persoane, lobby, loc de joacă și 240 de locuri de parcare gratuite pentru oaspeții hotelului.",
         bullets: [
           "Camere standard și de lux",
           "Vedere spre Veliko Tarnovo sau parcul Sveta Gora",
           "Încălzire și răcire geotermală",
-          "Parcare gratuită securizată (200 locuri)",
+          "Parcare gratuită (240 locuri pentru oaspeții hotelului)",
         ],
         cta: "Vezi camerele",
       },
@@ -640,7 +640,7 @@ export const translations = {
         tag: "05 · Natură și istorie",
         title: "Parcul și orașul",
         text:
-          "Parcul Sveta Gora este la câțiva pași de complex — perfect pentru întreaga familie. Veliko Tarnovo, vechea capitală, este la doar 1,5 km, cu nenumărate atracții naturale și culturale.",
+          "Parcul Sveta Gora este la câțiva pași de complex — perfect pentru întreaga familie. Veliko Tarnovo, vechea capitală, este la o plimbare, cu nenumărate atracții naturale și culturale.",
         cta: "Explorează zona",
       },
     },
@@ -750,7 +750,7 @@ export const translations = {
         includedItems: [
           "Wi-Fi gratuit în întreaga clădire",
           "Recepție și pază 24/7",
-          "Parcare gratuită securizată (200 locuri)",
+          "Parcare gratuită (240 locuri pentru oaspeții hotelului)",
           "Încălzire și răcire geotermală",
           "Acces în lobby și spațiile comune",
           "Folosirea gratuită a locului de joacă",
@@ -811,7 +811,7 @@ export const translations = {
           "La doar câțiva pași de complex, parcul este perfect pentru întreaga familie — trasee de drumeție, piste de bicicletă, observarea păsărilor și locuri de picnic.",
         cityTitle: "Veliko Tarnovo",
         cityText:
-          "Vechea capitală este la doar 1,5 km. Aici veți găsi Cetatea Tsarevets, Strada meșteșugarilor Samovodska, biserica celor 40 de Sfinți Mucenici și numeroase muzee și galerii.",
+          "Vechea capitală este la o plimbare. Aici veți găsi Cetatea Tsarevets, Strada meșteșugarilor Samovodska, biserica celor 40 de Sfinți Mucenici și numeroase muzee și galerii.",
         attractions: "Locuri preferate",
         attractionsList: [
           { name: "Cetatea Tsarevets", note: "Spectacol de sunet și lumină în fiecare seară de sezon" },

@@ -145,7 +145,7 @@ export default function Hotel() {
                     <div className="text-xs text-cream-100/55 mt-1">{tp.perNight}</div>
                   </div>
                   <a
-                    href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"
+                    href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
                     target="_blank"
                     rel="noreferrer"
                     className="btn-gold px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2"

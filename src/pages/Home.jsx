@@ -83,7 +83,7 @@ function Hero({ t, heroImageOverride }) {
           </p>
           <div className="flex flex-wrap gap-4">
             <a
-              href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"
+              href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
               target="_blank"
               rel="noreferrer"
               className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
@@ -278,7 +278,7 @@ function CtaBanner({ t }) {
         </p>
         <div className="flex flex-wrap justify-center gap-4">
           <a
-            href="https://sky-eu1.clock-software.com/60837/10183/wbe/products/new"
+            href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
             target="_blank"
             rel="noreferrer"
             className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"

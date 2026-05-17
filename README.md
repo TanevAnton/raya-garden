@@ -171,7 +171,7 @@ Free tier covers 50 submissions/month, which is plenty for a hotel contact form.
 - **Palette:** deep ink black + warm gold + cream — premium without being cold.
 - **Motion:** Hero crossfade slideshow, slow Ken-Burns zoom, intersection-observer reveal on scroll, hover lift on cards, top scroll-progress bar.
 - **Bilingual:** BG/EN switcher in the top nav. Saves choice to `localStorage`, also adds `lang` attribute to `<html>` dynamically.
-- **Booking integration:** all "Book Now" buttons go to the live Clock-Software engine — `https://sky-eu1.clock-software.com/60837/10183/wbe/products/new`
+- **Booking integration:** all "Book Now" buttons go to the live Clock-Software engine — `https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003`
 
 ## Contact info
 

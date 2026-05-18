@@ -10,7 +10,7 @@
  */
 import dotenv from "dotenv";
 import { createClient } from "@sanity/client";
-import { rooms, menu, lakePricing, eventsPackages, IMG } from "../src/data.js";
+import { rooms, menu, eventsPackages, IMG } from "../src/data.js";
 import { translations as t } from "../src/translations.js";
 
 dotenv.config({ path: ".env.local" });
@@ -156,17 +156,6 @@ async function migratePages() {
   });
 
   await publish({
-    _id: "page-lake",
-    _type: "pageContent",
-    page: "lake",
-    eyebrow: tri("pages.lake.eyebrow"),
-    title: tri("pages.lake.title"),
-    subtitle: tri("pages.lake.subtitle"),
-    heroImage: await uploadImage(`${IMG}/hotel-all-14.png`),
-    intro: tri("pages.lake.intro"),
-  });
-
-  await publish({
     _id: "page-park",
     _type: "pageContent",
     page: "park",
@@ -259,51 +248,6 @@ async function migrateMenu() {
   }
 }
 
-// ─── wines ──────────────────────────────────────────────────────────────
-
-async function migrateWines() {
-  console.log("\nWines");
-  const bgList = t.bg.pages.winery.wineList;
-  const enList = t.en.pages.winery.wineList;
-  const roList = t.ro.pages.winery.wineList;
-  for (let i = 0; i < bgList.length; i++) {
-    await publish({
-      _id: `wine-${i}`,
-      _type: "wine",
-      order: i,
-      name: lStr(bgList[i].name, enList[i].name, roList[i].name),
-      type: lStr(bgList[i].type, enList[i].type, roList[i].type),
-      year: bgList[i].year,
-      note: lStr(bgList[i].note, enList[i].note, roList[i].note),
-    });
-  }
-}
-
-// ─── lake pricing ───────────────────────────────────────────────────────
-
-async function migrateLake() {
-  console.log("\nLake pricing");
-  const bg = lakePricing.bg;
-  const en = lakePricing.en;
-  const ro = lakePricing.ro;
-  await publish({
-    _id: "lakePricing",
-    _type: "lakePricing",
-    daily: bg.daily.map((d, i) => ({
-      _key: `d${i}`,
-      label: lStr(d.label, en.daily[i].label, ro.daily[i].label),
-      price: lStr(d.price, en.daily[i].price, ro.daily[i].price),
-    })),
-    fish: bg.fish.map((f, i) => ({
-      _key: `f${i}`,
-      name: lStr(f.name, en.fish[i].name, ro.fish[i].name),
-      price: lStr(f.price, en.fish[i].price, ro.fish[i].price),
-    })),
-    rules: lArr(bg.rules, en.rules, ro.rules),
-    includes: lArr(bg.includes, en.includes, ro.includes),
-  });
-}
-
 // ─── event packages ─────────────────────────────────────────────────────
 
 async function migrateEvents() {
@@ -373,8 +317,6 @@ async function migrateAttractions() {
     await migratePages();
     await migrateRooms();
     await migrateMenu();
-    await migrateWines();
-    await migrateLake();
     await migrateEvents();
     await migrateOffers();
     await migrateAttractions();

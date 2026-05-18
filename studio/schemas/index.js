@@ -1,8 +1,6 @@
 import { localeString, localeText, localeArray } from "../lib/localeString.js";
 import { room } from "./room.js";
 import { menuCategory } from "./menuCategory.js";
-import { wine } from "./wine.js";
-import { lakePricing } from "./lakePricing.js";
 import { eventPackage } from "./eventPackage.js";
 import { specialOffer } from "./specialOffer.js";
 import { attraction } from "./attraction.js";
@@ -19,8 +17,6 @@ export const schemaTypes = [
   pageContent,
   room,
   menuCategory,
-  wine,
-  lakePricing,
   eventPackage,
   specialOffer,
   attraction,

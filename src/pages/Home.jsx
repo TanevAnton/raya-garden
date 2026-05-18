@@ -475,21 +475,13 @@ export default function Home() {
         }}
       />
       <SectionCard
-        to="/lake"
-        tag={t.sections.lake.tag}
-        title={t.sections.lake.title}
-        text={t.sections.lake.text}
-        cta={t.sections.lake.cta}
-        image={`${IMG}/hotel-all-14.png`}
-        reverse
-      />
-      <SectionCard
         to="/park"
         tag={t.sections.park.tag}
         title={t.sections.park.title}
         text={t.sections.park.text}
         cta={t.sections.park.cta}
         image={`${IMG}/hotel-all-17.png`}
+        reverse
       />
       <Experience t={tCMS} />
       <CtaBanner t={tCMS} />

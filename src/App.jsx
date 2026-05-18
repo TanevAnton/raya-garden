@@ -5,7 +5,6 @@ import Home from "./pages/Home.jsx";
 import Hotel from "./pages/Hotel.jsx";
 import Restaurant from "./pages/Restaurant.jsx";
 import Winery from "./pages/Winery.jsx";
-import Lake from "./pages/Lake.jsx";
 import Park from "./pages/Park.jsx";
 import Events from "./pages/Events.jsx";
 import Contact from "./pages/Contact.jsx";
@@ -75,7 +74,6 @@ export default function App() {
           <Route path="hotel" element={<Hotel />} />
           <Route path="restaurant" element={<Restaurant />} />
           <Route path="winery" element={<Winery />} />
-          <Route path="lake" element={<Lake />} />
           <Route path="park" element={<Park />} />
           <Route path="events" element={<Events />} />
           <Route path="contact" element={<Contact />} />

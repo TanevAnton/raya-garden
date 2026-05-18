@@ -8,9 +8,9 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "winery"][0]{
   eyebrow, title, subtitle, heroImage, extraImages,
-  blocks[]{key, title, body}
+  blocks[]{key, title, body},
+  gallery[]{ image, title, text }
 }`;
-const WINES_QUERY = `*[_type == "wine"] | order(order asc) { _id, name, type, year, note }`;
 const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
 const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
 
@@ -23,7 +23,6 @@ export default function Winery() {
   const tp = t.pages.winery;
 
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
-  const { data: winesData } = useSanityQuery(WINES_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
   const wineryUrl = wineryUrlFromSanity || FALLBACK_WINERY_URL;
 
@@ -52,14 +51,11 @@ export default function Winery() {
   const story2 = pickLocale(findBlock(pageData?.blocks, "story2")?.body, lang) || tp.story2;
   const visitText = pickLocale(findBlock(pageData?.blocks, "visitText")?.body, lang) || tp.visitText;
 
-  const wines = winesData
-    ? winesData.map((w) => ({
-        name: pickLocale(w.name, lang),
-        type: pickLocale(w.type, lang),
-        year: w.year,
-        note: pickLocale(w.note, lang),
-      }))
-    : tp.wineList;
+  const gallery = (pageData?.gallery || []).map((item) => ({
+    image: item.image ? urlFor(item.image).width(1400).quality(82).url() : "",
+    title: pickLocale(item.title, lang),
+    text: pickLocale(item.text, lang),
+  }));
 
   useSeo({
     title: hero.title,
@@ -107,35 +103,59 @@ export default function Winery() {
         </div>
       </section>
 
-      <section className="py-24 bg-ink-900">
-        <div className="max-w-5xl mx-auto px-6 lg:px-10">
-          <div className="flex items-baseline gap-5 mb-12 reveal">
-            <h2 className="font-display text-3xl md:text-5xl text-cream-50">
-              {tp.wines}
-            </h2>
-            <div className="divider-gold flex-1" />
+      {/* Photo gallery — alternating image + text rows */}
+      {gallery.length > 0 && (
+        <section className="bg-ink-900 py-24">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 space-y-20">
+            {gallery.map((item, i) => {
+              const reversed = i % 2 === 1;
+              return (
+                <article
+                  key={i}
+                  className="reveal grid md:grid-cols-12 gap-8 lg:gap-16 items-center"
+                >
+                  <div
+                    className={`md:col-span-7 relative aspect-[4/3] overflow-hidden group ${
+                      reversed ? "md:order-2" : ""
+                    }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title || ""}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
+                    />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
+                    <div className="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300/60 pointer-events-none" />
+                    <div className="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/30 pointer-events-none" />
+                  </div>
+                  <div
+                    className={`md:col-span-5 ${reversed ? "md:order-1" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5">
+                      <span className="font-mono text-gold-300/60">
+                        0{i + 1}
+                      </span>
+                      <div className="w-8 h-px bg-gold-300/40" />
+                    </div>
+                    {item.title && (
+                      <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-cream-50 mb-5 leading-tight text-balance">
+                        {item.title}
+                      </h2>
+                    )}
+                    {item.text && (
+                      <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed font-light">
+                        {item.text}
+                      </p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
-          <ul className="space-y-8 reveal">
-            {wines.map((w, i) => (
-              <li key={i} className="group">
-                <div className="flex items-baseline gap-4">
-                  <h3 className="font-display text-2xl md:text-3xl text-cream-50 group-hover:text-gold-200 transition-colors">
-                    {w.name}
-                  </h3>
-                  <div className="flex-1 border-b border-dotted border-gold-300/20" />
-                  <span className="text-sm text-gold-300/80 whitespace-nowrap">
-                    {w.year}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-x-4 text-xs tracking-[0.2em] uppercase text-gold-300/70 mt-1.5">
-                  {w.type}
-                </div>
-                <p className="text-sm text-cream-100/60 mt-2 max-w-2xl">{w.note}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="py-24 bg-ink-950">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">

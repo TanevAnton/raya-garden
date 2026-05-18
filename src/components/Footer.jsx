@@ -35,11 +35,6 @@ export default function Footer({ t }) {
                 </Link>
               </li>
               <li>
-                <Link to="/lake" className="hover:text-gold-200 transition-colors">
-                  {t.nav.lake}
-                </Link>
-              </li>
-              <li>
                 <Link to="/events" className="hover:text-gold-200 transition-colors">
                   {t.nav.events}
                 </Link>

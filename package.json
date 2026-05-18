@@ -10,6 +10,7 @@
     "preview": "vite preview --host",
     "migrate": "node scripts/migrate-to-sanity.mjs",
     "seed:restaurant-gallery": "node scripts/seed-restaurant-gallery.mjs",
+    "seed:winery-gallery": "node scripts/seed-winery-gallery.mjs",
     "studio:dev": "sanity dev",
     "studio:deploy": "sanity deploy"
   },

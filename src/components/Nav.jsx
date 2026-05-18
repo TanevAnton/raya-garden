@@ -55,7 +55,6 @@ export default function Nav({ lang, setLang, t }) {
     { to: "/hotel", label: t.nav.hotel },
     { to: "/restaurant", label: t.nav.restaurant },
     { to: "/winery", label: t.nav.winery },
-    { to: "/lake", label: t.nav.lake },
     { to: "/park", label: t.nav.park },
     { to: "/events", label: t.nav.events },
     { to: "/contact", label: t.nav.contact },

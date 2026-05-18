@@ -6,7 +6,6 @@ export const translations = {
       hotel: "Хотелът",
       restaurant: "Ресторантът",
       winery: "Винарната",
-      lake: "Езерото",
       park: "Паркът и градът",
       events: "Събития",
       contact: "Контакти",
@@ -73,15 +72,8 @@ export const translations = {
         cta: "За винарната",
         externalCta: "Посети vinarnayalovo.com",
       },
-      lake: {
-        tag: "04 · Езеро Света Гора",
-        title: "Езерото",
-        text:
-          "На 3 минути с кола от комплекса, в непосредствена близост до главния път София–Варна. Прекрасни условия за спортен риболов и отдих сред природата. Зарибено с разнообразни речни и екзотични видове.",
-        cta: "Информация и ценоразпис",
-      },
       park: {
-        tag: "05 · Природа и история",
+        tag: "04 · Природа и история",
         title: "Паркът и градът",
         text:
           "На метри от комплекса се намира парк „Света гора“ — забавление и разтуха за цялото семейство. Велико Търново е на пешеходно разстояние и предлага природни, туристически и исторически забележителности.",
@@ -216,26 +208,6 @@ export const translations = {
         story2: "Тук правим малки серии вина от местни сортове — Гъмза, Мавруд, Памид, и международни като Каберне Совиньон, Мерло и Шардоне. Всяка бутилка преминава през ръчно гроздобране и щадящ метод на винификация.",
         visit: "Посещения и дегустации",
         visitText: "Винарната може да бъде посетена по предварителна заявка. Предлагаме дегустационни сесии с местни сирена и колбаси.",
-        wines: "Селекция вина",
-        wineList: [
-          { name: "Гъмза Резерва", type: "Червено сухо", year: "2022", note: "Местен сорт, отлежал 12 месеца в дъбови бъчви" },
-          { name: "Мавруд", type: "Червено сухо", year: "2021", note: "Плътно, дълбоко тяло, тонове на сушени плодове" },
-          { name: "Каберне Совиньон", type: "Червено сухо", year: "2022", note: "Класически профил, мек танин" },
-          { name: "Шардоне", type: "Бяло сухо", year: "2023", note: "Свежо, цитрусови нотки, балансирано" },
-          { name: "Розе от Мавруд", type: "Розе сухо", year: "2023", note: "Цвят на корал, плодово и леко" },
-          { name: "Памид късно бране", type: "Полусухо", year: "2022", note: "Локален сорт, плодов и мек" },
-        ],
-      },
-      lake: {
-        eyebrow: "Езеро Света Гора",
-        title: "Езерото",
-        subtitle: "Спортен риболов и отдих на 3 минути с кола от хотела.",
-        intro: "Езеро „Света Гора“ се намира в непосредствена близост до главния път София–Варна. Прекрасни условия за спортен риболов сред природата. Зарибено с разнообразни речни и екзотични видове.",
-        daily: "Дневни тарифи",
-        species: "Зарибени видове и цени",
-        rules: "Правила",
-        included: "Включено в таксата",
-        reserve: "Резервирай място",
       },
       park: {
         eyebrow: "Природа и история",
@@ -290,7 +262,6 @@ export const translations = {
       hotel: "The Hotel",
       restaurant: "Restaurant",
       winery: "Winery",
-      lake: "The Lake",
       park: "Park & Town",
       events: "Events",
       contact: "Contact",
@@ -357,15 +328,8 @@ export const translations = {
         cta: "About the winery",
         externalCta: "Visit vinarnayalovo.com",
       },
-      lake: {
-        tag: "04 · Sveta Gora Lake",
-        title: "The Lake",
-        text:
-          "A 3-minute drive from the resort, right next to the Sofia–Varna highway. Wonderful conditions for sport fishing and time in nature. Stocked with various river and exotic species.",
-        cta: "Info & pricing",
-      },
       park: {
-        tag: "05 · Nature & history",
+        tag: "04 · Nature & history",
         title: "Park & Town",
         text:
           "Sveta Gora park is moments from the resort — perfect for the whole family. Veliko Tarnovo, the historic capital, is within walking distance with countless natural and cultural landmarks.",
@@ -497,26 +461,6 @@ export const translations = {
         story2: "We make small batches from local varieties — Gamza, Mavrud, Pamid — and international ones like Cabernet Sauvignon, Merlot and Chardonnay. Every bottle goes through hand-picking and gentle vinification.",
         visit: "Visits & tastings",
         visitText: "The winery can be visited by appointment. We offer tasting sessions paired with local cheeses and charcuterie.",
-        wines: "Wine selection",
-        wineList: [
-          { name: "Gamza Reserva", type: "Red dry", year: "2022", note: "Local variety, aged 12 months in oak" },
-          { name: "Mavrud", type: "Red dry", year: "2021", note: "Full-bodied, deep, notes of dried fruit" },
-          { name: "Cabernet Sauvignon", type: "Red dry", year: "2022", note: "Classic profile, soft tannins" },
-          { name: "Chardonnay", type: "White dry", year: "2023", note: "Fresh, citrus notes, balanced" },
-          { name: "Mavrud Rosé", type: "Rosé dry", year: "2023", note: "Coral colour, fruity and light" },
-          { name: "Pamid Late Harvest", type: "Semi-dry", year: "2022", note: "Local variety, fruity and soft" },
-        ],
-      },
-      lake: {
-        eyebrow: "Sveta Gora Lake",
-        title: "The Lake",
-        subtitle: "Sport fishing and time in nature — 3 minutes by car from the hotel.",
-        intro: "Sveta Gora Lake is located right next to the Sofia–Varna highway. Wonderful conditions for sport fishing in nature. Stocked with various river and exotic species.",
-        daily: "Daily rates",
-        species: "Species & per-kilo pricing",
-        rules: "Rules",
-        included: "Included in the fee",
-        reserve: "Reserve a spot",
       },
       park: {
         eyebrow: "Nature & history",
@@ -571,7 +515,6 @@ export const translations = {
       hotel: "Hotelul",
       restaurant: "Restaurantul",
       winery: "Crama",
-      lake: "Lacul",
       park: "Parcul și orașul",
       events: "Evenimente",
       contact: "Contact",
@@ -638,15 +581,8 @@ export const translations = {
         cta: "Despre cramă",
         externalCta: "Vizitează vinarnayalovo.com",
       },
-      lake: {
-        tag: "04 · Lacul Sveta Gora",
-        title: "Lacul",
-        text:
-          "La 3 minute cu mașina de complex, chiar lângă autostrada Sofia–Varna. Condiții excelente pentru pescuit sportiv și timp în natură. Populat cu diverse specii de pești de râu și exotice.",
-        cta: "Info și prețuri",
-      },
       park: {
-        tag: "05 · Natură și istorie",
+        tag: "04 · Natură și istorie",
         title: "Parcul și orașul",
         text:
           "Parcul Sveta Gora este la câțiva pași de complex — perfect pentru întreaga familie. Veliko Tarnovo, vechea capitală, este la o plimbare, cu nenumărate atracții naturale și culturale.",
@@ -789,27 +725,6 @@ export const translations = {
         visit: "Vizite și degustări",
         visitText:
           "Crama poate fi vizitată pe bază de programare. Oferim sesiuni de degustare însoțite de brânzeturi și mezeluri locale.",
-        wines: "Selecție de vinuri",
-        wineList: [
-          { name: "Gamza Reserva", type: "Roșu sec", year: "2022", note: "Soi local, maturat 12 luni în butoaie de stejar" },
-          { name: "Mavrud", type: "Roșu sec", year: "2021", note: "Corp plin, intens, note de fructe uscate" },
-          { name: "Cabernet Sauvignon", type: "Roșu sec", year: "2022", note: "Profil clasic, taninuri moi" },
-          { name: "Chardonnay", type: "Alb sec", year: "2023", note: "Proaspăt, note de citrice, echilibrat" },
-          { name: "Rosé de Mavrud", type: "Rosé sec", year: "2023", note: "Culoare coral, fructat și ușor" },
-          { name: "Pamid Cules Târziu", type: "Demisec", year: "2022", note: "Soi local, fructat și catifelat" },
-        ],
-      },
-      lake: {
-        eyebrow: "Lacul Sveta Gora",
-        title: "Lacul",
-        subtitle: "Pescuit sportiv și timp în natură — la 3 minute cu mașina de hotel.",
-        intro:
-          "Lacul Sveta Gora se află chiar lângă autostrada Sofia–Varna. Condiții excelente pentru pescuit sportiv în natură. Populat cu diverse specii de pești de râu și exotice.",
-        daily: "Tarife zilnice",
-        species: "Specii și preț pe kilogram",
-        rules: "Reguli",
-        included: "Inclus în tarif",
-        reserve: "Rezervă un loc",
       },
       park: {
         eyebrow: "Natură și istorie",

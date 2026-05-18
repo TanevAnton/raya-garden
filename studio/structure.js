@@ -17,7 +17,6 @@ export const structure = (S) =>
       S.documentTypeListItem("specialOffer").title("Special offers"),
       S.divider(),
       S.documentTypeListItem("room").title("Rooms & suites"),
-      S.documentTypeListItem("menuCategory").title("Menu categories"),
       S.documentTypeListItem("eventPackage").title("Event packages"),
       S.documentTypeListItem("attraction").title("Nearby attractions"),
     ]);

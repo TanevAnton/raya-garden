@@ -10,7 +10,7 @@
  */
 import dotenv from "dotenv";
 import { createClient } from "@sanity/client";
-import { rooms, menu, eventsPackages, IMG } from "../src/data.js";
+import { rooms, eventsPackages, IMG } from "../src/data.js";
 import { translations as t } from "../src/translations.js";
 
 dotenv.config({ path: ".env.local" });
@@ -219,35 +219,6 @@ async function migrateRooms() {
   }
 }
 
-// ─── menu ───────────────────────────────────────────────────────────────
-
-async function migrateMenu() {
-  console.log("\nMenu");
-  for (let ci = 0; ci < menu.bg.length; ci++) {
-    const bgCat = menu.bg[ci];
-    const enCat = menu.en[ci];
-    const roCat = menu.ro?.[ci];
-    const items = bgCat.items.map((bgIt, i) => {
-      const enIt = enCat.items[i] || {};
-      const roIt = roCat?.items?.[i] || {};
-      return {
-        _key: `i${ci}-${i}`,
-        _type: "menuItem",
-        name: lStr(bgIt.name, enIt.name || bgIt.name, roIt.name),
-        price: bgIt.price,
-        desc: lStr(bgIt.desc, enIt.desc || "", roIt.desc),
-      };
-    });
-    await publish({
-      _id: `menu-${ci}`,
-      _type: "menuCategory",
-      order: ci,
-      title: lStr(bgCat.title, enCat.title, roCat?.title),
-      items,
-    });
-  }
-}
-
 // ─── event packages ─────────────────────────────────────────────────────
 
 async function migrateEvents() {
@@ -316,7 +287,6 @@ async function migrateAttractions() {
     await migrateSiteSettings();
     await migratePages();
     await migrateRooms();
-    await migrateMenu();
     await migrateEvents();
     await migrateOffers();
     await migrateAttractions();

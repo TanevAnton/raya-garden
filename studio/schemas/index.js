@@ -1,6 +1,5 @@
 import { localeString, localeText, localeArray } from "../lib/localeString.js";
 import { room } from "./room.js";
-import { menuCategory } from "./menuCategory.js";
 import { eventPackage } from "./eventPackage.js";
 import { specialOffer } from "./specialOffer.js";
 import { attraction } from "./attraction.js";
@@ -16,7 +15,6 @@ export const schemaTypes = [
   siteSettings,
   pageContent,
   room,
-  menuCategory,
   eventPackage,
   specialOffer,
   attraction,

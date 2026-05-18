@@ -24,6 +24,8 @@ const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
 const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order asc){
   _id, tag, title, text, image, ctaLink
 }`;
+const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
+const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
 
 const heroImages = [
   `${IMG}/hotel-all-1.png`,
@@ -170,7 +172,7 @@ function Welcome({ t }) {
   );
 }
 
-function SectionCard({ to, tag, title, text, cta, image, reverse }) {
+function SectionCard({ to, tag, title, text, cta, image, reverse, secondary }) {
   return (
     <section className="relative py-20 md:py-28 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
@@ -211,6 +213,29 @@ function SectionCard({ to, tag, title, text, cta, image, reverse }) {
               <span className="w-8 h-px bg-gold-300 group-hover:w-14 transition-all duration-500" />
               <ArrowRight className="w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" />
             </Link>
+            {secondary && (
+              <div className="mt-6 pt-6 border-t border-gold-300/10">
+                {secondary.internal ? (
+                  <Link
+                    to={secondary.href}
+                    className="inline-flex items-center gap-3 text-xs tracking-[0.25em] uppercase text-gold-200/80 hover:text-gold-200 transition-colors duration-500 group"
+                  >
+                    <span>{secondary.label}</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-500 group-hover:translate-x-1" />
+                  </Link>
+                ) : (
+                  <a
+                    href={secondary.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-3 text-xs tracking-[0.25em] uppercase text-gold-200/80 hover:text-gold-200 transition-colors duration-500 group"
+                  >
+                    <span>{secondary.label}</span>
+                    <ArrowRight className="w-3.5 h-3.5 transition-transform duration-500 group-hover:translate-x-1" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -364,6 +389,8 @@ export default function Home() {
   const { lang, t } = useOutletContext();
   const { data: pageData } = useSanityQuery(HOME_QUERY);
   const { data: offers } = useSanityQuery(OFFERS_QUERY);
+  const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
+  const wineryUrl = wineryUrlFromSanity || FALLBACK_WINERY_URL;
 
   // Compose a tCMS object that mirrors the shape Hero/Welcome/CtaBanner
   // expect, with Sanity values when present and translations.js as fallback.
@@ -422,6 +449,11 @@ export default function Home() {
         cta={t.sections.restaurant.cta}
         image={`${IMG}/hotel-all-8.png`}
         reverse
+        secondary={{
+          internal: true,
+          href: "/winery",
+          label: t.sections.restaurant.pairing,
+        }}
       />
       <SectionCard
         to="/winery"
@@ -430,6 +462,11 @@ export default function Home() {
         text={t.sections.winery.text}
         cta={t.sections.winery.cta}
         image={`${IMG}/hotel-all-11.png`}
+        secondary={{
+          internal: false,
+          href: wineryUrl,
+          label: t.sections.winery.externalCta,
+        }}
       />
       <SectionCard
         to="/lake"

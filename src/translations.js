@@ -62,6 +62,7 @@ export const translations = {
         ],
         cta: "Виж менюто",
         reservation: "Резервации: 0896 100 100",
+        pairing: "С вино от нашата Винарна Ялово",
       },
       winery: {
         tag: "03 · Винарна Ялово",
@@ -69,6 +70,7 @@ export const translations = {
         text:
           "На 15 км от комплекса се намира Винарна Ялово — малка бутикова изба в старото училище на с. Ялово. Виното отлежава в някогашна класна стая — място със собствен характер и история.",
         cta: "За винарната",
+        externalCta: "Посети vinarnayalovo.com",
       },
       lake: {
         tag: "04 · Езеро Света Гора",
@@ -343,6 +345,7 @@ export const translations = {
         ],
         cta: "Browse the menu",
         reservation: "Reservations: +359 896 100 100",
+        pairing: "Paired with wines from our own Yalovo Winery",
       },
       winery: {
         tag: "03 · Yalovo Winery",
@@ -350,6 +353,7 @@ export const translations = {
         text:
           "15 km from the resort sits Yalovo — a small boutique winery in the former village schoolhouse. Wines age in what used to be a classroom — a place with its own quiet character.",
         cta: "About the winery",
+        externalCta: "Visit vinarnayalovo.com",
       },
       lake: {
         tag: "04 · Sveta Gora Lake",
@@ -621,6 +625,7 @@ export const translations = {
         ],
         cta: "Răsfoiește meniul",
         reservation: "Rezervări: +359 896 100 100",
+        pairing: "Cu vinuri de la propria noastră Cramă Yalovo",
       },
       winery: {
         tag: "03 · Crama Yalovo",
@@ -628,6 +633,7 @@ export const translations = {
         text:
           "La 15 km de complex se află Yalovo — o mică cramă boutique în fosta școală a satului. Vinurile se maturează în ceea ce era cândva o sală de clasă — un loc cu un caracter aparte.",
         cta: "Despre cramă",
+        externalCta: "Vizitează vinarnayalovo.com",
       },
       lake: {
         tag: "04 · Lacul Sveta Gora",

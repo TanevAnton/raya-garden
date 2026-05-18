@@ -1,5 +1,5 @@
 import { useOutletContext } from "react-router-dom";
-import { Wine, ArrowRight } from "lucide-react";
+import { Wine, ArrowRight, ExternalLink } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
@@ -11,6 +11,8 @@ const PAGE_QUERY = `*[_type == "pageContent" && page == "winery"][0]{
   blocks[]{key, title, body}
 }`;
 const WINES_QUERY = `*[_type == "wine"] | order(order asc) { _id, name, type, year, note }`;
+const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
+const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
 
 function findBlock(blocks, key) {
   return blocks?.find((b) => b.key === key);
@@ -22,6 +24,8 @@ export default function Winery() {
 
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
   const { data: winesData } = useSanityQuery(WINES_QUERY);
+  const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
+  const wineryUrl = wineryUrlFromSanity || FALLBACK_WINERY_URL;
 
   const hero = pageData
     ? {
@@ -142,13 +146,24 @@ export default function Winery() {
             {tp.visit}
           </h3>
           <p className="text-cream-100/75 mb-10">{visitText}</p>
-          <a
-            href="tel:+359879107500"
-            className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-          >
-            +359 879 107 500
-            <ArrowRight className="w-4 h-4" />
-          </a>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <a
+              href="tel:+359879107500"
+              className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            >
+              +359 879 107 500
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href={wineryUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            >
+              {t.sections.winery.externalCta}
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </section>
     </>

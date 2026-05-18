@@ -20,6 +20,13 @@ export const siteSettings = {
     { name: "hours", title: "Reception / check-in hours", type: "localeString" },
     { name: "footerTagline", title: "Footer tagline", type: "localeString" },
     { name: "bookingUrl", title: "Booking-engine URL", type: "url" },
+    {
+      name: "wineryUrl",
+      title: "Yalovo Winery website",
+      description:
+        "The external Yalovo Winery site. Linked from /winery and from the winery card on /.",
+      type: "url",
+    },
     { name: "instagramUrl", title: "Instagram URL", type: "url" },
     { name: "facebookUrl", title: "Facebook URL", type: "url" },
     { name: "googleMapsUrl", title: "Google Maps share URL", type: "url" },

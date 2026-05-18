@@ -23,8 +23,30 @@ export default function Layout({ lang, setLang, t }) {
       },
       { threshold: 0.12, rootMargin: "0px 0px -80px 0px" }
     );
-    document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+
+    const tracked = new WeakSet();
+    const observeReveals = () => {
+      document.querySelectorAll(".reveal:not(.visible)").forEach((el) => {
+        if (!tracked.has(el)) {
+          tracked.add(el);
+          observer.observe(el);
+        }
+      });
+    };
+
+    // First pass for elements rendered immediately.
+    observeReveals();
+
+    // Subsequent passes catch elements that React adds later — e.g. content
+    // hydrated from async Sanity queries. Without this, reveal elements that
+    // mount after the initial scan stay at opacity 0 forever.
+    const mutationObserver = new MutationObserver(observeReveals);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      mutationObserver.disconnect();
+    };
   }, [pathname]);
 
   useEffect(() => {

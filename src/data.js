@@ -1,5 +1,7 @@
-// Centralised data: rooms, menu, lake pricing, events packages
-// All prices in BGN. Update here to update across all pages.
+// Fallback data used only when Sanity is unreachable. The CMS is the
+// source of truth — edit content in Studio, not here.
+// Prices are in EUR. The UI shows BGN as a secondary currency,
+// computed at render time using the fixed peg 1 EUR = 1.95583 BGN.
 
 export const IMG = "https://rayagarden.bg/wp-content/uploads/2022/01";
 
@@ -8,7 +10,7 @@ export const rooms = {
     {
       id: "standard-park",
       name: "Стандартна стая · парк гледка",
-      price: 140,
+      price: 72,
       size: 22,
       sleeps: 2,
       view: "Парк „Света гора“",
@@ -25,7 +27,7 @@ export const rooms = {
     {
       id: "standard-city",
       name: "Стандартна стая · градска гледка",
-      price: 160,
+      price: 82,
       size: 22,
       sleeps: 2,
       view: "Велико Търново",
@@ -41,8 +43,8 @@ export const rooms = {
     },
     {
       id: "deluxe",
-      name: "Deluxe стая",
-      price: 220,
+      name: "Апартамент",
+      price: 113,
       size: 28,
       sleeps: 2,
       view: "Велико Търново · с балкон",
@@ -59,7 +61,7 @@ export const rooms = {
     {
       id: "junior-suite",
       name: "Junior Suite",
-      price: 320,
+      price: 164,
       size: 38,
       sleeps: 3,
       view: "Велико Търново · с дневна зона",
@@ -76,7 +78,7 @@ export const rooms = {
     {
       id: "luxury-suite",
       name: "Luxury Suite",
-      price: 480,
+      price: 246,
       size: 52,
       sleeps: 4,
       view: "Панорамна · отделна спалня и хол",
@@ -95,7 +97,7 @@ export const rooms = {
     {
       id: "standard-park",
       name: "Standard Room · park view",
-      price: 140,
+      price: 72,
       size: 22,
       sleeps: 2,
       view: "Sveta Gora park",
@@ -112,7 +114,7 @@ export const rooms = {
     {
       id: "standard-city",
       name: "Standard Room · city view",
-      price: 160,
+      price: 82,
       size: 22,
       sleeps: 2,
       view: "Veliko Tarnovo",
@@ -128,8 +130,8 @@ export const rooms = {
     },
     {
       id: "deluxe",
-      name: "Deluxe Room",
-      price: 220,
+      name: "Apartment",
+      price: 113,
       size: 28,
       sleeps: 2,
       view: "Veliko Tarnovo · with balcony",
@@ -146,7 +148,7 @@ export const rooms = {
     {
       id: "junior-suite",
       name: "Junior Suite",
-      price: 320,
+      price: 164,
       size: 38,
       sleeps: 3,
       view: "Veliko Tarnovo · with living area",
@@ -163,7 +165,7 @@ export const rooms = {
     {
       id: "luxury-suite",
       name: "Luxury Suite",
-      price: 480,
+      price: 246,
       size: 52,
       sleeps: 4,
       view: "Panoramic · separate bedroom & lounge",
@@ -182,7 +184,7 @@ export const rooms = {
     {
       id: "standard-park",
       name: "Cameră Standard · vedere parc",
-      price: 140,
+      price: 72,
       size: 22,
       sleeps: 2,
       view: "Parcul Sveta Gora",
@@ -199,7 +201,7 @@ export const rooms = {
     {
       id: "standard-city",
       name: "Cameră Standard · vedere oraș",
-      price: 160,
+      price: 82,
       size: 22,
       sleeps: 2,
       view: "Veliko Tarnovo",
@@ -215,8 +217,8 @@ export const rooms = {
     },
     {
       id: "deluxe",
-      name: "Cameră Deluxe",
-      price: 220,
+      name: "Apartament",
+      price: 113,
       size: 28,
       sleeps: 2,
       view: "Veliko Tarnovo · cu balcon",
@@ -233,7 +235,7 @@ export const rooms = {
     {
       id: "junior-suite",
       name: "Junior Suite",
-      price: 320,
+      price: 164,
       size: 38,
       sleeps: 3,
       view: "Veliko Tarnovo · cu zonă de zi",
@@ -250,7 +252,7 @@ export const rooms = {
     {
       id: "luxury-suite",
       name: "Luxury Suite",
-      price: 480,
+      price: 246,
       size: 52,
       sleeps: 4,
       view: "Panoramic · dormitor și living separate",

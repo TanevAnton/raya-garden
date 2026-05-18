@@ -140,9 +140,12 @@ export default function Hotel() {
                       {tp.from}
                     </div>
                     <div className="font-display text-4xl gradient-gold leading-none mt-1">
-                      {r.price}
+                      {r.price} €
                     </div>
                     <div className="text-xs text-cream-100/55 mt-1">{tp.perNight}</div>
+                    <div className="text-[11px] text-cream-100/40 mt-0.5">
+                      ≈ {Math.round(r.price * 1.95583)} {lang === "bg" ? "лв" : "BGN"}
+                    </div>
                   </div>
                   <a
                     href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"

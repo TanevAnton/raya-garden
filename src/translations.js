@@ -179,7 +179,7 @@ export const translations = {
         guests: "гости",
         view: "Гледка",
         from: "от",
-        perNight: "лв / нощ",
+        perNight: "€ / нощ",
         included: "Включено за всеки престой",
         includedItems: [
           "Безплатен Wi-Fi в цялата сграда",
@@ -432,7 +432,7 @@ export const translations = {
         guests: "guests",
         view: "View",
         from: "from",
-        perNight: "BGN / night",
+        perNight: "€ / night",
         included: "Included with every stay",
         includedItems: [
           "Free Wi-Fi throughout the building",
@@ -690,7 +690,7 @@ export const translations = {
         guests: "oaspeți",
         view: "Vedere",
         from: "de la",
-        perNight: "BGN / noapte",
+        perNight: "€ / noapte",
         included: "Inclus la fiecare sejur",
         includedItems: [
           "Wi-Fi gratuit în întreaga clădire",

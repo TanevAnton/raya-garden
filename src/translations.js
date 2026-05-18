@@ -21,6 +21,7 @@ export const translations = {
         "Бутиков хотел, ресторант и градина на хълм Света гора — място за почивка, вкусна храна и хубави моменти, на пешеходно разстояние от Велико Търново.",
       cta1: "Резервирай престой",
       cta2: "Разгледай ресторанта",
+      cta3: "Виж нашата винарна",
       scroll: "Превърти надолу",
     },
     welcome: {
@@ -304,6 +305,7 @@ export const translations = {
         "A boutique hotel, restaurant and garden on Sveta Gora hill — a place to rest, dine and live beautiful moments, within walking distance of Veliko Tarnovo.",
       cta1: "Reserve your stay",
       cta2: "Explore the restaurant",
+      cta3: "Visit our winery",
       scroll: "Scroll to discover",
     },
     welcome: {
@@ -584,6 +586,7 @@ export const translations = {
         "Hotel boutique, restaurant și grădină pe dealul Sveta Gora — un loc pentru odihnă, gastronomie și momente frumoase, la o plimbare de Veliko Tarnovo.",
       cta1: "Rezervă sejurul",
       cta2: "Descoperă restaurantul",
+      cta3: "Vezi crama noastră",
       scroll: "Derulează pentru a descoperi",
     },
     welcome: {

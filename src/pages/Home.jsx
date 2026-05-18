@@ -100,6 +100,14 @@ function Hero({ t, heroImageOverride }) {
               {t.hero.cta2}
             </Link>
           </div>
+          <Link
+            to="/winery"
+            className="mt-6 inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-200/80 hover:text-gold-200 transition-colors duration-500 group"
+          >
+            <span>{t.hero.cta3}</span>
+            <span className="w-8 h-px bg-gold-300/60 group-hover:w-14 transition-all duration-500" />
+            <ArrowRight className="w-3.5 h-3.5 transition-transform duration-500 group-hover:translate-x-1" />
+          </Link>
         </div>
 
         <div className="absolute bottom-12 right-6 lg:right-10 flex gap-2">
@@ -115,7 +123,7 @@ function Hero({ t, heroImageOverride }) {
           ))}
         </div>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-scroll-hint">
+        <div className="hidden md:flex absolute bottom-10 left-1/2 -translate-x-1/2 flex-col items-center gap-2 animate-scroll-hint">
           <span className="text-[10px] tracking-[0.4em] uppercase text-cream-100/60">
             {t.hero.scroll}
           </span>

@@ -44,6 +44,33 @@ export const pageContent = {
       of: [{ type: "image", options: { hotspot: true } }],
     },
     {
+      name: "gallery",
+      title: "Photo gallery with captions",
+      description:
+        "Used on the Restaurant page (and any other page that wants paired image + text cards).",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "galleryItem",
+          fields: [
+            {
+              name: "image",
+              title: "Photo",
+              type: "image",
+              options: { hotspot: true },
+              validation: (Rule) => Rule.required(),
+            },
+            { name: "title", title: "Title", type: "localeString" },
+            { name: "text", title: "Caption / description", type: "localeText" },
+          ],
+          preview: {
+            select: { title: "title.bg", subtitle: "text.bg", media: "image" },
+          },
+        },
+      ],
+    },
+    {
       name: "blocks",
       title: "Free-form copy blocks",
       description: "Optional named text blocks (e.g. wineryStory, parkText, cityText, consulting, visitText)",

@@ -1,19 +1,14 @@
 import { useOutletContext } from "react-router-dom";
 import { Phone, Download } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
-import { menu as fallbackMenu, IMG } from "../data.js";
+import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "restaurant"][0]{
-  eyebrow, title, subtitle, intro, heroImage
-}`;
-const MENU_QUERY = `*[_type == "menuCategory"] | order(order asc) {
-  _id, title,
-  items[]{
-    name, price, desc
-  }
+  eyebrow, title, subtitle, intro, heroImage,
+  gallery[]{ image, title, text }
 }`;
 const MENU_PDF_QUERY = `*[_type == "siteSettings"][0]{ "url": menuPdf.asset->url }`;
 const FALLBACK_MENU_PDF =
@@ -24,7 +19,6 @@ export default function Restaurant() {
   const tp = t.pages.restaurant;
 
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
-  const { data: menuData } = useSanityQuery(MENU_QUERY);
   const { data: menuPdfData } = useSanityQuery(MENU_PDF_QUERY);
   const menuPdfUrl = menuPdfData?.url || FALLBACK_MENU_PDF;
 
@@ -38,18 +32,19 @@ export default function Restaurant() {
           ? urlFor(pageData.heroImage).width(2000).quality(80).url()
           : `${IMG}/hotel-all-8.png`,
       }
-    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, intro: tp.intro, image: `${IMG}/hotel-all-8.png` };
+    : {
+        eyebrow: tp.eyebrow,
+        title: tp.title,
+        subtitle: tp.subtitle,
+        intro: tp.intro,
+        image: `${IMG}/hotel-all-8.png`,
+      };
 
-  const list = menuData
-    ? menuData.map((cat) => ({
-        title: pickLocale(cat.title, lang),
-        items: (cat.items || []).map((it) => ({
-          name: pickLocale(it.name, lang),
-          desc: pickLocale(it.desc, lang),
-          price: it.price,
-        })),
-      }))
-    : fallbackMenu[lang];
+  const gallery = (pageData?.gallery || []).map((item) => ({
+    image: item.image ? urlFor(item.image).width(1400).quality(82).url() : "",
+    title: pickLocale(item.title, lang),
+    text: pickLocale(item.text, lang),
+  }));
 
   useSeo({
     title: hero.title,
@@ -95,47 +90,63 @@ export default function Restaurant() {
         </div>
       </section>
 
-      <section className="bg-ink-950 pb-24">
-        <div className="max-w-5xl mx-auto px-6 lg:px-10">
-          {list.map((category, ci) => (
-            <div key={category.title || ci} className="mb-20 reveal">
-              <div className="flex items-baseline gap-5 mb-10">
-                <span className="font-mono text-xs tracking-[0.3em] uppercase text-gold-300/60">
-                  0{ci + 1}
-                </span>
-                <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-cream-50">
-                  {category.title}
-                </h2>
-                <div className="divider-gold flex-1" />
-              </div>
-              <ul className="space-y-6">
-                {category.items.map((item, i) => (
-                  <li key={i} className="group">
-                    <div className="flex items-baseline gap-4">
-                      <h3 className="font-display text-xl md:text-2xl text-cream-50 group-hover:text-gold-200 transition-colors">
-                        {item.name}
-                      </h3>
-                      <div className="flex-1 border-b border-dotted border-gold-300/20" />
-                      <span className="font-display text-xl md:text-2xl gradient-gold whitespace-nowrap">
-                        {item.price} {lang === "bg" ? "лв" : "BGN"}
+      {/* Photo gallery — alternating image + text rows */}
+      {gallery.length > 0 && (
+        <section className="bg-ink-950 pb-24">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 space-y-20">
+            {gallery.map((item, i) => {
+              const reversed = i % 2 === 1;
+              return (
+                <article
+                  key={i}
+                  className="reveal grid md:grid-cols-12 gap-8 lg:gap-16 items-center"
+                >
+                  <div
+                    className={`md:col-span-7 relative aspect-[4/3] overflow-hidden group ${
+                      reversed ? "md:order-2" : ""
+                    }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title || ""}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
+                    />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
+                    <div className="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300/60 pointer-events-none" />
+                    <div className="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/30 pointer-events-none" />
+                  </div>
+                  <div
+                    className={`md:col-span-5 ${reversed ? "md:order-1" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5">
+                      <span className="font-mono text-gold-300/60">
+                        0{i + 1}
                       </span>
+                      <div className="w-8 h-px bg-gold-300/40" />
                     </div>
-                    {item.desc && (
-                      <p className="text-sm text-cream-100/55 mt-2 max-w-2xl">
-                        {item.desc}
+                    {item.title && (
+                      <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-cream-50 mb-5 leading-tight text-balance">
+                        {item.title}
+                      </h2>
+                    )}
+                    {item.text && (
+                      <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed font-light">
+                        {item.text}
                       </p>
                     )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
-          <p className="text-xs text-cream-100/40 italic mt-16 text-center">
-            {tp.note}
-          </p>
-        </div>
-      </section>
+      <p className="text-xs text-cream-100/40 italic text-center pb-16">
+        {tp.note}
+      </p>
     </>
   );
 }

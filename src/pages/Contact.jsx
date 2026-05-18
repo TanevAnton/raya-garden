@@ -20,6 +20,12 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 const PAGE_QUERY = `*[_type == "pageContent" && page == "contact"][0]{
   eyebrow, title, subtitle, heroImage
 }`;
+const SOCIAL_QUERY = `*[_type == "siteSettings"][0]{
+  instagramUrl, facebookUrl, googleMapsUrl
+}`;
+const FALLBACK_INSTAGRAM = "https://www.instagram.com/parkhotel_raya_garden/";
+const FALLBACK_FACEBOOK = "https://www.facebook.com/hotel.sveta.gora";
+const FALLBACK_GMAPS = "https://g.page/Park-Hotel-RAYA-Garden?share";
 
 const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || "";
 const HOTEL_EMAIL = "hotel@svetagora.bg";
@@ -45,6 +51,10 @@ export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: social } = useSanityQuery(SOCIAL_QUERY);
+  const instagramUrl = social?.instagramUrl || FALLBACK_INSTAGRAM;
+  const facebookUrl = social?.facebookUrl || FALLBACK_FACEBOOK;
+  const googleMapsUrl = social?.googleMapsUrl || FALLBACK_GMAPS;
 
   const hero = pageData
     ? {
@@ -145,7 +155,7 @@ export default function Contact() {
                 <div>
                   <div className="text-cream-100/90">{t.contact.address}</div>
                   <a
-                    href="https://g.page/Park-Hotel-RAYA-Garden?share"
+                    href={googleMapsUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs tracking-[0.2em] uppercase text-gold-300 hover:text-gold-200 mt-1 inline-block"
@@ -187,7 +197,7 @@ export default function Contact() {
 
             <div className="mt-10 flex gap-3">
               <a
-                href="https://www.instagram.com/raya.garden/"
+                href={instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-11 h-11 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 hover:border-gold-300 transition-all"
@@ -196,7 +206,7 @@ export default function Contact() {
                 <Instagram className="w-4 h-4" />
               </a>
               <a
-                href="https://www.facebook.com/hotel.sveta.gora"
+                href={facebookUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-11 h-11 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 hover:border-gold-300 transition-all"

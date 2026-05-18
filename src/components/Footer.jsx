@@ -1,8 +1,17 @@
 import { Link } from "react-router-dom";
 import { Instagram, Facebook } from "lucide-react";
 import { Logo } from "./Nav.jsx";
+import { useSanityQuery } from "../hooks/useSanity.js";
+
+const SOCIAL_QUERY = `*[_type == "siteSettings"][0]{ instagramUrl, facebookUrl }`;
+const FALLBACK_INSTAGRAM = "https://www.instagram.com/parkhotel_raya_garden/";
+const FALLBACK_FACEBOOK = "https://www.facebook.com/hotel.sveta.gora";
 
 export default function Footer({ t }) {
+  const { data } = useSanityQuery(SOCIAL_QUERY);
+  const instagramUrl = data?.instagramUrl || FALLBACK_INSTAGRAM;
+  const facebookUrl = data?.facebookUrl || FALLBACK_FACEBOOK;
+
   return (
     <footer className="bg-ink-950 border-t border-gold-300/10">
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16">
@@ -69,7 +78,7 @@ export default function Footer({ t }) {
             </div>
             <div className="flex gap-3">
               <a
-                href="https://www.instagram.com/raya.garden/"
+                href={instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-10 h-10 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 transition-all"
@@ -78,7 +87,7 @@ export default function Footer({ t }) {
                 <Instagram className="w-4 h-4" />
               </a>
               <a
-                href="https://www.facebook.com/hotel.sveta.gora"
+                href={facebookUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="w-10 h-10 rounded-full border border-gold-300/30 flex items-center justify-center text-gold-200 hover:bg-gold-300/10 transition-all"

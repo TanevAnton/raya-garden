@@ -32,6 +32,12 @@ const idsToDelete = [
   "menu-4",
   "menu-5",
   "menu-6",
+  "event-wedding-0",
+  "event-wedding-1",
+  "event-wedding-2",
+  "event-corporate-0",
+  "event-corporate-1",
+  "event-corporate-2",
 ];
 
 (async () => {

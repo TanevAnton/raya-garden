@@ -10,7 +10,7 @@
  */
 import dotenv from "dotenv";
 import { createClient } from "@sanity/client";
-import { rooms, eventsPackages, IMG } from "../src/data.js";
+import { rooms, IMG } from "../src/data.js";
 import { translations as t } from "../src/translations.js";
 
 dotenv.config({ path: ".env.local" });
@@ -219,28 +219,6 @@ async function migrateRooms() {
   }
 }
 
-// ─── event packages ─────────────────────────────────────────────────────
-
-async function migrateEvents() {
-  console.log("\nEvent packages");
-  const push = async (kind, bgList, enList, roList) => {
-    for (let i = 0; i < bgList.length; i++) {
-      await publish({
-        _id: `event-${kind}-${i}`,
-        _type: "eventPackage",
-        kind,
-        order: i,
-        tier: lStr(bgList[i].tier, enList[i].tier, roList[i].tier),
-        from: lStr(bgList[i].from, enList[i].from, roList[i].from),
-        capacity: lStr(bgList[i].capacity, enList[i].capacity, roList[i].capacity),
-        includes: lArr(bgList[i].includes, enList[i].includes, roList[i].includes),
-      });
-    }
-  };
-  await push("wedding", eventsPackages.bg.weddings, eventsPackages.en.weddings, eventsPackages.ro.weddings);
-  await push("corporate", eventsPackages.bg.corporate, eventsPackages.en.corporate, eventsPackages.ro.corporate);
-}
-
 // ─── special offers ─────────────────────────────────────────────────────
 
 async function migrateOffers() {
@@ -287,7 +265,6 @@ async function migrateAttractions() {
     await migrateSiteSettings();
     await migratePages();
     await migrateRooms();
-    await migrateEvents();
     await migrateOffers();
     await migrateAttractions();
     console.log("\n✓ Migration complete.");

@@ -1,7 +1,7 @@
 import { useOutletContext } from "react-router-dom";
-import { Heart, Briefcase, Users, Check, ArrowRight, Phone } from "lucide-react";
+import { Heart, Briefcase, Phone, ExternalLink } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
-import { eventsPackages as fallback, IMG } from "../data.js";
+import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
@@ -10,69 +10,49 @@ const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   eyebrow, title, subtitle, intro, heroImage,
   blocks[]{key, title, body}
 }`;
-const PACKAGES_QUERY = `*[_type == "eventPackage"] | order(kind asc, order asc){
-  _id, kind, tier, priceEur, unit, capacity, includes
-}`;
 
-const BGN_PER_EUR = 1.95583;
+const BROCHURES_QUERY = `*[_type == "siteSettings"][0]{
+  phone,
+  "weddingsPdf": weddingsBrochurePdf.asset->url,
+  "corporatePdf": corporateBrochurePdf.asset->url
+}`;
 
 function findBlock(blocks, key) {
   return blocks?.find((b) => b.key === key);
 }
 
-function PackageCard({ p, i, tp, lang }) {
-  const bgnLabel = lang === "bg" ? "лв" : "BGN";
-  const bgn =
-    typeof p.priceEur === "number"
-      ? (p.priceEur * BGN_PER_EUR).toFixed(2)
-      : null;
+function EventCard({ Icon, heading, description, phone, pdfUrl, t }) {
   return (
-    <article className="reveal bg-ink-900 border border-gold-300/10 hover:border-gold-300/30 transition-all duration-700 p-8 md:p-10 flex flex-col">
-      <div className="flex items-center gap-3 mb-5">
-        <span className="font-mono text-xs tracking-[0.3em] uppercase text-gold-300/60">
-          0{i + 1}
-        </span>
-        <div className="w-8 h-px bg-gold-300/40" />
-      </div>
-      <h3 className="font-display text-2xl md:text-3xl text-cream-50 mb-3">
-        {p.tier}
-      </h3>
-      {typeof p.priceEur === "number" && (
-        <>
-          <div className="text-sm gradient-gold font-medium">
-            {tp.priceFrom} {p.priceEur} € / {p.unit}
-          </div>
-          <div className="text-[11px] text-cream-100/40 mb-2">
-            ≈ {bgn} {bgnLabel}
-          </div>
-        </>
+    <article className="reveal bg-ink-900 border border-gold-300/10 p-10 md:p-14 flex flex-col items-start">
+      <Icon className="w-9 h-9 text-gold-300 mb-6" />
+      <h2 className="font-display text-3xl md:text-4xl text-cream-50 mb-4 leading-tight">
+        {heading}
+      </h2>
+      {description && (
+        <p className="text-base text-cream-100/70 leading-relaxed mb-8 max-w-lg">
+          {description}
+        </p>
       )}
-      <div className="flex items-center gap-2 text-xs text-cream-100/55 mb-8">
-        <Users className="w-3.5 h-3.5 text-gold-300" />
-        <span>
-          {tp.capacity}: {p.capacity}
-        </span>
+      <div className="flex flex-wrap gap-4 mt-auto">
+        <a
+          href={`tel:${(phone || "+359879107500").replace(/\s/g, "")}`}
+          className="btn-gold px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+        >
+          <Phone className="w-4 h-4" />
+          {t.pages.events.callUs}
+        </a>
+        {pdfUrl && (
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-ghost px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+          >
+            <ExternalLink className="w-4 h-4" />
+            {t.pages.events.viewBrochure}
+          </a>
+        )}
       </div>
-
-      <div className="text-xs tracking-[0.3em] uppercase text-gold-300/70 mb-4">
-        {tp.whatsIncluded}
-      </div>
-      <ul className="space-y-2 mb-8 flex-1">
-        {p.includes.map((item, j) => (
-          <li key={j} className="flex items-start gap-2 text-sm text-cream-100/80">
-            <Check className="w-3.5 h-3.5 text-gold-300 flex-shrink-0 mt-1" />
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-
-      <a
-        href="tel:+359879107500"
-        className="inline-flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300 hover:gap-5 transition-all duration-500"
-      >
-        {tp.inquire}
-        <ArrowRight className="w-3.5 h-3.5" />
-      </a>
     </article>
   );
 }
@@ -82,7 +62,7 @@ export default function Events() {
   const tp = t.pages.events;
 
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
-  const { data: packages } = useSanityQuery(PACKAGES_QUERY);
+  const { data: brochures } = useSanityQuery(BROCHURES_QUERY);
 
   const hero = pageData
     ? {
@@ -99,21 +79,6 @@ export default function Events() {
   const consultingBlock = findBlock(pageData?.blocks, "consulting");
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
   const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
-
-  const localize = (pkg) => ({
-    tier: pickLocale(pkg.tier, lang),
-    priceEur: pkg.priceEur,
-    unit: pickLocale(pkg.unit, lang),
-    capacity: pickLocale(pkg.capacity, lang),
-    includes: pkg.includes?.[lang] || pkg.includes?.bg || [],
-  });
-
-  const weddings = packages
-    ? packages.filter((p) => p.kind === "wedding").map(localize)
-    : fallback[lang].weddings;
-  const corporate = packages
-    ? packages.filter((p) => p.kind === "corporate").map(localize)
-    : fallback[lang].corporate;
 
   useSeo({
     title: hero.title,
@@ -141,41 +106,28 @@ export default function Events() {
         </div>
       </section>
 
-      <section className="pb-20 bg-ink-950">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <div className="flex items-center gap-5 mb-12 reveal">
-            <Heart className="w-8 h-8 text-gold-300" />
-            <h2 className="font-display text-3xl md:text-5xl text-cream-50">
-              {tp.weddings}
-            </h2>
-            <div className="divider-gold flex-1" />
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {weddings.map((p, i) => (
-              <PackageCard key={i} p={p} i={i} tp={tp} lang={lang} />
-            ))}
-          </div>
+      <section className="pb-24 bg-ink-950">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-2 gap-6">
+          <EventCard
+            Icon={Heart}
+            heading={tp.weddings}
+            description={tp.weddingsDescription}
+            phone={brochures?.phone}
+            pdfUrl={brochures?.weddingsPdf}
+            t={t}
+          />
+          <EventCard
+            Icon={Briefcase}
+            heading={tp.corporate}
+            description={tp.corporateDescription}
+            phone={brochures?.phone}
+            pdfUrl={brochures?.corporatePdf}
+            t={t}
+          />
         </div>
       </section>
 
-      <section className="py-20 bg-ink-900">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10">
-          <div className="flex items-center gap-5 mb-12 reveal">
-            <Briefcase className="w-8 h-8 text-gold-300" />
-            <h2 className="font-display text-3xl md:text-5xl text-cream-50">
-              {tp.corporate}
-            </h2>
-            <div className="divider-gold flex-1" />
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {corporate.map((p, i) => (
-              <PackageCard key={i} p={p} i={i} tp={tp} lang={lang} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="py-24 bg-ink-950">
+      <section className="py-24 bg-ink-900">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">
           <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
             {hero.eyebrow}
@@ -187,11 +139,11 @@ export default function Events() {
             {consultingText}
           </p>
           <a
-            href="tel:+359879107500"
+            href={`tel:${(brochures?.phone || "+359879107500").replace(/\s/g, "")}`}
             className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
           >
             <Phone className="w-4 h-4" />
-            +359 879 107 500
+            {brochures?.phone || "+359 879 107 500"}
           </a>
         </div>
       </section>

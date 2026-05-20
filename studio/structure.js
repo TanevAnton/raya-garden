@@ -1,6 +1,6 @@
 // Custom Studio sidebar.
 // Top group "Quick edits" pins the docs that change most often
-// (prices, offers, the menu PDF). The rest is the full content tree.
+// (prices, offers, PDFs). The rest is the full content tree.
 export const structure = (S) =>
   S.list()
     .title("Content")
@@ -8,7 +8,7 @@ export const structure = (S) =>
       // ─── Quick edits — the daily/weekly stuff ────────────────────
       S.listItem()
         .id("quick-edits")
-        .title("⚡ Quick edits — prices, offers, menu")
+        .title("⚡ Quick edits — prices, offers, PDFs")
         .child(
           S.list()
             .title("Quick edits")
@@ -19,12 +19,6 @@ export const structure = (S) =>
                   S.documentTypeList("room")
                     .title("Room prices (in EUR — BGN shown automatically)")
                 ),
-              S.documentTypeListItem("eventPackage")
-                .title("🎉 Event package prices")
-                .child(
-                  S.documentTypeList("eventPackage")
-                    .title("Wedding & corporate packages")
-                ),
               S.documentTypeListItem("specialOffer")
                 .title("🎁 Special offers")
                 .child(
@@ -32,13 +26,13 @@ export const structure = (S) =>
                     .title("Special offers (toggle Active to hide)")
                 ),
               S.listItem()
-                .id("menu-pdf-shortcut")
-                .title("📄 Restaurant menu PDF")
+                .id("brochures-shortcut")
+                .title("📄 PDFs (menu + brochures)")
                 .child(
                   S.document()
                     .schemaType("siteSettings")
                     .documentId("siteSettings")
-                    .title("Restaurant menu PDF — scroll to bottom")
+                    .title("PDFs — scroll to the bottom of Site settings")
                 ),
             ])
         ),
@@ -59,6 +53,5 @@ export const structure = (S) =>
       S.documentTypeListItem("specialOffer").title("Special offers"),
       S.divider(),
       S.documentTypeListItem("room").title("Rooms & suites"),
-      S.documentTypeListItem("eventPackage").title("Event packages"),
       S.documentTypeListItem("attraction").title("Nearby attractions"),
     ]);

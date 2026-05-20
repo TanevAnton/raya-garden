@@ -38,6 +38,22 @@ export const siteSettings = {
       type: "file",
       options: { accept: "application/pdf" },
     },
+    {
+      name: "weddingsBrochurePdf",
+      title: "Wedding brochure (PDF)",
+      description:
+        "Upload the wedding packages brochure. Shown as a \"View brochure\" button on /events.",
+      type: "file",
+      options: { accept: "application/pdf" },
+    },
+    {
+      name: "corporateBrochurePdf",
+      title: "Corporate events brochure (PDF)",
+      description:
+        "Upload the corporate / team-building brochure. Shown as a \"View brochure\" button on /events.",
+      type: "file",
+      options: { accept: "application/pdf" },
+    },
   ],
   preview: { prepare: () => ({ title: "Site settings" }) },
 };

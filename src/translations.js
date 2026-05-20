@@ -233,7 +233,13 @@ export const translations = {
         subtitle: "Капацитет до 270 души · конферентна зала · открита градина · ресторант с гледка.",
         intro: "Със своите удобни открити и закрити пространства, неповторима атмосфера и безупречна организация, Парк Хотел RAYA Garden е перфектен избор за сватба, празненство, юбилей или фирмено събитие.",
         weddings: "Сватбени пакети",
+        weddingsDescription:
+          "Свържете се с нас за персонализирана оферта или разгледайте подробната ни брошура с пакети и цени.",
         corporate: "Фирмени събития",
+        corporateDescription:
+          "Конференции, тиймбилдинг и фирмени тържества. Изтеглете брошурата за пълните пакети или ни се обадете директно.",
+        callUs: "Обади се",
+        viewBrochure: "Разгледай брошурата (PDF)",
         whatsIncluded: "Какво включва",
         capacity: "Капацитет",
         inquire: "Запитване",
@@ -487,7 +493,13 @@ export const translations = {
         subtitle: "Capacity up to 270 · conference hall · open garden · restaurant with a view.",
         intro: "With comfortable indoor and outdoor spaces, a singular atmosphere and impeccable service, Park Hotel RAYA Garden is the perfect choice for weddings, parties, anniversaries or corporate events.",
         weddings: "Wedding packages",
+        weddingsDescription:
+          "Get in touch for a tailored quote, or download our brochure with full packages and pricing.",
         corporate: "Corporate events",
+        corporateDescription:
+          "Conferences, team-building and company celebrations. Download the brochure for full details or call us directly.",
+        callUs: "Call us",
+        viewBrochure: "View brochure (PDF)",
         whatsIncluded: "What's included",
         capacity: "Capacity",
         inquire: "Inquiry",
@@ -755,7 +767,13 @@ export const translations = {
         intro:
           "Cu spații interioare și exterioare confortabile, o atmosferă aparte și un serviciu impecabil, Park Hotel RAYA Garden este alegerea perfectă pentru nunți, petreceri, aniversări sau evenimente corporative.",
         weddings: "Pachete de nuntă",
+        weddingsDescription:
+          "Contactați-ne pentru o ofertă personalizată sau descărcați broșura cu pachetele și prețurile complete.",
         corporate: "Evenimente corporative",
+        corporateDescription:
+          "Conferințe, teambuilding și sărbători corporative. Descărcați broșura pentru detalii complete sau sunați-ne direct.",
+        callUs: "Sună",
+        viewBrochure: "Vezi broșura (PDF)",
         whatsIncluded: "Ce include",
         capacity: "Capacitate",
         inquire: "Cerere",

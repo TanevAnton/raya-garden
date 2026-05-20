@@ -11,7 +11,30 @@ import {
   Briefcase,
   Baby,
   Trees,
+  Wine,
+  Fish,
+  Moon,
+  Mountain,
+  Users,
+  Waves,
 } from "lucide-react";
+
+// String keys here map to the dropdown values in studio/schemas/pageContent.js
+// (experiences[].icon). Order must match the schema list — but key matters.
+const ICON_MAP = {
+  leaf: Leaf,
+  sparkles: Sparkles,
+  heart: Heart,
+  briefcase: Briefcase,
+  baby: Baby,
+  trees: Trees,
+  wine: Wine,
+  fish: Fish,
+  moon: Moon,
+  mountain: Mountain,
+  users: Users,
+  waves: Waves,
+};
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
@@ -19,7 +42,8 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
   eyebrow, title, titleAccent, subtitle, heroImage,
-  blocks[]{key, body}
+  blocks[]{key, body},
+  experiences[]{icon, title, text}
 }`;
 const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order asc){
   _id, tag, title, text, image, ctaLink
@@ -249,8 +273,11 @@ function SectionCard({ to, tag, title, text, cta, image, reverse, secondary }) {
   );
 }
 
-function Experience({ t }) {
-  const icons = [Leaf, Sparkles, Heart, Briefcase, Baby, Trees];
+// Default icon palette used when items come from the translations fallback
+// (no `icon` string per item). Order matches t.experience.items.
+const FALLBACK_ICONS = [Leaf, Sparkles, Heart, Briefcase, Baby, Trees];
+
+function Experience({ t, items }) {
   return (
     <section className="relative py-24 md:py-36 bg-gradient-to-b from-ink-950 to-ink-900">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
@@ -264,8 +291,8 @@ function Experience({ t }) {
           <div className="divider-gold mt-10 w-32 mx-auto" />
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-gold-300/10 border border-gold-300/10 reveal">
-          {t.experience.items.map((item, i) => {
-            const Icon = icons[i % icons.length];
+          {items.map((item, i) => {
+            const Icon = ICON_MAP[item.iconKey] || FALLBACK_ICONS[i % FALLBACK_ICONS.length];
             return (
               <div
                 key={i}
@@ -396,6 +423,22 @@ export default function Home() {
   const { data: pageData } = useSanityQuery(HOME_QUERY);
   const { data: offers } = useSanityQuery(OFFERS_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
+
+  // "Why us" cards: prefer Sanity, fall back to translations.
+  // Sanity items carry an `icon` string key; fallback items don't and the
+  // Experience component uses the FALLBACK_ICONS palette by index.
+  const experienceItems = pageData?.experiences?.length
+    ? pageData.experiences.map((it) => ({
+        iconKey: it.icon,
+        title: pickLocale(it.title, lang),
+        text: pickLocale(it.text, lang),
+      }))
+    : t.experience.items.map((it) => ({
+        iconKey: null,
+        title: it.title,
+        text: it.text,
+      }));
+
   const wineryUrl = wineryUrlFromSanity || FALLBACK_WINERY_URL;
 
   // Compose a tCMS object that mirrors the shape Hero/Welcome/CtaBanner
@@ -483,7 +526,7 @@ export default function Home() {
         image={`${IMG}/hotel-all-17.png`}
         reverse
       />
-      <Experience t={tCMS} />
+      <Experience t={tCMS} items={experienceItems} />
       <CtaBanner t={tCMS} />
     </>
   );

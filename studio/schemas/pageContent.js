@@ -51,6 +51,52 @@ export const pageContent = {
       type: "localeArray",
     },
     {
+      name: "experiences",
+      title: "“One place, many experiences” cards",
+      description:
+        "Home page only. The dark grid of icon + title + description cards under \"Why RAYA Garden\".",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "experienceCard",
+          fields: [
+            {
+              name: "icon",
+              title: "Icon",
+              type: "string",
+              options: {
+                list: [
+                  { title: "🍃 Leaf — nature", value: "leaf" },
+                  { title: "✨ Sparkles — premium", value: "sparkles" },
+                  { title: "♡ Heart — weddings", value: "heart" },
+                  { title: "💼 Briefcase — business", value: "briefcase" },
+                  { title: "👶 Baby — family", value: "baby" },
+                  { title: "🌲 Trees — sustainability", value: "trees" },
+                  { title: "🍷 Wine — winery", value: "wine" },
+                  { title: "🐟 Fish — lake", value: "fish" },
+                  { title: "🌙 Moon — spa", value: "moon" },
+                  { title: "⛰ Mountain — view", value: "mountain" },
+                  { title: "👥 Users — groups", value: "users" },
+                  { title: "🌊 Waves — wellness", value: "waves" },
+                ],
+                layout: "dropdown",
+              },
+            },
+            { name: "title", title: "Title", type: "localeString" },
+            { name: "text", title: "Description", type: "localeText" },
+          ],
+          preview: {
+            select: { title: "title.bg", subtitle: "text.bg", icon: "icon" },
+            prepare: ({ title, subtitle, icon }) => ({
+              title: `${icon ? `[${icon}] ` : ""}${title || ""}`,
+              subtitle,
+            }),
+          },
+        },
+      ],
+    },
+    {
       name: "gallery",
       title: "Photo gallery with captions",
       description:

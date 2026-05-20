@@ -44,6 +44,13 @@ export const pageContent = {
       of: [{ type: "image", options: { hotspot: true } }],
     },
     {
+      name: "includedAmenities",
+      title: "“Included with every stay” list",
+      description:
+        "Hotel page only. The list shown at the bottom of /hotel under \"Included with every stay\".",
+      type: "localeArray",
+    },
+    {
       name: "gallery",
       title: "Photo gallery with captions",
       description:

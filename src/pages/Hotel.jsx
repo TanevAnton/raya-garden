@@ -12,7 +12,7 @@ const ROOMS_QUERY = `*[_type == "room"] | order(order asc) {
   name, image, price, size, sleeps, sleepsLabel, view, amenities
 }`;
 const PAGE_QUERY = `*[_type == "pageContent" && page == "hotel"][0]{
-  eyebrow, title, subtitle, intro, heroImage
+  eyebrow, title, subtitle, intro, heroImage, includedAmenities
 }`;
 
 export default function Hotel() {
@@ -34,6 +34,13 @@ export default function Hotel() {
         intro: pickLocale(pageData.intro, lang) || tp.intro,
       }
     : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, image: `${IMG}/hotel-all-5.png`, intro: tp.intro };
+
+  // "Included with every stay" list: prefer Sanity, fall back to translations.
+  const includedAmenities =
+    pageData?.includedAmenities?.[lang] ||
+    pageData?.includedAmenities?.en ||
+    pageData?.includedAmenities?.bg ||
+    tp.includedItems;
 
   // Room list: prefer Sanity, fall back to data.js.
   const list = roomsData
@@ -175,7 +182,7 @@ export default function Hotel() {
             <div className="divider-gold mt-6 w-32 mx-auto" />
           </div>
           <div className="grid sm:grid-cols-2 gap-4 reveal">
-            {tp.includedItems.map((item, i) => (
+            {includedAmenities.map((item, i) => (
               <div
                 key={i}
                 className="flex items-start gap-3 bg-ink-950/50 p-5 border border-gold-300/10"

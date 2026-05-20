@@ -11,14 +11,21 @@ const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   blocks[]{key, title, body}
 }`;
 const PACKAGES_QUERY = `*[_type == "eventPackage"] | order(kind asc, order asc){
-  _id, kind, tier, from, capacity, includes
+  _id, kind, tier, priceEur, unit, capacity, includes
 }`;
+
+const BGN_PER_EUR = 1.95583;
 
 function findBlock(blocks, key) {
   return blocks?.find((b) => b.key === key);
 }
 
-function PackageCard({ p, i, tp }) {
+function PackageCard({ p, i, tp, lang }) {
+  const bgnLabel = lang === "bg" ? "лв" : "BGN";
+  const bgn =
+    typeof p.priceEur === "number"
+      ? (p.priceEur * BGN_PER_EUR).toFixed(2)
+      : null;
   return (
     <article className="reveal bg-ink-900 border border-gold-300/10 hover:border-gold-300/30 transition-all duration-700 p-8 md:p-10 flex flex-col">
       <div className="flex items-center gap-3 mb-5">
@@ -30,7 +37,16 @@ function PackageCard({ p, i, tp }) {
       <h3 className="font-display text-2xl md:text-3xl text-cream-50 mb-3">
         {p.tier}
       </h3>
-      <div className="text-sm gradient-gold font-medium mb-2">{p.from}</div>
+      {typeof p.priceEur === "number" && (
+        <>
+          <div className="text-sm gradient-gold font-medium">
+            {tp.priceFrom} {p.priceEur} € / {p.unit}
+          </div>
+          <div className="text-[11px] text-cream-100/40 mb-2">
+            ≈ {bgn} {bgnLabel}
+          </div>
+        </>
+      )}
       <div className="flex items-center gap-2 text-xs text-cream-100/55 mb-8">
         <Users className="w-3.5 h-3.5 text-gold-300" />
         <span>
@@ -86,7 +102,8 @@ export default function Events() {
 
   const localize = (pkg) => ({
     tier: pickLocale(pkg.tier, lang),
-    from: pickLocale(pkg.from, lang),
+    priceEur: pkg.priceEur,
+    unit: pickLocale(pkg.unit, lang),
     capacity: pickLocale(pkg.capacity, lang),
     includes: pkg.includes?.[lang] || pkg.includes?.bg || [],
   });
@@ -135,7 +152,7 @@ export default function Events() {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {weddings.map((p, i) => (
-              <PackageCard key={i} p={p} i={i} tp={tp} />
+              <PackageCard key={i} p={p} i={i} tp={tp} lang={lang} />
             ))}
           </div>
         </div>
@@ -152,7 +169,7 @@ export default function Events() {
           </div>
           <div className="grid md:grid-cols-3 gap-6">
             {corporate.map((p, i) => (
-              <PackageCard key={i} p={p} i={i} tp={tp} />
+              <PackageCard key={i} p={p} i={i} tp={tp} lang={lang} />
             ))}
           </div>
         </div>

@@ -144,7 +144,7 @@ export default function Hotel() {
                     </div>
                     <div className="text-xs text-cream-100/55 mt-1">{tp.perNight}</div>
                     <div className="text-[11px] text-cream-100/40 mt-0.5">
-                      ≈ {Math.round(r.price * 1.95583)} {lang === "bg" ? "лв" : "BGN"}
+                      ≈ {(r.price * 1.95583).toFixed(2)} {lang === "bg" ? "лв" : "BGN"}
                     </div>
                   </div>
                   <a

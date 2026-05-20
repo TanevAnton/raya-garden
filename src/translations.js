@@ -237,6 +237,7 @@ export const translations = {
         whatsIncluded: "Какво включва",
         capacity: "Капацитет",
         inquire: "Запитване",
+        priceFrom: "от",
         consulting: "Безплатна консултация за вашето събитие",
         consultingText: "Свържете се с нашия екип за персонализирана оферта. Гледаме всеки детайл — от менюто и декорацията до програмата и настаняването.",
       },
@@ -490,6 +491,7 @@ export const translations = {
         whatsIncluded: "What's included",
         capacity: "Capacity",
         inquire: "Inquiry",
+        priceFrom: "from",
         consulting: "Free consultation for your event",
         consultingText: "Get in touch for a tailored offer. We watch every detail — from menu and decoration to program and accommodation.",
       },
@@ -757,6 +759,7 @@ export const translations = {
         whatsIncluded: "Ce include",
         capacity: "Capacitate",
         inquire: "Cerere",
+        priceFrom: "de la",
         consulting: "Consultanță gratuită pentru evenimentul dvs.",
         consultingText:
           "Contactați-ne pentru o ofertă personalizată. Avem grijă de fiecare detaliu — de la meniu și decor, până la program și cazare.",

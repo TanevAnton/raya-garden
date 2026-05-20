@@ -1,3 +1,5 @@
+import { EurWithBgnPreview } from "../components/EurWithBgnPreview.jsx";
+
 export const room = {
   name: "room",
   title: "Room / Suite",
@@ -21,8 +23,11 @@ export const room = {
     },
     {
       name: "price",
-      title: "Price per night (BGN)",
+      title: "Price per night (EUR)",
+      description:
+        "Type the price in euros. The BGN equivalent is computed automatically (fixed peg 1 € = 1.95583 лв).",
       type: "number",
+      components: { input: EurWithBgnPreview },
       validation: (Rule) => Rule.required().positive(),
     },
     { name: "size", title: "Size (m²)", type: "number" },
@@ -41,7 +46,7 @@ export const room = {
     select: { title: "name.bg", subtitle: "price", media: "image" },
     prepare: ({ title, subtitle, media }) => ({
       title,
-      subtitle: subtitle ? `от ${subtitle} лв / нощ` : "—",
+      subtitle: subtitle ? `от ${subtitle} € / нощ` : "—",
       media,
     }),
   },

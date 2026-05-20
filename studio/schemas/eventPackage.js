@@ -1,3 +1,5 @@
+import { EurWithBgnPreview } from "../components/EurWithBgnPreview.jsx";
+
 export const eventPackage = {
   name: "eventPackage",
   title: "Event package",
@@ -18,7 +20,21 @@ export const eventPackage = {
       validation: (Rule) => Rule.required(),
     },
     { name: "tier", title: "Tier name", type: "localeString" },
-    { name: "from", title: "Price line (e.g. 'от 8 500 лв')", type: "localeString" },
+    {
+      name: "priceEur",
+      title: "Price from (EUR)",
+      description:
+        "Per guest / participant. BGN equivalent shown below is calculated automatically.",
+      type: "number",
+      components: { input: EurWithBgnPreview },
+      validation: (Rule) => Rule.required().positive(),
+    },
+    {
+      name: "unit",
+      title: "Unit (per …)",
+      description: "What the price is per — e.g. \"guest\", \"participant\".",
+      type: "localeString",
+    },
     { name: "capacity", title: "Capacity (e.g. 'до 120 души')", type: "localeString" },
     { name: "includes", title: "What's included", type: "localeArray" },
   ],
@@ -29,10 +45,12 @@ export const eventPackage = {
     ]},
   ],
   preview: {
-    select: { title: "tier.bg", subtitle: "kind" },
-    prepare: ({ title, subtitle }) => ({
+    select: { title: "tier.bg", subtitle: "kind", priceEur: "priceEur" },
+    prepare: ({ title, subtitle, priceEur }) => ({
       title,
-      subtitle: subtitle === "wedding" ? "Wedding" : "Corporate",
+      subtitle: `${subtitle === "wedding" ? "Wedding" : "Corporate"}${
+        priceEur ? ` · от ${priceEur} €` : ""
+      }`,
     }),
   },
 };

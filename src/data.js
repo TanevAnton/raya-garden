@@ -275,7 +275,8 @@ export const eventsPackages = {
     weddings: [
       {
         tier: "Класически пакет",
-        from: "от 80 лв / гост",
+        priceEur: 41,
+        unit: "гост",
         capacity: "до 270 гости",
         includes: [
           "Меню от 5 предястия и 2 основни",
@@ -288,7 +289,8 @@ export const eventsPackages = {
       },
       {
         tier: "Премиум пакет",
-        from: "от 150 лв / гост",
+        priceEur: 77,
+        unit: "гост",
         capacity: "до 200 гости",
         includes: [
           "Меню от 7 предястия, 3 основни, селекция десерти",
@@ -302,7 +304,8 @@ export const eventsPackages = {
       },
       {
         tier: "Сватбен ден извън сезон",
-        from: "от 60 лв / гост",
+        priceEur: 31,
+        unit: "гост",
         capacity: "до 150 гости",
         includes: [
           "Намалена цена ноември–март",
@@ -315,7 +318,8 @@ export const eventsPackages = {
     corporate: [
       {
         tier: "Конференция · половин ден",
-        from: "от 45 лв / участник",
+        priceEur: 24,
+        unit: "участник",
         capacity: "до 80 души",
         includes: [
           "Зала с проектор и Wi-Fi",
@@ -326,7 +330,8 @@ export const eventsPackages = {
       },
       {
         tier: "Целодневна конференция",
-        from: "от 65 лв / участник",
+        priceEur: 34,
+        unit: "участник",
         capacity: "до 80 души",
         includes: [
           "Зала с пълно техническо оборудване",
@@ -337,7 +342,8 @@ export const eventsPackages = {
       },
       {
         tier: "Тиймбилдинг 2 дни",
-        from: "от 240 лв / участник",
+        priceEur: 123,
+        unit: "участник",
         capacity: "до 120 души",
         includes: [
           "1 нощувка в стандартна стая",
@@ -353,7 +359,8 @@ export const eventsPackages = {
     weddings: [
       {
         tier: "Classic Package",
-        from: "from 80 BGN / guest",
+        priceEur: 41,
+        unit: "guest",
         capacity: "up to 270 guests",
         includes: [
           "5 starters and 2 main courses",
@@ -366,7 +373,8 @@ export const eventsPackages = {
       },
       {
         tier: "Premium Package",
-        from: "from 150 BGN / guest",
+        priceEur: 77,
+        unit: "guest",
         capacity: "up to 200 guests",
         includes: [
           "7 starters, 3 mains, dessert selection",
@@ -380,7 +388,8 @@ export const eventsPackages = {
       },
       {
         tier: "Off-season Wedding",
-        from: "from 60 BGN / guest",
+        priceEur: 31,
+        unit: "guest",
         capacity: "up to 150 guests",
         includes: [
           "Reduced rate November–March",
@@ -393,7 +402,8 @@ export const eventsPackages = {
     corporate: [
       {
         tier: "Half-day Conference",
-        from: "from 45 BGN / participant",
+        priceEur: 24,
+        unit: "participant",
         capacity: "up to 80 people",
         includes: [
           "Hall with projector and Wi-Fi",
@@ -404,7 +414,8 @@ export const eventsPackages = {
       },
       {
         tier: "Full-day Conference",
-        from: "from 65 BGN / participant",
+        priceEur: 34,
+        unit: "participant",
         capacity: "up to 80 people",
         includes: [
           "Hall with full AV setup",
@@ -415,7 +426,8 @@ export const eventsPackages = {
       },
       {
         tier: "2-day Team Building",
-        from: "from 240 BGN / participant",
+        priceEur: 123,
+        unit: "participant",
         capacity: "up to 120 people",
         includes: [
           "1 night in standard room",
@@ -431,7 +443,8 @@ export const eventsPackages = {
     weddings: [
       {
         tier: "Pachet Clasic",
-        from: "de la 80 BGN / invitat",
+        priceEur: 41,
+        unit: "invitat",
         capacity: "până la 270 invitați",
         includes: [
           "5 aperitive și 2 feluri principale",
@@ -444,7 +457,8 @@ export const eventsPackages = {
       },
       {
         tier: "Pachet Premium",
-        from: "de la 150 BGN / invitat",
+        priceEur: 77,
+        unit: "invitat",
         capacity: "până la 200 invitați",
         includes: [
           "7 aperitive, 3 feluri principale, selecție de deserturi",
@@ -458,7 +472,8 @@ export const eventsPackages = {
       },
       {
         tier: "Nuntă extra-sezon",
-        from: "de la 60 BGN / invitat",
+        priceEur: 31,
+        unit: "invitat",
         capacity: "până la 150 invitați",
         includes: [
           "Tarif redus noiembrie–martie",
@@ -471,7 +486,8 @@ export const eventsPackages = {
     corporate: [
       {
         tier: "Conferință de jumătate de zi",
-        from: "de la 45 BGN / participant",
+        priceEur: 24,
+        unit: "participant",
         capacity: "până la 80 persoane",
         includes: [
           "Sală cu proiector și Wi-Fi",
@@ -482,7 +498,8 @@ export const eventsPackages = {
       },
       {
         tier: "Conferință de o zi",
-        from: "de la 65 BGN / participant",
+        priceEur: 34,
+        unit: "participant",
         capacity: "până la 80 persoane",
         includes: [
           "Sală cu echipament AV complet",
@@ -493,7 +510,8 @@ export const eventsPackages = {
       },
       {
         tier: "Teambuilding 2 zile",
-        from: "de la 240 BGN / participant",
+        priceEur: 123,
+        unit: "participant",
         capacity: "până la 120 persoane",
         includes: [
           "1 noapte în cameră standard",

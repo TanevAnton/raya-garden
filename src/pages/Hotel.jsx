@@ -9,7 +9,7 @@ import { urlFor, pickLocale, SANITY_ENABLED } from "../lib/sanity.js";
 const ROOMS_QUERY = `*[_type == "room"] | order(order asc) {
   _id,
   "slug": slug.current,
-  name, image, price, size, sleeps, view, amenities
+  name, image, price, size, sleeps, sleepsLabel, view, amenities
 }`;
 const PAGE_QUERY = `*[_type == "pageContent" && page == "hotel"][0]{
   eyebrow, title, subtitle, intro, heroImage
@@ -43,6 +43,7 @@ export default function Hotel() {
         price: r.price,
         size: r.size,
         sleeps: r.sleeps,
+        sleepsLabel: r.sleepsLabel ? pickLocale(r.sleepsLabel, lang) : null,
         view: pickLocale(r.view, lang),
         image: r.image
           ? urlFor(r.image).width(1200).quality(80).url()
@@ -116,7 +117,9 @@ export default function Hotel() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-gold-300" />
-                      <span>{tp.sleeps} {r.sleeps} {tp.guests}</span>
+                      <span>
+                        {tp.sleeps} {r.sleepsLabel || r.sleeps} {tp.guests}
+                      </span>
                     </div>
                   </div>
 

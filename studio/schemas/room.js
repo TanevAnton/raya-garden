@@ -32,6 +32,13 @@ export const room = {
     },
     { name: "size", title: "Size (m²)", type: "number" },
     { name: "sleeps", title: "Sleeps up to", type: "number" },
+    {
+      name: "sleepsLabel",
+      title: "Sleeps label (override)",
+      description:
+        "Optional. If set, replaces the number in the \"up to X guests\" line on the website. Use for rooms with multiple bed configurations, e.g. \"4 (2+2)\".",
+      type: "localeString",
+    },
     { name: "view", title: "View description", type: "localeString" },
     {
       name: "amenities",

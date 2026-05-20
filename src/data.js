@@ -46,7 +46,8 @@ export const rooms = {
       name: "Апартамент",
       price: 113,
       size: 28,
-      sleeps: 2,
+      sleeps: 4,
+      sleepsLabel: "4 (2+2)",
       view: "Велико Търново · с балкон",
       image: `${IMG}/hotel-all-5.png`,
       amenities: [
@@ -133,7 +134,8 @@ export const rooms = {
       name: "Apartment",
       price: 113,
       size: 28,
-      sleeps: 2,
+      sleeps: 4,
+      sleepsLabel: "4 (2+2)",
       view: "Veliko Tarnovo · with balcony",
       image: `${IMG}/hotel-all-5.png`,
       amenities: [
@@ -220,7 +222,8 @@ export const rooms = {
       name: "Apartament",
       price: 113,
       size: 28,
-      sleeps: 2,
+      sleeps: 4,
+      sleepsLabel: "4 (2+2)",
       view: "Veliko Tarnovo · cu balcon",
       image: `${IMG}/hotel-all-5.png`,
       amenities: [

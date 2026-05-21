@@ -51,6 +51,13 @@ export const pageContent = {
       type: "localeArray",
     },
     {
+      name: "infoBlockTitle",
+      title: "Contact info heading (Contact page)",
+      description:
+        "The heading above the address / phone / email / hours list on the contact page (e.g. \"Контакти\" / \"Contact\" / \"Contacte\").",
+      type: "localeString",
+    },
+    {
       name: "formNote",
       title: "Form note (Contact page)",
       description:

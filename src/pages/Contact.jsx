@@ -18,7 +18,7 @@ import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "contact"][0]{
-  eyebrow, title, subtitle, heroImage, formNote
+  eyebrow, title, subtitle, heroImage, infoBlockTitle, formNote
 }`;
 const SITE_QUERY = `*[_type == "siteSettings"][0]{
   phone, restaurantPhone, email, address, hours,
@@ -68,6 +68,8 @@ export default function Contact() {
   const address = pickLocale(site?.address, lang) || t.contact.address;
   const hours = pickLocale(site?.hours, lang) || t.contact.hours;
   const formNote = pickLocale(pageData?.formNote, lang) || tp.note;
+  const infoBlockTitle =
+    pickLocale(pageData?.infoBlockTitle, lang) || t.contact.title;
 
   const hero = pageData
     ? {
@@ -160,7 +162,7 @@ export default function Contact() {
           {/* Info column */}
           <div className="md:col-span-5 reveal">
             <h2 className="font-display text-3xl md:text-4xl text-cream-50 mb-10">
-              {t.contact.title}
+              {infoBlockTitle}
             </h2>
             <div className="space-y-6">
               <div className="flex items-start gap-4">

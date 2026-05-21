@@ -51,6 +51,13 @@ export const pageContent = {
       type: "localeArray",
     },
     {
+      name: "formNote",
+      title: "Form note (Contact page)",
+      description:
+        "The small italic line under the contact form, e.g. \"We will get back to you within 24 hours.\"",
+      type: "localeText",
+    },
+    {
       name: "experiences",
       title: "“One place, many experiences” cards",
       description:

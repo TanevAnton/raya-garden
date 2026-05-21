@@ -14,7 +14,13 @@ export const siteSettings = {
       options: { hotspot: true },
     },
     { name: "phone", title: "Main phone", type: "string" },
-    { name: "restaurantPhone", title: "Restaurant phone", type: "string" },
+    {
+      name: "restaurantPhone",
+      title: "Restaurant phone (with localized label)",
+      description:
+        "Full line shown on the contact page under the main phone — e.g. \"0896 100 100 · Резервации в ресторанта\". Edit per language.",
+      type: "localeString",
+    },
     { name: "email", title: "Contact email", type: "string" },
     { name: "address", title: "Address", type: "localeString" },
     { name: "hours", title: "Reception / check-in hours", type: "localeString" },

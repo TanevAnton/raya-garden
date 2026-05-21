@@ -18,9 +18,10 @@ import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "contact"][0]{
-  eyebrow, title, subtitle, heroImage
+  eyebrow, title, subtitle, heroImage, formNote
 }`;
-const SOCIAL_QUERY = `*[_type == "siteSettings"][0]{
+const SITE_QUERY = `*[_type == "siteSettings"][0]{
+  phone, restaurantPhone, email, address, hours,
   instagramUrl, facebookUrl, googleMapsUrl
 }`;
 const FALLBACK_INSTAGRAM = "https://www.instagram.com/parkhotel_raya_garden/";
@@ -28,9 +29,8 @@ const FALLBACK_FACEBOOK = "https://www.facebook.com/hotel.sveta.gora";
 const FALLBACK_GMAPS = "https://g.page/Park-Hotel-RAYA-Garden?share";
 
 const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || "";
-const HOTEL_EMAIL = "hotel@svetagora.bg";
 
-function buildMailto(form, lang) {
+function buildMailto(form, lang, email) {
   const subject = `RAYA Garden — ${form.topic} ${
     lang === "en" ? "from" : "от"
   } ${form.name}`;
@@ -42,7 +42,7 @@ function buildMailto(form, lang) {
     "",
     form.message,
   ];
-  return `mailto:${HOTEL_EMAIL}?subject=${encodeURIComponent(
+  return `mailto:${email}?subject=${encodeURIComponent(
     subject
   )}&body=${encodeURIComponent(lines.join("\n"))}`;
 }
@@ -51,10 +51,23 @@ export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
   const { data: pageData } = useSanityQuery(PAGE_QUERY);
-  const { data: social } = useSanityQuery(SOCIAL_QUERY);
-  const instagramUrl = social?.instagramUrl || FALLBACK_INSTAGRAM;
-  const facebookUrl = social?.facebookUrl || FALLBACK_FACEBOOK;
-  const googleMapsUrl = social?.googleMapsUrl || FALLBACK_GMAPS;
+  const { data: site } = useSanityQuery(SITE_QUERY);
+
+  // Social links — Sanity first, hardcoded fallback last.
+  const instagramUrl = site?.instagramUrl || FALLBACK_INSTAGRAM;
+  const facebookUrl = site?.facebookUrl || FALLBACK_FACEBOOK;
+  const googleMapsUrl = site?.googleMapsUrl || FALLBACK_GMAPS;
+
+  // Contact info — Sanity first, translations.js as fallback.
+  // Strip whitespace from the phone before putting it in tel: links.
+  const phone = site?.phone || t.contact.phone;
+  const phoneHref = phone.replace(/\s/g, "");
+  const restaurantPhone =
+    pickLocale(site?.restaurantPhone, lang) || t.contact.restaurantPhone;
+  const email = site?.email || t.contact.email;
+  const address = pickLocale(site?.address, lang) || t.contact.address;
+  const hours = pickLocale(site?.hours, lang) || t.contact.hours;
+  const formNote = pickLocale(pageData?.formNote, lang) || tp.note;
 
   const hero = pageData
     ? {
@@ -93,7 +106,7 @@ export default function Contact() {
     if (!FORMSPREE_ENDPOINT) {
       // No backend configured yet — open the guest's mail client with a
       // pre-filled draft so the enquiry still reaches hotel@svetagora.bg.
-      window.location.href = buildMailto(form, lang);
+      window.location.href = buildMailto(form, lang, email);
       setTimeout(() => setStatus("sent"), 400);
       return;
     }
@@ -153,7 +166,7 @@ export default function Contact() {
               <div className="flex items-start gap-4">
                 <MapPin className="w-5 h-5 text-gold-300 flex-shrink-0 mt-1" />
                 <div>
-                  <div className="text-cream-100/90">{t.contact.address}</div>
+                  <div className="text-cream-100/90">{address}</div>
                   <a
                     href={googleMapsUrl}
                     target="_blank"
@@ -168,29 +181,29 @@ export default function Contact() {
                 <Phone className="w-5 h-5 text-gold-300 flex-shrink-0 mt-1" />
                 <div>
                   <a
-                    href="tel:+359879107500"
+                    href={`tel:${phoneHref}`}
                     className="text-cream-100/90 hover:text-gold-200 block"
                   >
-                    {t.contact.phone}
+                    {phone}
                   </a>
                   <div className="text-xs text-cream-100/55 mt-1">
-                    {t.contact.restaurantPhone}
+                    {restaurantPhone}
                   </div>
                 </div>
               </div>
               <div className="flex items-start gap-4">
                 <Mail className="w-5 h-5 text-gold-300 flex-shrink-0 mt-1" />
                 <a
-                  href={`mailto:${t.contact.email}`}
+                  href={`mailto:${email}`}
                   className="text-cream-100/90 hover:text-gold-200"
                 >
-                  {t.contact.email}
+                  {email}
                 </a>
               </div>
               <div className="flex items-start gap-4">
                 <Calendar className="w-5 h-5 text-gold-300 flex-shrink-0 mt-1" />
                 <div className="text-cream-100/90 text-sm leading-relaxed">
-                  {t.contact.hours}
+                  {hours}
                 </div>
               </div>
             </div>
@@ -238,7 +251,7 @@ export default function Contact() {
             {status === "sent" ? (
               <div className="bg-ink-900 border border-gold-300/30 p-10 text-center">
                 <div className="font-display text-3xl text-gold-300 mb-3">✓</div>
-                <p className="text-cream-100/85">{tp.note}</p>
+                <p className="text-cream-100/85">{formNote}</p>
               </div>
             ) : (
               <form onSubmit={onSubmit} className="space-y-5">
@@ -352,14 +365,18 @@ export default function Contact() {
                     </>
                   )}
                 </button>
-                <p className="text-xs text-cream-100/45">{tp.note}</p>
+                <p className="text-xs text-cream-100/45">{formNote}</p>
                 <p className="text-xs text-cream-100/55">
-                  {lang === "en" ? "Or email us directly: " : "Или ни пишете директно: "}
+                  {lang === "en"
+                    ? "Or email us directly: "
+                    : lang === "ro"
+                    ? "Sau scrieți-ne direct: "
+                    : "Или ни пишете директно: "}
                   <a
-                    href={`mailto:${HOTEL_EMAIL}`}
+                    href={`mailto:${email}`}
                     className="text-gold-300 hover:text-gold-200"
                   >
-                    {HOTEL_EMAIL}
+                    {email}
                   </a>
                 </p>
               </form>

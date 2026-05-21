@@ -58,6 +58,59 @@ export const pageContent = {
       type: "localeText",
     },
     {
+      name: "sectionCards",
+      title: "Section cards (Home page · image + text teasers)",
+      description:
+        "The 4 alternating image + text blocks on /, each linking to a subpage (Hotel, Restaurant, Winery, Park). Drag to reorder — the layout alternates left / right automatically.",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          name: "sectionCard",
+          fields: [
+            {
+              name: "linkTo",
+              title: "Links to",
+              type: "string",
+              options: {
+                list: [
+                  { title: "Hotel — /hotel", value: "/hotel" },
+                  { title: "Restaurant — /restaurant", value: "/restaurant" },
+                  { title: "Winery — /winery", value: "/winery" },
+                  { title: "Park & Town — /park", value: "/park" },
+                  { title: "Events — /events", value: "/events" },
+                  { title: "Contact — /contact", value: "/contact" },
+                ],
+              },
+              validation: (Rule) => Rule.required(),
+            },
+            {
+              name: "image",
+              title: "Photo",
+              type: "image",
+              options: { hotspot: true },
+              validation: (Rule) => Rule.required(),
+            },
+            {
+              name: "tag",
+              title: "Small label (e.g. \"01 · Настаняване\")",
+              type: "localeString",
+            },
+            { name: "title", title: "Title", type: "localeString" },
+            { name: "text", title: "Description", type: "localeText" },
+            {
+              name: "cta",
+              title: "CTA text (e.g. \"Виж стаите\" / \"View rooms\")",
+              type: "localeString",
+            },
+          ],
+          preview: {
+            select: { title: "title.bg", subtitle: "linkTo", media: "image" },
+          },
+        },
+      ],
+    },
+    {
       name: "experiences",
       title: "“One place, many experiences” cards",
       description:

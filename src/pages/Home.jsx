@@ -43,7 +43,8 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
   eyebrow, title, titleAccent, subtitle, heroImage,
   blocks[]{key, body},
-  experiences[]{icon, title, text}
+  experiences[]{icon, title, text},
+  sectionCards[]{linkTo, image, tag, title, text, cta}
 }`;
 const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order asc){
   _id, tag, title, text, image, ctaLink
@@ -424,6 +425,26 @@ export default function Home() {
   const { data: offers } = useSanityQuery(OFFERS_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
 
+  // Section teaser cards (Hotel / Restaurant / Winery / Park). Sanity
+  // first; fall back to translations.js with hardcoded CDN photos.
+  const sectionCardsData = pageData?.sectionCards?.length
+    ? pageData.sectionCards.map((c) => ({
+        to: c.linkTo,
+        tag: pickLocale(c.tag, lang),
+        title: pickLocale(c.title, lang),
+        text: pickLocale(c.text, lang),
+        cta: pickLocale(c.cta, lang),
+        image: c.image
+          ? urlFor(c.image).width(1600).quality(85).url()
+          : "",
+      }))
+    : [
+        { to: "/hotel", ...t.sections.hotel, image: `${IMG}/hotel-all-3.png` },
+        { to: "/restaurant", ...t.sections.restaurant, image: `${IMG}/hotel-all-8.png` },
+        { to: "/winery", ...t.sections.winery, image: `${IMG}/hotel-all-11.png` },
+        { to: "/park", ...t.sections.park, image: `${IMG}/hotel-all-17.png` },
+      ];
+
   // "Why us" cards: prefer Sanity, fall back to translations.
   // Sanity items carry an `icon` string key; fallback items don't and the
   // Experience component uses the FALLBACK_ICONS palette by index.
@@ -482,50 +503,37 @@ export default function Home() {
       <Hero t={tCMS} heroImageOverride={heroImage} />
       <Welcome t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
-      <SectionCard
-        to="/hotel"
-        tag={t.sections.hotel.tag}
-        title={t.sections.hotel.title}
-        text={t.sections.hotel.text}
-        cta={t.sections.hotel.cta}
-        image={`${IMG}/hotel-all-3.png`}
-      />
-      <SectionCard
-        to="/restaurant"
-        tag={t.sections.restaurant.tag}
-        title={t.sections.restaurant.title}
-        text={t.sections.restaurant.text}
-        cta={t.sections.restaurant.cta}
-        image={`${IMG}/hotel-all-8.png`}
-        reverse
-        secondary={{
-          internal: true,
-          href: "/winery",
-          label: t.sections.restaurant.pairing,
-        }}
-      />
-      <SectionCard
-        to="/winery"
-        tag={t.sections.winery.tag}
-        title={t.sections.winery.title}
-        text={t.sections.winery.text}
-        cta={t.sections.winery.cta}
-        image={`${IMG}/hotel-all-11.png`}
-        secondary={{
-          internal: false,
-          href: wineryUrl,
-          label: t.sections.winery.externalCta,
-        }}
-      />
-      <SectionCard
-        to="/park"
-        tag={t.sections.park.tag}
-        title={t.sections.park.title}
-        text={t.sections.park.text}
-        cta={t.sections.park.cta}
-        image={`${IMG}/hotel-all-17.png`}
-        reverse
-      />
+      {sectionCardsData.map((card, i) => {
+        // Secondary link logic stays in code, keyed off the link target —
+        // not editable in Sanity (intentional, it's cross-page wiring).
+        let secondary;
+        if (card.to === "/restaurant") {
+          secondary = {
+            internal: true,
+            href: "/winery",
+            label: t.sections.restaurant.pairing,
+          };
+        } else if (card.to === "/winery") {
+          secondary = {
+            internal: false,
+            href: wineryUrl,
+            label: t.sections.winery.externalCta,
+          };
+        }
+        return (
+          <SectionCard
+            key={`${card.to}-${i}`}
+            to={card.to}
+            tag={card.tag}
+            title={card.title}
+            text={card.text}
+            cta={card.cta}
+            image={card.image}
+            reverse={i % 2 === 1}
+            secondary={secondary}
+          />
+        );
+      })}
       <Experience t={tCMS} items={experienceItems} />
       <CtaBanner t={tCMS} />
     </>

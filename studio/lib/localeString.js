@@ -5,12 +5,13 @@ export const localeString = {
   name: "localeString",
   type: "object",
   title: "Localized string",
+  // BG/EN/RO stack vertically (no columns) so the inputs stay full-width
+  // even inside narrow editors like array items in the gallery field.
   fields: [
     { name: "bg", type: "string", title: "Български", validation: (Rule) => Rule.required() },
     { name: "en", type: "string", title: "English" },
     { name: "ro", type: "string", title: "Română" },
   ],
-  options: { columns: 3 },
 };
 
 export const localeText = {

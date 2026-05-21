@@ -143,10 +143,6 @@ export default function Restaurant() {
           </div>
         </section>
       )}
-
-      <p className="text-xs text-cream-100/40 italic text-center pb-16">
-        {tp.note}
-      </p>
     </>
   );
 }

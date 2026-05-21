@@ -197,7 +197,6 @@ export const translations = {
         subtitle: "Сезонни ястия, локални продукти и приказна атмосфера за до 270 души.",
         intro: "Капацитет до 270 души · Работно време: всеки ден · Открита градина с барбекю · Жива риба от нашето езеро · Жива музика и тематични вечери.",
         reservations: "Резервации: 0896 100 100",
-        note: "Цените са в български лева и включват ДДС.",
         downloadMenu: "Изтегли пълно меню (PDF)",
       },
       winery: {
@@ -457,7 +456,6 @@ export const translations = {
         subtitle: "Seasonal dishes, local produce and a fairytale atmosphere for up to 270 guests.",
         intro: "Capacity up to 270 · Open every day · Open garden with BBQ · Live fish from our lake · Live music and themed nights.",
         reservations: "Reservations: +359 896 100 100",
-        note: "Prices are in Bulgarian lev (BGN) and include VAT.",
         downloadMenu: "Download full menu (PDF)",
       },
       winery: {
@@ -724,7 +722,6 @@ export const translations = {
         intro:
           "Capacitate de până la 270 · Deschis zilnic · Grădină exterioară cu grătar · Pește viu din lacul nostru · Muzică live și seri tematice.",
         reservations: "Rezervări: +359 896 100 100",
-        note: "Prețurile sunt în leva bulgărești (BGN) și includ TVA.",
         downloadMenu: "Descarcă meniul complet (PDF)",
       },
       winery: {

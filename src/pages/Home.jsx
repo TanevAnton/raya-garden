@@ -41,7 +41,7 @@ import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
-  eyebrow, title, titleAccent, subtitle, heroImage,
+  eyebrow, title, titleAccent, subtitle, heroImage, heroSlideshow,
   blocks[]{key, body},
   experiences[]{icon, title, text},
   sectionCards[]{linkTo, image, tag, title, text, cta}
@@ -59,13 +59,7 @@ const heroImages = [
   `${IMG}/hotel-all-14.png`,
 ];
 
-function Hero({ t, heroImageOverride }) {
-  // If Sanity has a hero image, lead with it and rotate through the
-  // remaining static photos. Otherwise rotate through the static list.
-  const slides = heroImageOverride
-    ? [heroImageOverride, ...heroImages.slice(1)]
-    : heroImages;
-
+function Hero({ t, slides }) {
   const [current, setCurrent] = useState(0);
   useEffect(() => {
     const i = setInterval(() => setCurrent((c) => (c + 1) % slides.length), 6500);
@@ -146,11 +140,17 @@ function Hero({ t, heroImageOverride }) {
           ))}
         </div>
 
-        <div className="hidden md:flex absolute bottom-10 left-1/2 -translate-x-1/2 flex-col items-center gap-2 animate-scroll-hint">
-          <span className="text-[10px] tracking-[0.4em] uppercase text-cream-100/60">
-            {t.hero.scroll}
-          </span>
-          <ChevronDown className="w-4 h-4 text-gold-300" />
+        {/* Outer div handles horizontal centering. Inner div runs the
+            scroll-hint animation (which sets `transform: translateY(...)`)
+            — keeping them on separate elements avoids the centering
+            translateX getting clobbered by the keyframes. */}
+        <div className="hidden md:block absolute bottom-10 left-1/2 -translate-x-1/2">
+          <div className="flex flex-col items-center gap-2 animate-scroll-hint">
+            <span className="text-[10px] tracking-[0.4em] uppercase text-cream-100/60 pl-[0.4em]">
+              {t.hero.scroll}
+            </span>
+            <ChevronDown className="w-4 h-4 text-gold-300" />
+          </div>
         </div>
       </div>
     </section>
@@ -469,6 +469,19 @@ export default function Home() {
     ? urlFor(pageData.heroImage).width(2400).quality(85).url()
     : null;
 
+  // Hero slideshow images: prefer the Sanity array, fall back to a single
+  // heroImage + the static hotel-all CDN photos, fall back finally to the
+  // static photos only.
+  const sanitySlides = (pageData?.heroSlideshow || [])
+    .map((img) => (img ? urlFor(img).width(2400).quality(85).url() : null))
+    .filter(Boolean);
+  const heroSlides =
+    sanitySlides.length > 0
+      ? sanitySlides
+      : heroImage
+      ? [heroImage, ...heroImages.slice(1)]
+      : heroImages;
+
   const tCMS = {
     ...t,
     hero: {
@@ -500,7 +513,7 @@ export default function Home() {
 
   return (
     <>
-      <Hero t={tCMS} heroImageOverride={heroImage} />
+      <Hero t={tCMS} slides={heroSlides} />
       <Welcome t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {

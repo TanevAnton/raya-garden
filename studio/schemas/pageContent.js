@@ -31,9 +31,19 @@ export const pageContent = {
     { name: "subtitle", title: "Hero subtitle", type: "localeText" },
     {
       name: "heroImage",
-      title: "Hero photo",
+      title: "Hero photo (single)",
+      description:
+        "The main hero photo. On the Home page, leave this blank if you use the Hero slideshow below — it'll be ignored.",
       type: "image",
       options: { hotspot: true },
+    },
+    {
+      name: "heroSlideshow",
+      title: "Hero slideshow photos (Home page · rotating background)",
+      description:
+        "The photos that rotate behind the hero text on the Home page. Drag to reorder. If empty, falls back to the single Hero photo above.",
+      type: "array",
+      of: [{ type: "image", options: { hotspot: true } }],
     },
     { name: "intro", title: "Intro paragraph (rooms / restaurant / lake etc.)", type: "localeText" },
     {

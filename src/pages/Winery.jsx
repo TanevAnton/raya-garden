@@ -22,30 +22,27 @@ export default function Winery() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.winery;
 
-  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
   const wineryUrl = wineryUrlFromSanity || FALLBACK_WINERY_URL;
 
-  const hero = pageData
-    ? {
-        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
-        title: pickLocale(pageData.title, lang) || tp.title,
-        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
-        image: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
-          : `${IMG}/hotel-all-11.png`,
-        secondaryImage:
-          pageData.extraImages?.[0]
-            ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
-            : `${IMG}/hotel-all-12.png`,
-      }
-    : {
-        eyebrow: tp.eyebrow,
-        title: tp.title,
-        subtitle: tp.subtitle,
-        image: `${IMG}/hotel-all-11.png`,
-        secondaryImage: `${IMG}/hotel-all-12.png`,
-      };
+  // Images gated on pageLoading so bundled hotel-all-{11,12}.png don't
+  // flash before Sanity responds. Text uses translations as fallback.
+  const hero = {
+    eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
+    title: pickLocale(pageData?.title, lang) || tp.title,
+    subtitle: pickLocale(pageData?.subtitle, lang) || tp.subtitle,
+    image: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+      : `${IMG}/hotel-all-11.png`,
+    secondaryImage: pageLoading
+      ? ""
+      : pageData?.extraImages?.[0]
+      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
+      : `${IMG}/hotel-all-12.png`,
+  };
 
   const story = pickLocale(findBlock(pageData?.blocks, "story")?.body, lang) || tp.story;
   const story2 = pickLocale(findBlock(pageData?.blocks, "story2")?.body, lang) || tp.story2;

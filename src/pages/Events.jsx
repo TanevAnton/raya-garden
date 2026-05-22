@@ -61,20 +61,22 @@ export default function Events() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.events;
 
-  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: brochures } = useSanityQuery(BROCHURES_QUERY);
 
-  const hero = pageData
-    ? {
-        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
-        title: pickLocale(pageData.title, lang) || tp.title,
-        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
-        intro: pickLocale(pageData.intro, lang) || tp.intro,
-        image: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
-          : `${IMG}/hotel-all-9.png`,
-      }
-    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, intro: tp.intro, image: `${IMG}/hotel-all-9.png` };
+  // Image gated on pageLoading so the bundled hotel-all-9.png doesn't
+  // flash before Sanity responds.
+  const hero = {
+    eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
+    title: pickLocale(pageData?.title, lang) || tp.title,
+    subtitle: pickLocale(pageData?.subtitle, lang) || tp.subtitle,
+    intro: pickLocale(pageData?.intro, lang) || tp.intro,
+    image: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+      : `${IMG}/hotel-all-9.png`,
+  };
 
   const consultingBlock = findBlock(pageData?.blocks, "consulting");
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;

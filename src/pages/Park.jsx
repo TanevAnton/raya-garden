@@ -20,32 +20,31 @@ export default function Park() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.park;
 
-  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: attractionsData } = useSanityQuery(ATTRACTIONS_QUERY);
 
-  const hero = pageData
-    ? {
-        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
-        title: pickLocale(pageData.title, lang) || tp.title,
-        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
-        image: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
-          : `${IMG}/hotel-all-17.png`,
-        parkImage: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(1200).quality(80).url()
-          : `${IMG}/hotel-all-17.png`,
-        cityImage: pageData.extraImages?.[0]
-          ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
-          : `${IMG}/hotel-all-15.png`,
-      }
-    : {
-        eyebrow: tp.eyebrow,
-        title: tp.title,
-        subtitle: tp.subtitle,
-        image: `${IMG}/hotel-all-17.png`,
-        parkImage: `${IMG}/hotel-all-17.png`,
-        cityImage: `${IMG}/hotel-all-15.png`,
-      };
+  // Images gated on pageLoading so bundled hotel-all-*.png don't flash
+  // before Sanity responds. Text falls back to translations.
+  const hero = {
+    eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
+    title: pickLocale(pageData?.title, lang) || tp.title,
+    subtitle: pickLocale(pageData?.subtitle, lang) || tp.subtitle,
+    image: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+      : `${IMG}/hotel-all-17.png`,
+    parkImage: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(1200).quality(80).url()
+      : `${IMG}/hotel-all-17.png`,
+    cityImage: pageLoading
+      ? ""
+      : pageData?.extraImages?.[0]
+      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
+      : `${IMG}/hotel-all-15.png`,
+  };
 
   const parkBlock = findBlock(pageData?.blocks, "parkText");
   const cityBlock = findBlock(pageData?.blocks, "cityText");

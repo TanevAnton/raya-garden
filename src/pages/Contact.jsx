@@ -50,7 +50,7 @@ function buildMailto(form, lang, email) {
 export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
-  const { data: pageData } = useSanityQuery(PAGE_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: site } = useSanityQuery(SITE_QUERY);
 
   // Social links — Sanity first, hardcoded fallback last.
@@ -71,16 +71,18 @@ export default function Contact() {
   const infoBlockTitle =
     pickLocale(pageData?.infoBlockTitle, lang) || t.contact.title;
 
-  const hero = pageData
-    ? {
-        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
-        title: pickLocale(pageData.title, lang) || tp.title,
-        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
-        image: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
-          : `${IMG}/hotel-all-7.png`,
-      }
-    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, image: `${IMG}/hotel-all-7.png` };
+  // Image gated on pageLoading so the bundled hotel-all-7.png doesn't
+  // flash before Sanity responds.
+  const hero = {
+    eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
+    title: pickLocale(pageData?.title, lang) || tp.title,
+    subtitle: pickLocale(pageData?.subtitle, lang) || tp.subtitle,
+    image: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+      : `${IMG}/hotel-all-7.png`,
+  };
 
   useSeo({
     title: hero.title,

@@ -19,21 +19,24 @@ export default function Hotel() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.hotel;
 
-  const { data: pageData } = useSanityQuery(PAGE_QUERY);
-  const { data: roomsData } = useSanityQuery(ROOMS_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
+  const { data: roomsData, loading: roomsLoading } =
+    useSanityQuery(ROOMS_QUERY);
 
   // Hero copy: prefer Sanity, fall back to translations file.
-  const hero = pageData
-    ? {
-        eyebrow: pickLocale(pageData.eyebrow, lang) || tp.eyebrow,
-        title: pickLocale(pageData.title, lang) || tp.title,
-        subtitle: pickLocale(pageData.subtitle, lang) || tp.subtitle,
-        image: pageData.heroImage
-          ? urlFor(pageData.heroImage).width(2000).quality(80).url()
-          : `${IMG}/hotel-all-5.png`,
-        intro: pickLocale(pageData.intro, lang) || tp.intro,
-      }
-    : { eyebrow: tp.eyebrow, title: tp.title, subtitle: tp.subtitle, image: `${IMG}/hotel-all-5.png`, intro: tp.intro };
+  // The image is gated on pageLoading so the bundled hotel-all-5.png
+  // doesn't flash before Sanity responds (~200-400 ms).
+  const hero = {
+    eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
+    title: pickLocale(pageData?.title, lang) || tp.title,
+    subtitle: pickLocale(pageData?.subtitle, lang) || tp.subtitle,
+    intro: pickLocale(pageData?.intro, lang) || tp.intro,
+    image: pageLoading
+      ? ""
+      : pageData?.heroImage
+      ? urlFor(pageData.heroImage).width(2000).quality(80).url()
+      : `${IMG}/hotel-all-5.png`,
+  };
 
   // "Included with every stay" list: prefer Sanity, fall back to translations.
   const includedAmenities =
@@ -42,8 +45,11 @@ export default function Hotel() {
     pageData?.includedAmenities?.bg ||
     tp.includedItems;
 
-  // Room list: prefer Sanity, fall back to data.js.
-  const list = roomsData
+  // Room list: prefer Sanity. Render nothing while loading so the bundled
+  // room photos in data.js don't preload.
+  const list = roomsLoading
+    ? []
+    : roomsData
     ? roomsData.map((r) => ({
         id: r.slug || r._id,
         name: pickLocale(r.name, lang),

@@ -62,6 +62,7 @@ const heroImages = [
 function Hero({ t, slides }) {
   const [current, setCurrent] = useState(0);
   useEffect(() => {
+    if (slides.length === 0) return;
     const i = setInterval(() => setCurrent((c) => (c + 1) % slides.length), 6500);
     return () => clearInterval(i);
   }, [slides.length]);
@@ -421,13 +422,17 @@ function Offers({ t, lang, offers }) {
 
 export default function Home() {
   const { lang, t } = useOutletContext();
-  const { data: pageData } = useSanityQuery(HOME_QUERY);
+  const { data: pageData, loading: pageLoading } = useSanityQuery(HOME_QUERY);
   const { data: offers } = useSanityQuery(OFFERS_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
 
-  // Section teaser cards (Hotel / Restaurant / Winery / Park). Sanity
-  // first; fall back to translations.js with hardcoded CDN photos.
-  const sectionCardsData = pageData?.sectionCards?.length
+  // Section teaser cards (Hotel / Restaurant / Winery / Park).
+  // Render nothing while Sanity loads so the bundled hotel-all-*.png
+  // photos don't get fetched during the ~200-400ms query window.
+  // After load: Sanity → translations + static photos as last-resort.
+  const sectionCardsData = pageLoading
+    ? []
+    : pageData?.sectionCards?.length
     ? pageData.sectionCards.map((c) => ({
         to: c.linkTo,
         tag: pickLocale(c.tag, lang),
@@ -469,18 +474,20 @@ export default function Home() {
     ? urlFor(pageData.heroImage).width(2400).quality(85).url()
     : null;
 
-  // Hero slideshow images: prefer the Sanity array, fall back to a single
-  // heroImage + the static hotel-all CDN photos, fall back finally to the
-  // static photos only.
+  // Hero slideshow: render nothing until Sanity has loaded so the
+  // bundled hotel-all-*.png photos don't flash for ~200-400ms while the
+  // GROQ query is in flight. After load: use Sanity's heroSlideshow,
+  // then the single heroImage, then static photos as last-resort fallback.
   const sanitySlides = (pageData?.heroSlideshow || [])
     .map((img) => (img ? urlFor(img).width(2400).quality(85).url() : null))
     .filter(Boolean);
-  const heroSlides =
-    sanitySlides.length > 0
-      ? sanitySlides
-      : heroImage
-      ? [heroImage, ...heroImages.slice(1)]
-      : heroImages;
+  const heroSlides = pageLoading
+    ? []
+    : sanitySlides.length > 0
+    ? sanitySlides
+    : heroImage
+    ? [heroImage, ...heroImages.slice(1)]
+    : heroImages;
 
   const tCMS = {
     ...t,

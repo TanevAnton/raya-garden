@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import {
   ArrowRight,
@@ -59,6 +59,37 @@ const heroImages = [
   `${IMG}/hotel-all-14.png`,
 ];
 
+// Single slide that only fades in once the browser has actually finished
+// loading + decoding the photo — prevents the "pop" when an unloaded
+// image becomes the active slide.
+function HeroSlide({ src, active, eager }) {
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef(null);
+  useEffect(() => {
+    setLoaded(false);
+    const el = imgRef.current;
+    if (el?.complete && el.naturalWidth > 0) setLoaded(true);
+  }, [src]);
+  return (
+    <div
+      className={`absolute inset-0 transition-opacity duration-[2500ms] ${
+        active && loaded ? "opacity-100" : "opacity-0"
+      }`}
+    >
+      <img
+        ref={imgRef}
+        src={src}
+        alt=""
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        fetchpriority={eager ? "high" : "auto"}
+        onLoad={() => setLoaded(true)}
+        className="w-full h-full object-cover animate-slow-zoom"
+      />
+    </div>
+  );
+}
+
 function Hero({ t, slides }) {
   const [current, setCurrent] = useState(0);
   useEffect(() => {
@@ -68,21 +99,17 @@ function Hero({ t, slides }) {
   }, [slides.length]);
 
   return (
-    <section id="home" className="relative h-screen min-h-[700px] w-full overflow-hidden grain">
+    <section
+      id="home"
+      className="relative h-screen min-h-[700px] w-full overflow-hidden grain bg-ink-950"
+    >
       {slides.map((src, i) => (
-        <div
+        <HeroSlide
           key={src}
-          className={`absolute inset-0 transition-opacity duration-[2500ms] ${
-            i === current ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          <img
-            src={src}
-            alt=""
-            className="w-full h-full object-cover animate-slow-zoom"
-            loading={i === 0 ? "eager" : "lazy"}
-          />
-        </div>
+          src={src}
+          active={i === current}
+          eager={i === 0}
+        />
       ))}
       <div className="absolute inset-0 gradient-overlay-dark pointer-events-none" />
       <div className="absolute inset-0 gradient-overlay-vignette pointer-events-none" />

@@ -1,16 +1,42 @@
+import { useEffect, useRef, useState } from "react";
+
 export default function PageHero({ image, eyebrow, title, subtitle }) {
+  // Fade the photo in once the browser has actually finished decoding it,
+  // not the moment the `src` is set. Avoids the brief "snap" when an
+  // already-loaded image appears, and the half-loaded flicker when a
+  // fresh one streams in.
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    setLoaded(false);
+    if (!image) return;
+    const el = imgRef.current;
+    // Image might already be cached & complete by the time React runs
+    // this effect — in that case onLoad won't fire, so check `complete`.
+    if (el?.complete && el.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [image]);
+
   return (
     <section
-      className="relative h-[60vh] min-h-[420px] w-full overflow-hidden grain"
+      className="relative h-[60vh] min-h-[420px] w-full overflow-hidden grain bg-ink-950"
       aria-labelledby="page-hero-title"
     >
-      <img
-        src={image}
-        alt=""
-        fetchpriority="high"
-        decoding="async"
-        className="absolute inset-0 w-full h-full object-cover animate-slow-zoom"
-      />
+      {image && (
+        <img
+          ref={imgRef}
+          src={image}
+          alt=""
+          fetchpriority="high"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          className={`absolute inset-0 w-full h-full object-cover animate-slow-zoom transition-opacity duration-[900ms] ease-out ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      )}
       <div className="absolute inset-0 gradient-overlay-dark" />
       <div className="absolute inset-0 gradient-overlay-vignette" />
       <div className="relative z-10 h-full flex flex-col justify-end max-w-7xl mx-auto px-6 lg:px-10 pb-16">

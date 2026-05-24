@@ -72,15 +72,6 @@ export default function Restaurant() {
               <Phone className="w-4 h-4" />
               {tp.reservations}
             </a>
-            <a
-              href={menuPdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn-ghost px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-            >
-              <Download className="w-4 h-4" />
-              {tp.downloadMenu}
-            </a>
           </div>
           <div className="divider-gold mt-12 w-32 mx-auto" />
         </div>
@@ -139,6 +130,27 @@ export default function Restaurant() {
           </div>
         </section>
       )}
+
+      {/* Menu PDF — moved to bottom so guests browse the gallery first. */}
+      <section className="py-24 bg-ink-900">
+        <div className="max-w-3xl mx-auto px-6 text-center reveal">
+          <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
+            {tp.eyebrow}
+          </span>
+          <h2 className="font-display text-3xl md:text-5xl text-cream-50 mt-5 mb-8 text-balance leading-tight">
+            {tp.title}
+          </h2>
+          <a
+            href={menuPdfUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+          >
+            <Download className="w-4 h-4" />
+            {tp.downloadMenu}
+          </a>
+        </div>
+      </section>
     </>
   );
 }

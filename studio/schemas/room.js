@@ -16,10 +16,20 @@ export const room = {
     { name: "name", title: "Name", type: "localeString" },
     {
       name: "image",
-      title: "Photo",
+      title: "Main photo",
+      description:
+        "The primary photo shown on the room card.",
       type: "image",
       options: { hotspot: true },
       validation: (Rule) => Rule.required(),
+    },
+    {
+      name: "extraImages",
+      title: "Additional photos (optional, becomes a gallery)",
+      description:
+        "Upload extra photos to turn the room card into a gallery with arrow navigation.",
+      type: "array",
+      of: [{ type: "image", options: { hotspot: true } }],
     },
     {
       name: "price",

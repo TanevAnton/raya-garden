@@ -50,7 +50,12 @@ function RoomGallery({ images, alt }) {
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded((m) => ({ ...m, 0: true }))}
-        className={`w-full h-full object-cover img-luxury group-hover:scale-105 transition-all duration-[1400ms] ${
+        style={{
+          transitionProperty: "opacity, transform",
+          transitionDuration: "900ms",
+          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+        className={`w-full h-full object-cover img-luxury group-hover:scale-105 ${
           loaded[0] ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -78,9 +83,17 @@ function RoomGallery({ images, alt }) {
           loading={i === 0 ? "eager" : "lazy"}
           decoding="async"
           onLoad={() => setLoaded((m) => ({ ...m, [i]: true }))}
-          className={`absolute inset-0 w-full h-full object-cover img-luxury transition-opacity duration-700 ${
+          // Custom timing function — same easeOutQuart curve as the hero
+          // animation, ~900 ms for a perceptibly smooth crossfade with
+          // no scale-on-hover interference between slides.
+          style={{
+            transitionProperty: "opacity",
+            transitionDuration: "900ms",
+            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
+          className={`absolute inset-0 w-full h-full object-cover img-luxury ${
             i === idx && loaded[i] ? "opacity-100" : "opacity-0"
-          } ${i === idx ? "group-hover:scale-105 duration-[1400ms]" : ""}`}
+          }`}
         />
       ))}
 

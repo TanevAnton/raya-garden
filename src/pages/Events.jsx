@@ -97,6 +97,7 @@ export default function Events() {
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}
+        ready={!pageLoading}
       />
 
       <section className="py-20 bg-ink-950">

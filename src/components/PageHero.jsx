@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function PageHero({ image, eyebrow, title, subtitle }) {
+export default function PageHero({
+  image,
+  eyebrow,
+  title,
+  subtitle,
+  ready = true,
+}) {
   // Fade the photo in once the browser has actually finished decoding it,
   // not the moment the `src` is set. Avoids the brief "snap" when an
   // already-loaded image appears, and the half-loaded flicker when a
@@ -40,7 +46,11 @@ export default function PageHero({ image, eyebrow, title, subtitle }) {
       <div className="absolute inset-0 gradient-overlay-dark" />
       <div className="absolute inset-0 gradient-overlay-vignette" />
       <div className="relative z-10 h-full flex flex-col justify-end max-w-7xl mx-auto px-6 lg:px-10 pb-16">
-        <div className="animate-fade-up">
+        <div
+          className={`animate-fade-up transition-opacity duration-700 ease-out ${
+            ready ? "opacity-100" : "opacity-0"
+          }`}
+        >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-px bg-gold-300" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">

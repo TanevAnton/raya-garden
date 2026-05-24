@@ -209,6 +209,7 @@ export default function Hotel() {
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}
+        ready={!pageLoading}
       />
 
       <section className="py-20 md:py-28 bg-ink-950">

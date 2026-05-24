@@ -69,6 +69,7 @@ export default function Winery() {
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}
+        ready={!pageLoading}
       />
 
       <section className="py-24 bg-ink-950">

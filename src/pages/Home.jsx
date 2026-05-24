@@ -90,7 +90,7 @@ function HeroSlide({ src, active, eager }) {
   );
 }
 
-function Hero({ t, slides }) {
+function Hero({ t, slides, ready }) {
   const [current, setCurrent] = useState(0);
   useEffect(() => {
     if (slides.length === 0) return;
@@ -115,7 +115,11 @@ function Hero({ t, slides }) {
       <div className="absolute inset-0 gradient-overlay-vignette pointer-events-none" />
 
       <div className="relative z-10 h-full flex flex-col justify-center max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="max-w-3xl animate-fade-up">
+        <div
+          className={`max-w-3xl animate-fade-up transition-opacity duration-700 ease-out ${
+            ready ? "opacity-100" : "opacity-0"
+          }`}
+        >
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-px bg-gold-300" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
@@ -547,7 +551,7 @@ export default function Home() {
 
   return (
     <>
-      <Hero t={tCMS} slides={heroSlides} />
+      <Hero t={tCMS} slides={heroSlides} ready={!pageLoading} />
       <Welcome t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {

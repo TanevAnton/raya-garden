@@ -552,6 +552,11 @@ export default function Home() {
   return (
     <>
       <Hero t={tCMS} slides={heroSlides} ready={!pageLoading} />
+      <div
+        className={`transition-opacity duration-700 ease-out ${
+          pageLoading ? "opacity-0" : "opacity-100"
+        }`}
+      >
       <Welcome t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {
@@ -587,6 +592,7 @@ export default function Home() {
       })}
       <Experience t={tCMS} items={experienceItems} />
       <CtaBanner t={tCMS} />
+      </div>
     </>
   );
 }

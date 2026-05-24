@@ -60,6 +60,14 @@ export default function Restaurant() {
         ready={!pageLoading}
       />
 
+      {/* Wrap everything below the hero in a single fade so the intro,
+          gallery and menu band ease in together once Sanity returns —
+          instead of popping in as items arrive piecemeal. */}
+      <div
+        className={`transition-opacity duration-700 ease-out ${
+          pageLoading ? "opacity-0" : "opacity-100"
+        }`}
+      >
       <section className="py-20 bg-ink-950">
         <div className="max-w-5xl mx-auto px-6 lg:px-10 text-center reveal">
           <p className="text-lg text-cream-100/85 leading-relaxed font-light mb-8">
@@ -152,6 +160,7 @@ export default function Restaurant() {
           </a>
         </div>
       </section>
+      </div>
     </>
   );
 }

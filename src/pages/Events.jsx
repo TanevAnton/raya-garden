@@ -99,6 +99,11 @@ export default function Events() {
         subtitle={hero.subtitle}
         ready={!pageLoading}
       />
+      <div
+        className={`transition-opacity duration-700 ease-out ${
+          pageLoading ? "opacity-0" : "opacity-100"
+        }`}
+      >
 
       <section className="py-20 bg-ink-950">
         <div className="max-w-4xl mx-auto px-6 lg:px-10 text-center reveal">
@@ -150,6 +155,7 @@ export default function Events() {
           </a>
         </div>
       </section>
+      </div>
     </>
   );
 }

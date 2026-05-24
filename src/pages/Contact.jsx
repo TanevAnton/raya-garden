@@ -159,6 +159,11 @@ export default function Contact() {
         subtitle={hero.subtitle}
         ready={!pageLoading}
       />
+      <div
+        className={`transition-opacity duration-700 ease-out ${
+          pageLoading ? "opacity-0" : "opacity-100"
+        }`}
+      >
 
       <section className="py-24 bg-ink-950">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-12 gap-10 lg:gap-16">
@@ -389,6 +394,7 @@ export default function Contact() {
           </div>
         </div>
       </section>
+      </div>
     </>
   );
 }

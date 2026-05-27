@@ -41,7 +41,7 @@ import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const HOME_QUERY = `*[_type == "pageContent" && page == "home"][0]{
-  eyebrow, title, titleAccent, subtitle, heroImage, heroSlideshow,
+  eyebrow, title, titleAccent, subtitle, intro, heroImage, heroSlideshow,
   blocks[]{key, body},
   experiences[]{icon, title, text},
   sectionCards[]{linkTo, image, tag, title, text, cta}

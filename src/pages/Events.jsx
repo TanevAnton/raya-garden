@@ -8,7 +8,8 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   eyebrow, title, subtitle, intro, heroImage,
-  blocks[]{key, title, body}
+  blocks[]{key, title, body},
+  gallery[]{ image, title, text }
 }`;
 
 const BROCHURES_QUERY = `*[_type == "siteSettings"][0]{
@@ -82,6 +83,12 @@ export default function Events() {
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
   const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
 
+  const gallery = (pageData?.gallery || []).map((item) => ({
+    image: item.image ? urlFor(item.image).width(1400).quality(82).url() : "",
+    title: pickLocale(item.title, lang),
+    text: pickLocale(item.text, lang),
+  }));
+
   useSeo({
     title: hero.title,
     description: hero.subtitle,
@@ -134,6 +141,59 @@ export default function Events() {
           />
         </div>
       </section>
+
+      {gallery.length > 0 && (
+        <section className="bg-ink-950 pb-24">
+          <div className="max-w-7xl mx-auto px-6 lg:px-10 space-y-20">
+            {gallery.map((item, i) => {
+              const reversed = i % 2 === 1;
+              return (
+                <article
+                  key={i}
+                  className="reveal grid md:grid-cols-12 gap-8 lg:gap-16 items-center"
+                >
+                  <div
+                    className={`md:col-span-7 relative aspect-[4/3] overflow-hidden group ${
+                      reversed ? "md:order-2" : ""
+                    }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title || ""}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
+                    />
+                    <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
+                    <div className="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300/60 pointer-events-none" />
+                    <div className="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/30 pointer-events-none" />
+                  </div>
+                  <div
+                    className={`md:col-span-5 ${reversed ? "md:order-1" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 text-xs tracking-[0.3em] uppercase text-gold-300/80 mb-5">
+                      <span className="font-mono text-gold-300/60">
+                        0{i + 1}
+                      </span>
+                      <div className="w-8 h-px bg-gold-300/40" />
+                    </div>
+                    {item.title && (
+                      <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-cream-50 mb-5 leading-tight text-balance">
+                        {item.title}
+                      </h2>
+                    )}
+                    {item.text && (
+                      <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed font-light">
+                        {item.text}
+                      </p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="py-24 bg-ink-900">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">

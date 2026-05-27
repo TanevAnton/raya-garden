@@ -32,7 +32,7 @@ export const translations = {
         "Хотелът разполага с 5 апартамента и 45 двойни стаи — с панорамна гледка към Велико Търново или към тихата зеленина на парк Света гора. Очакваме Ви целогодишно — за уикенд почивка, спа преживяване, романтика, бизнес среща или сватба.",
       stat1: { num: "5", label: "Апартамента" },
       stat2: { num: "45", label: "Двойни стаи" },
-      stat3: { num: "270", label: "Места в ресторанта" },
+      stat3: { num: "270", label: "Места в ресторанта и лятната градина" },
       stat4: { num: "24/7", label: "Рецепция" },
     },
     sections: {
@@ -294,7 +294,7 @@ export const translations = {
         "We offer 5 suites and 45 double rooms — with panoramic views of historic Veliko Tarnovo or the green stillness of Sveta Gora park. Open all year, for weekend getaways, spa breaks, romance, business and weddings.",
       stat1: { num: "5", label: "Suites" },
       stat2: { num: "45", label: "Double Rooms" },
-      stat3: { num: "270", label: "Restaurant Seats" },
+      stat3: { num: "270", label: "Restaurant & summer garden seats" },
       stat4: { num: "24/7", label: "Reception" },
     },
     sections: {
@@ -553,7 +553,7 @@ export const translations = {
         "Oferim 5 apartamente și 45 de camere duble — cu vedere panoramică spre vechea capitală Veliko Tarnovo sau spre liniștea verde a parcului Sveta Gora. Deschis tot anul, pentru escapade de weekend, sejururi spa, romantism, business și nunți.",
       stat1: { num: "5", label: "Apartamente" },
       stat2: { num: "45", label: "Camere duble" },
-      stat3: { num: "270", label: "Locuri restaurant" },
+      stat3: { num: "270", label: "Locuri în restaurant și grădina de vară" },
       stat4: { num: "24/7", label: "Recepție" },
     },
     sections: {

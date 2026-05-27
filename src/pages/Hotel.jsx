@@ -270,7 +270,7 @@ export default function Hotel() {
 
                   <div className="text-sm text-cream-100/60 mb-3">{tp.amenities}</div>
                   <ul className="space-y-2 mb-8">
-                    {r.amenities.slice(0, 5).map((a, ai) => (
+                    {r.amenities.map((a, ai) => (
                       <li key={ai} className="flex items-start gap-2 text-sm text-cream-100/80">
                         <Check className="w-3.5 h-3.5 text-gold-300 flex-shrink-0 mt-1" />
                         <span>{a}</span>

@@ -204,10 +204,19 @@ export const pageContent = {
           fields: [
             {
               name: "image",
-              title: "Photo",
+              title: "Main photo",
+              description: "The photo shown by default. Required.",
               type: "image",
               options: { hotspot: true },
               validation: (Rule) => Rule.required(),
+            },
+            {
+              name: "extraImages",
+              title: "Additional photos (optional, becomes a gallery)",
+              description:
+                "Upload extra photos to turn this gallery card into a carousel with arrow navigation and dot indicators.",
+              type: "array",
+              of: [{ type: "image", options: { hotspot: true } }],
             },
             { name: "title", title: "Title", type: "localeString" },
             { name: "text", title: "Caption / description", type: "localeText" },

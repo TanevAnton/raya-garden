@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import { Heart, Briefcase, Phone, ExternalLink } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
+import MediaGallery from "../components/MediaGallery.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
@@ -9,7 +10,7 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   eyebrow, title, subtitle, intro, heroImage,
   blocks[]{key, title, body},
-  gallery[]{ image, title, text }
+  gallery[]{ image, extraImages, title, text }
 }`;
 
 const BROCHURES_QUERY = `*[_type == "siteSettings"][0]{
@@ -83,11 +84,17 @@ export default function Events() {
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
   const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
 
-  const gallery = (pageData?.gallery || []).map((item) => ({
-    image: item.image ? urlFor(item.image).width(1400).quality(82).url() : "",
-    title: pickLocale(item.title, lang),
-    text: pickLocale(item.text, lang),
-  }));
+  const gallery = (pageData?.gallery || []).map((item) => {
+    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const extras = (item.extraImages || [])
+      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .filter(Boolean);
+    return {
+      images: main ? [main, ...extras] : extras,
+      title: pickLocale(item.title, lang),
+      text: pickLocale(item.text, lang),
+    };
+  });
 
   useSeo({
     title: hero.title,
@@ -157,13 +164,7 @@ export default function Events() {
                       reversed ? "md:order-2" : ""
                     }`}
                   >
-                    <img
-                      src={item.image}
-                      alt={item.title || ""}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
-                    />
+                    <MediaGallery images={item.images} alt={item.title || ""} />
                     <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
                     <div className="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300/60 pointer-events-none" />
                     <div className="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/30 pointer-events-none" />

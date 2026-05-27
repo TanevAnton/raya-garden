@@ -1,14 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import {
-  Users,
-  Ruler,
-  Check,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Users, Ruler, Check, ArrowRight } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
+import MediaGallery from "../components/MediaGallery.jsx";
 import { rooms as fallbackRooms, IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
@@ -19,117 +12,6 @@ const ROOMS_QUERY = `*[_type == "room"] | order(order asc) {
   "slug": slug.current,
   name, image, extraImages, price, size, sleeps, sleepsLabel, view, amenities
 }`;
-
-// Single photo → static img.
-// Multiple → photo + prev/next arrows + dot indicators. Keyboard arrows
-// scroll through too when the gallery has focus.
-function RoomGallery({ images, alt }) {
-  const [idx, setIdx] = useState(0);
-  const [loaded, setLoaded] = useState({});
-  const safeImages = images?.length ? images : [""];
-  const count = safeImages.length;
-
-  const go = (delta) =>
-    setIdx((c) => (c + delta + count) % count);
-
-  // Keep the visible slide's "loaded" state in sync if the user comes
-  // back to an image they've already seen (img.complete is true).
-  const imgRef = useRef(null);
-  useEffect(() => {
-    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
-      setLoaded((m) => ({ ...m, [idx]: true }));
-    }
-  }, [idx]);
-
-  if (count === 1) {
-    return (
-      <img
-        ref={imgRef}
-        src={safeImages[0]}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        onLoad={() => setLoaded((m) => ({ ...m, 0: true }))}
-        style={{
-          transitionProperty: "opacity, transform",
-          transitionDuration: "900ms",
-          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
-        className={`w-full h-full object-cover img-luxury group-hover:scale-105 ${
-          loaded[0] ? "opacity-100" : "opacity-0"
-        }`}
-      />
-    );
-  }
-
-  return (
-    <div
-      className="w-full h-full relative"
-      role="region"
-      aria-roledescription="carousel"
-      aria-label={`${alt} — gallery`}
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "ArrowLeft") go(-1);
-        if (e.key === "ArrowRight") go(1);
-      }}
-    >
-      {safeImages.map((src, i) => (
-        <img
-          key={i}
-          ref={i === idx ? imgRef : null}
-          src={src}
-          alt={`${alt} — ${i + 1}/${count}`}
-          loading={i === 0 ? "eager" : "lazy"}
-          decoding="async"
-          onLoad={() => setLoaded((m) => ({ ...m, [i]: true }))}
-          // Custom timing function — same easeOutQuart curve as the hero
-          // animation, ~900 ms for a perceptibly smooth crossfade with
-          // no scale-on-hover interference between slides.
-          style={{
-            transitionProperty: "opacity",
-            transitionDuration: "900ms",
-            transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-          className={`absolute inset-0 w-full h-full object-cover img-luxury ${
-            i === idx && loaded[i] ? "opacity-100" : "opacity-0"
-          }`}
-        />
-      ))}
-
-      <button
-        type="button"
-        onClick={() => go(-1)}
-        aria-label="Previous photo"
-        className="absolute top-1/2 left-3 -translate-y-1/2 w-10 h-10 rounded-full bg-ink-950/60 border border-gold-300/40 text-gold-200 hover:bg-ink-950/85 hover:border-gold-300 transition-all flex items-center justify-center z-10"
-      >
-        <ChevronLeft className="w-5 h-5" />
-      </button>
-      <button
-        type="button"
-        onClick={() => go(1)}
-        aria-label="Next photo"
-        className="absolute top-1/2 right-3 -translate-y-1/2 w-10 h-10 rounded-full bg-ink-950/60 border border-gold-300/40 text-gold-200 hover:bg-ink-950/85 hover:border-gold-300 transition-all flex items-center justify-center z-10"
-      >
-        <ChevronRight className="w-5 h-5" />
-      </button>
-
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {safeImages.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setIdx(i)}
-            aria-label={`Go to photo ${i + 1}`}
-            className={`h-px transition-all duration-500 ${
-              i === idx ? "w-10 bg-gold-300" : "w-5 bg-cream-100/40"
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 const PAGE_QUERY = `*[_type == "pageContent" && page == "hotel"][0]{
   eyebrow, title, subtitle, intro, heroImage, includedAmenities
 }`;
@@ -238,7 +120,7 @@ export default function Hotel() {
                   i % 2 ? "md:order-2" : ""
                 }`}
               >
-                <RoomGallery images={r.images} alt={r.name} />
+                <MediaGallery images={r.images} alt={r.name} />
               </div>
 
               <div className={`md:col-span-5 p-8 md:p-12 flex flex-col justify-between ${i % 2 ? "md:order-1" : ""}`}>

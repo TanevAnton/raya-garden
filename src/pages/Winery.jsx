@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import { Wine, ArrowRight, ExternalLink } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
+import MediaGallery from "../components/MediaGallery.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
@@ -9,7 +10,7 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 const PAGE_QUERY = `*[_type == "pageContent" && page == "winery"][0]{
   eyebrow, title, subtitle, heroImage, extraImages,
   blocks[]{key, title, body},
-  gallery[]{ image, title, text }
+  gallery[]{ image, "galleryExtras": extraImages, title, text }
 }`;
 const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
 const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
@@ -48,11 +49,17 @@ export default function Winery() {
   const story2 = pickLocale(findBlock(pageData?.blocks, "story2")?.body, lang) || tp.story2;
   const visitText = pickLocale(findBlock(pageData?.blocks, "visitText")?.body, lang) || tp.visitText;
 
-  const gallery = (pageData?.gallery || []).map((item) => ({
-    image: item.image ? urlFor(item.image).width(1400).quality(82).url() : "",
-    title: pickLocale(item.title, lang),
-    text: pickLocale(item.text, lang),
-  }));
+  const gallery = (pageData?.gallery || []).map((item) => {
+    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const extras = (item.galleryExtras || [])
+      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .filter(Boolean);
+    return {
+      images: main ? [main, ...extras] : extras,
+      title: pickLocale(item.title, lang),
+      text: pickLocale(item.text, lang),
+    };
+  });
 
   useSeo({
     title: hero.title,
@@ -123,13 +130,7 @@ export default function Winery() {
                       reversed ? "md:order-2" : ""
                     }`}
                   >
-                    <img
-                      src={item.image}
-                      alt={item.title || ""}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
-                    />
+                    <MediaGallery images={item.images} alt={item.title || ""} />
                     <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
                     <div className="absolute -bottom-1 -right-1 w-20 h-20 border-r-2 border-b-2 border-gold-300/60 pointer-events-none" />
                     <div className="absolute -top-1 -left-1 w-20 h-20 border-l-2 border-t-2 border-gold-300/30 pointer-events-none" />

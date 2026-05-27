@@ -8,6 +8,7 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "park"][0]{
   eyebrow, title, subtitle, heroImage, extraImages,
+  parkSectionImage, citySectionImage,
   blocks[]{key, title, body}
 }`;
 const ATTRACTIONS_QUERY = `*[_type == "attraction"] | order(order asc) { name, note }`;
@@ -23,8 +24,12 @@ export default function Park() {
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: attractionsData } = useSanityQuery(ATTRACTIONS_QUERY);
 
-  // Images gated on pageLoading so bundled hotel-all-*.png don't flash
-  // before Sanity responds. Text falls back to translations.
+  // Each photo is editable independently in Studio:
+  // - heroImage             → top hero banner
+  // - parkSectionImage      → the "Парк Света гора" body block
+  // - citySectionImage      → the "Велико Търново" body block
+  // For backwards compatibility the body sections still fall back to
+  // extraImages[0] / heroImage if the new dedicated fields are empty.
   const hero = {
     eyebrow: pickLocale(pageData?.eyebrow, lang) || tp.eyebrow,
     title: pickLocale(pageData?.title, lang) || tp.title,
@@ -36,11 +41,15 @@ export default function Park() {
       : `${IMG}/hotel-all-17.png`,
     parkImage: pageLoading
       ? ""
+      : pageData?.parkSectionImage
+      ? urlFor(pageData.parkSectionImage).width(1200).quality(80).url()
       : pageData?.heroImage
       ? urlFor(pageData.heroImage).width(1200).quality(80).url()
       : `${IMG}/hotel-all-17.png`,
     cityImage: pageLoading
       ? ""
+      : pageData?.citySectionImage
+      ? urlFor(pageData.citySectionImage).width(1200).quality(80).url()
       : pageData?.extraImages?.[0]
       ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
       : `${IMG}/hotel-all-15.png`,

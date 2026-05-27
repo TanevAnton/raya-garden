@@ -49,9 +49,27 @@ export const pageContent = {
     {
       name: "extraImages",
       title: "Additional photos",
-      description: "Used by pages that show a gallery / split image (Winery, Park, etc.)",
+      description: "Used by pages that show a gallery / split image (Winery, etc.)",
       type: "array",
       of: [{ type: "image", options: { hotspot: true } }],
+    },
+    {
+      name: "parkSectionImage",
+      title: "Park section photo (Park & Town page only)",
+      description:
+        "The photo above the \"Парк Света гора\" body block. Independent from the hero photo.",
+      type: "image",
+      options: { hotspot: true },
+      hidden: ({ document }) => document?.page !== "park",
+    },
+    {
+      name: "citySectionImage",
+      title: "City section photo (Park & Town page only)",
+      description:
+        "The photo above the \"Велико Търново\" body block.",
+      type: "image",
+      options: { hotspot: true },
+      hidden: ({ document }) => document?.page !== "park",
     },
     {
       name: "includedAmenities",

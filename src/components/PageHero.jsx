@@ -43,21 +43,22 @@ export default function PageHero({
           }`}
         />
       )}
-      {/* Softer overlay than the global gradient-overlay-dark — keeps the
-          top half mostly clear so the photo shows, while still darkening
-          enough at the bottom for the text to stay legible. */}
+      {/* Smooth top-to-bottom darken — no flat plateau, the alpha steps
+          roughly follow an ease-in curve so the transition reads as a
+          gentle wash rather than a visible band. Bottom still ends at
+          0.85 for text legibility against busy photos. */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(180deg, rgba(10,9,8,0) 0%, rgba(10,9,8,0) 35%, rgba(10,9,8,0.35) 65%, rgba(10,9,8,0.85) 100%)",
+            "linear-gradient(180deg, rgba(10,9,8,0) 0%, rgba(10,9,8,0.05) 25%, rgba(10,9,8,0.18) 50%, rgba(10,9,8,0.45) 75%, rgba(10,9,8,0.72) 90%, rgba(10,9,8,0.85) 100%)",
         }}
       />
       <div
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(10,9,8,0) 55%, rgba(10,9,8,0.35) 100%)",
+            "radial-gradient(ellipse at center, rgba(10,9,8,0) 40%, rgba(10,9,8,0.12) 70%, rgba(10,9,8,0.35) 100%)",
         }}
       />
       <div className="relative z-10 h-full flex flex-col justify-end max-w-7xl mx-auto px-6 lg:px-10 pb-16">

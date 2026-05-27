@@ -51,7 +51,10 @@ export default function PageHero({
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(180deg, rgba(10,9,8,0) 0%, rgba(10,9,8,0.05) 25%, rgba(10,9,8,0.18) 50%, rgba(10,9,8,0.45) 75%, rgba(10,9,8,0.72) 90%, rgba(10,9,8,0.85) 100%)",
+            // Walks all the way to opacity 1 at the very bottom — same colour
+            // as bg-ink-950 below — so the hero dissolves into the next
+            // section instead of butting against it with a visible edge.
+            "linear-gradient(180deg, rgba(10,9,8,0) 0%, rgba(10,9,8,0.04) 28%, rgba(10,9,8,0.14) 52%, rgba(10,9,8,0.38) 72%, rgba(10,9,8,0.68) 86%, rgba(10,9,8,0.9) 95%, rgba(10,9,8,1) 100%)",
         }}
       />
       <div

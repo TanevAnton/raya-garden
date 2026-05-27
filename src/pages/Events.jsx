@@ -128,27 +128,6 @@ export default function Events() {
         </div>
       </section>
 
-      <section className="pb-24 bg-ink-950">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-2 gap-6">
-          <EventCard
-            Icon={Heart}
-            heading={tp.weddings}
-            description={tp.weddingsDescription}
-            phone={brochures?.phone}
-            pdfUrl={brochures?.weddingsPdf}
-            t={t}
-          />
-          <EventCard
-            Icon={Briefcase}
-            heading={tp.corporate}
-            description={tp.corporateDescription}
-            phone={brochures?.phone}
-            pdfUrl={brochures?.corporatePdf}
-            t={t}
-          />
-        </div>
-      </section>
-
       {gallery.length > 0 && (
         <section className="bg-ink-950 pb-24">
           <div className="max-w-7xl mx-auto px-6 lg:px-10 space-y-20">
@@ -195,6 +174,27 @@ export default function Events() {
           </div>
         </section>
       )}
+
+      <section className="pb-24 bg-ink-950">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-2 gap-6">
+          <EventCard
+            Icon={Heart}
+            heading={tp.weddings}
+            description={tp.weddingsDescription}
+            phone={brochures?.phone}
+            pdfUrl={brochures?.weddingsPdf}
+            t={t}
+          />
+          <EventCard
+            Icon={Briefcase}
+            heading={tp.corporate}
+            description={tp.corporateDescription}
+            phone={brochures?.phone}
+            pdfUrl={brochures?.corporatePdf}
+            t={t}
+          />
+        </div>
+      </section>
 
       <section className="py-24 bg-ink-900">
         <div className="max-w-3xl mx-auto px-6 text-center reveal">

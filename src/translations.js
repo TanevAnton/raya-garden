@@ -25,7 +25,7 @@ export const translations = {
     },
     welcome: {
       eyebrow: "Добре дошли",
-      title: "Хотел, ресторант и градина — на един дъх от града",
+      title: "Хотел, ресторант и градина",
       lead:
         "Закътан сред тихата природа на хълм „Света гора“, Парк Хотел RAYA Garden е райско кътче насред гората. Сградата работи с геотермална енергия — природосъобразно решение с минимални въглеродни емисии.",
       body:
@@ -287,7 +287,7 @@ export const translations = {
     },
     welcome: {
       eyebrow: "Welcome",
-      title: "Hotel, restaurant and garden — a breath away from the city",
+      title: "Hotel, restaurant and garden",
       lead:
         "Tucked in the calm nature of Sveta Gora hill, Park Hotel RAYA Garden is a small paradise in the forest. The building runs on geothermal energy — an eco-friendly choice with minimal carbon emissions.",
       body:
@@ -546,7 +546,7 @@ export const translations = {
     },
     welcome: {
       eyebrow: "Bun venit",
-      title: "Hotel, restaurant și grădină — la o respirație de oraș",
+      title: "Hotel, restaurant și grădină",
       lead:
         "Ascuns în natura liniștită a dealului Sveta Gora, Park Hotel RAYA Garden este un mic paradis în pădure. Clădirea funcționează cu energie geotermală — o alegere ecologică, cu emisii minime de carbon.",
       body:

@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 
 const SITE_NAME = "Park Hotel RAYA Garden";
+// Location appended to the browser title, in the script that matches the
+// active language (Cyrillic for BG, Latin for EN/RO).
+const LOCATION = { bg: "Велико Търново", en: "Veliko Tarnovo", ro: "Veliko Tarnovo" };
 const DEFAULT_IMAGE =
   "https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-1.png";
 
@@ -30,7 +33,8 @@ function setLink(rel, href) {
 
 export function useSeo({ title, description, image, path, lang }) {
   useEffect(() => {
-    const fullTitle = title ? `${title} · ${SITE_NAME}` : SITE_NAME;
+    const brand = `${SITE_NAME} · ${LOCATION[lang] || LOCATION.bg}`;
+    const fullTitle = title ? `${title} · ${brand}` : brand;
     document.title = fullTitle;
 
     setMeta('meta[name="description"]', "content", description);

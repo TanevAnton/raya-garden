@@ -536,7 +536,7 @@ function RoomsTeaser({ t, lang }) {
         <div className="text-center mt-12 reveal">
           <Link
             to="/hotel"
-            className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
+            className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
           >
             {t.sections.hotel.cta}
             <ArrowRight className="w-4 h-4" />

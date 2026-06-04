@@ -53,6 +53,14 @@ const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
 const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
 const PHONE_QUERY = `*[_type == "siteSettings"][0].phone`;
 const FALLBACK_PHONE = "+359 879 107 500";
+// Home teasers pull live data from the same docs the subpages use, so the
+// cards always mirror what's on /hotel and /events.
+const ROOMS_TEASER_QUERY = `*[_type == "room"] | order(order asc)[0...3]{
+  _id, "slug": slug.current, name, image, price, view
+}`;
+const EVENTS_TEASER_QUERY = `*[_type == "pageContent" && page == "events"][0]{
+  intro, gallery[]{ image, title, text }
+}`;
 
 const heroImages = [
   `${IMG}/hotel-all-1.png`,
@@ -460,6 +468,164 @@ function Offers({ t, lang, offers }) {
   );
 }
 
+// Rooms teaser — mirrors /hotel. Pulls the first 3 rooms (name, view,
+// price, photo) straight from the room documents so it stays in sync.
+function RoomsTeaser({ t, lang }) {
+  const { data } = useSanityQuery(ROOMS_TEASER_QUERY);
+  const tp = t.pages.hotel;
+  const rooms = (data || []).map((r) => ({
+    id: r.slug || r._id,
+    name: pickLocale(r.name, lang),
+    view: pickLocale(r.view, lang),
+    price: r.price,
+    image: r.image ? urlFor(r.image).width(1000).quality(82).url() : "",
+  }));
+  if (rooms.length === 0) return null;
+
+  return (
+    <section className="relative py-24 md:py-32 bg-ink-950">
+      <div className="max-w-7xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-16 reveal">
+          <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
+            {tp.eyebrow}
+          </span>
+          <h2 className="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-6 text-balance">
+            {tp.title}
+          </h2>
+          <div className="divider-gold mt-10 w-32 mx-auto" />
+        </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 reveal">
+          {rooms.map((r) => (
+            <Link
+              key={r.id}
+              to="/hotel"
+              className="group bg-ink-900 border border-gold-300/10 hover:border-gold-300/30 transition-colors duration-700 overflow-hidden flex flex-col"
+            >
+              {r.image && (
+                <div className="aspect-[4/3] overflow-hidden">
+                  <img
+                    src={r.image}
+                    alt={r.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover img-luxury group-hover:scale-105 transition-transform duration-[1200ms]"
+                  />
+                </div>
+              )}
+              <div className="p-7 flex flex-col flex-1">
+                <h3 className="font-display text-2xl text-cream-50 mb-2 leading-tight">
+                  {r.name}
+                </h3>
+                {r.view && (
+                  <p className="text-sm text-cream-100/60 mb-5">{r.view}</p>
+                )}
+                <div className="mt-auto flex items-end justify-between pt-5 border-t border-gold-300/10">
+                  <div>
+                    <div className="text-[11px] tracking-[0.3em] uppercase text-gold-300/70">
+                      {tp.from}
+                    </div>
+                    <div className="font-display text-3xl gradient-gold leading-none mt-1">
+                      {r.price} €
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-2 text-xs tracking-[0.3em] uppercase text-gold-300 group-hover:gap-3 transition-all duration-500">
+                    {tp.book}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+        <div className="text-center mt-12 reveal">
+          <Link
+            to="/hotel"
+            className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
+          >
+            {t.sections.hotel.cta}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// Events teaser — mirrors /events. Pulls the intro + the first two gallery
+// items (weddings / corporate) from the events page document.
+function EventsTeaser({ t, lang }) {
+  const { data } = useSanityQuery(EVENTS_TEASER_QUERY);
+  const tp = t.pages.events;
+  const intro = pickLocale(data?.intro, lang) || tp.intro;
+  const cards = (data?.gallery || []).slice(0, 2).map((g) => ({
+    image: g.image ? urlFor(g.image).width(1200).quality(82).url() : "",
+    title: pickLocale(g.title, lang),
+    text: pickLocale(g.text, lang),
+  }));
+
+  return (
+    <section className="relative py-24 md:py-32 bg-ink-900">
+      <div className="max-w-7xl mx-auto px-6 lg:px-10">
+        <div className="text-center mb-16 reveal max-w-3xl mx-auto">
+          <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
+            {tp.eyebrow}
+          </span>
+          <h2 className="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.05] text-cream-50 mt-6 text-balance">
+            {tp.title}
+          </h2>
+          <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed mt-6 font-light">
+            {intro}
+          </p>
+          <div className="divider-gold mt-10 w-32 mx-auto" />
+        </div>
+        {cards.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-6 reveal">
+            {cards.map((c, i) => (
+              <article
+                key={i}
+                className="group bg-ink-950 border border-gold-300/10 hover:border-gold-300/30 transition-colors duration-700 overflow-hidden flex flex-col"
+              >
+                {c.image && (
+                  <div className="aspect-[16/10] overflow-hidden">
+                    <img
+                      src={c.image}
+                      alt={c.title || ""}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover img-luxury group-hover:scale-105 transition-transform duration-[1200ms]"
+                    />
+                  </div>
+                )}
+                <div className="p-7 flex flex-col flex-1">
+                  {c.title && (
+                    <h3 className="font-display text-2xl text-cream-50 mb-3 leading-tight">
+                      {c.title}
+                    </h3>
+                  )}
+                  {c.text && (
+                    <p className="text-sm text-cream-100/70 leading-relaxed">
+                      {c.text}
+                    </p>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        <div className="text-center mt-12 reveal">
+          <Link
+            to="/events"
+            className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
+          >
+            {t.footer.explore}
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Home() {
   const { lang, t } = useOutletContext();
   const { data: pageData, loading: pageLoading } = useSanityQuery(HOME_QUERY);
@@ -573,7 +739,10 @@ export default function Home() {
         }`}
       >
       <Welcome t={tCMS} />
+      <RoomsTeaser t={tCMS} lang={lang} />
       <Experience t={tCMS} items={experienceItems} />
+      <EventsTeaser t={tCMS} lang={lang} />
+      <CtaBanner t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {
         // Secondary link logic stays in code, keyed off the link target —
@@ -606,7 +775,6 @@ export default function Home() {
           />
         );
       })}
-      <CtaBanner t={tCMS} />
       </div>
     </>
   );

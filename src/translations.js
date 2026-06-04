@@ -246,6 +246,13 @@ export const translations = {
         consulting: "Безплатна консултация за вашето събитие",
         consultingText: "Свържете се с нашия екип за персонализирана оферта. Гледаме всеки детайл — от менюто и декорацията до програмата и настаняването.",
       },
+      reservations: {
+        eyebrow: "Резервации",
+        title: "Резервирайте онлайн",
+        subtitle:
+          "Проверете наличност и резервирайте директно — сигурно и без комисиона.",
+        openNewTab: "Отвори в нов раздел",
+      },
       contact: {
         eyebrow: "Контакти",
         title: "Свържете се с нас",
@@ -504,6 +511,13 @@ export const translations = {
         priceFrom: "from",
         consulting: "Free consultation for your event",
         consultingText: "Get in touch for a tailored offer. We watch every detail — from menu and decoration to program and accommodation.",
+      },
+      reservations: {
+        eyebrow: "Reservations",
+        title: "Book online",
+        subtitle:
+          "Check availability and book directly — secure and commission-free.",
+        openNewTab: "Open in a new tab",
       },
       contact: {
         eyebrow: "Contact",
@@ -778,6 +792,13 @@ export const translations = {
         consulting: "Consultanță gratuită pentru evenimentul dvs.",
         consultingText:
           "Contactați-ne pentru o ofertă personalizată. Avem grijă de fiecare detaliu — de la meniu și decor, până la program și cazare.",
+      },
+      reservations: {
+        eyebrow: "Rezervări",
+        title: "Rezervă online",
+        subtitle:
+          "Verificați disponibilitatea și rezervați direct — sigur și fără comision.",
+        openNewTab: "Deschide într-o filă nouă",
       },
       contact: {
         eyebrow: "Contact",

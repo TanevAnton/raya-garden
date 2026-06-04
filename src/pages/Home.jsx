@@ -145,15 +145,13 @@ function Hero({ t, slides, ready, phone }) {
             {t.hero.subtitle}
           </p>
           <div className="flex flex-wrap gap-4">
-            <a
-              href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              to="/book"
               className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
             >
               {t.hero.cta1}
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </Link>
             <a
               href={`tel:${(phone || FALLBACK_PHONE).replace(/\s/g, "")}`}
               className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
@@ -385,15 +383,13 @@ function CtaBanner({ t }) {
           {t.cta.text}
         </p>
         <div className="flex flex-wrap justify-center gap-4">
-          <a
-            href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
-            target="_blank"
-            rel="noreferrer"
+          <Link
+            to="/book"
             className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
           >
             {t.cta.btn1}
             <Calendar className="w-4 h-4" />
-          </a>
+          </Link>
           <a
             href="tel:+359879107500"
             className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"

@@ -127,15 +127,13 @@ export default function Nav({ lang, setLang, t }) {
             ))}
           </div>
 
-          <a
-            href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
-            target="_blank"
-            rel="noreferrer"
+          <Link
+            to="/book"
             className="hidden md:inline-flex items-center gap-2 btn-gold px-5 py-2.5 text-xs tracking-[0.2em] uppercase font-medium rounded-sm"
           >
             {t.nav.book}
             <ArrowRight className="w-3.5 h-3.5" />
-          </a>
+          </Link>
 
           <button
             type="button"
@@ -180,14 +178,12 @@ export default function Nav({ lang, setLang, t }) {
                 </button>
               ))}
             </div>
-            <a
-              href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              to="/book"
               className="btn-gold px-5 py-3 text-xs tracking-[0.2em] uppercase text-center rounded-sm mt-2"
             >
               {t.nav.book}
-            </a>
+            </Link>
           </nav>
         </div>
       </div>

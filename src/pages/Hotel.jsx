@@ -1,4 +1,4 @@
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import { Users, Ruler, Check, ArrowRight } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
@@ -174,15 +174,13 @@ export default function Hotel() {
                       ≈ {(r.price * 1.95583).toFixed(2)} {lang === "bg" ? "лв" : "BGN"}
                     </div>
                   </div>
-                  <a
-                    href="https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003"
-                    target="_blank"
-                    rel="noreferrer"
+                  <Link
+                    to="/book"
                     className="btn-gold px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2"
                   >
                     {tp.book}
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </a>
+                  </Link>
                 </div>
               </div>
             </article>

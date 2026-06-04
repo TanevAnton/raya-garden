@@ -8,6 +8,7 @@ import Winery from "./pages/Winery.jsx";
 import Park from "./pages/Park.jsx";
 import Events from "./pages/Events.jsx";
 import Contact from "./pages/Contact.jsx";
+import Reservations from "./pages/Reservations.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import { translations } from "./translations.js";
 
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="winery" element={<Winery />} />
           <Route path="park" element={<Park />} />
           <Route path="events" element={<Events />} />
+          <Route path="book" element={<Reservations />} />
           <Route path="contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Route>

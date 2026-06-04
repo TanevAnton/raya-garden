@@ -116,13 +116,13 @@ function Hero({ t, slides, ready, phone }) {
       <div className="absolute inset-0 gradient-overlay-dark pointer-events-none" />
       <div className="absolute inset-0 gradient-overlay-vignette pointer-events-none" />
 
-      <div className="relative z-10 h-full flex flex-col justify-center max-w-7xl mx-auto px-6 lg:px-10">
+      <div className="relative z-10 h-full flex flex-col justify-center max-w-7xl mx-auto px-6 lg:px-10 [@media(max-height:820px)]:justify-start [@media(max-height:820px)]:pt-28">
         <div
           className={`max-w-3xl animate-fade-up transition-opacity duration-700 ease-out ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         >
-          <div className="flex items-center gap-3 mb-8">
+          <div className="mb-8 inline-flex items-center gap-3 rounded-full bg-ink-950/35 px-4 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
             <div className="w-10 h-px bg-gold-300" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
               {t.hero.eyebrow}
@@ -146,6 +146,13 @@ function Hero({ t, slides, ready, phone }) {
               {t.hero.cta1}
               <ArrowRight className="w-4 h-4" />
             </a>
+            <a
+              href={`tel:${(phone || FALLBACK_PHONE).replace(/\s/g, "")}`}
+              className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
+            >
+              <Phone className="w-4 h-4" />
+              {phone || FALLBACK_PHONE}
+            </a>
             <Link
               to="/restaurant"
               className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
@@ -158,13 +165,6 @@ function Hero({ t, slides, ready, phone }) {
             >
               {t.hero.cta3}
             </Link>
-            <a
-              href={`tel:${(phone || FALLBACK_PHONE).replace(/\s/g, "")}`}
-              className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
-            >
-              <Phone className="w-4 h-4" />
-              {phone || FALLBACK_PHONE}
-            </a>
           </div>
         </div>
 

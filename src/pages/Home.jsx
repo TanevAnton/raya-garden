@@ -573,6 +573,7 @@ export default function Home() {
         }`}
       >
       <Welcome t={tCMS} />
+      <Experience t={tCMS} items={experienceItems} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {
         // Secondary link logic stays in code, keyed off the link target —
@@ -605,7 +606,6 @@ export default function Home() {
           />
         );
       })}
-      <Experience t={tCMS} items={experienceItems} />
       <CtaBanner t={tCMS} />
       </div>
     </>

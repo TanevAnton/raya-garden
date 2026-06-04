@@ -51,6 +51,8 @@ const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order
 }`;
 const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
 const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
+const PHONE_QUERY = `*[_type == "siteSettings"][0].phone`;
+const FALLBACK_PHONE = "+359 879 107 500";
 
 const heroImages = [
   `${IMG}/hotel-all-1.png`,
@@ -90,7 +92,7 @@ function HeroSlide({ src, active, eager }) {
   );
 }
 
-function Hero({ t, slides, ready }) {
+function Hero({ t, slides, ready, phone }) {
   const [current, setCurrent] = useState(0);
   useEffect(() => {
     if (slides.length === 0) return;
@@ -156,6 +158,13 @@ function Hero({ t, slides, ready }) {
             >
               {t.hero.cta3}
             </Link>
+            <a
+              href={`tel:${(phone || FALLBACK_PHONE).replace(/\s/g, "")}`}
+              className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
+            >
+              <Phone className="w-4 h-4" />
+              {phone || FALLBACK_PHONE}
+            </a>
           </div>
         </div>
 
@@ -456,6 +465,7 @@ export default function Home() {
   const { data: pageData, loading: pageLoading } = useSanityQuery(HOME_QUERY);
   const { data: offers } = useSanityQuery(OFFERS_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
+  const { data: phoneFromSanity } = useSanityQuery(PHONE_QUERY);
 
   // Section teaser cards (Hotel / Restaurant / Winery / Park).
   // Render nothing while Sanity loads so the bundled hotel-all-*.png
@@ -551,7 +561,12 @@ export default function Home() {
 
   return (
     <>
-      <Hero t={tCMS} slides={heroSlides} ready={!pageLoading} />
+      <Hero
+        t={tCMS}
+        slides={heroSlides}
+        ready={!pageLoading}
+        phone={phoneFromSanity || FALLBACK_PHONE}
+      />
       <div
         className={`transition-opacity duration-700 ease-out ${
           pageLoading ? "opacity-0" : "opacity-100"

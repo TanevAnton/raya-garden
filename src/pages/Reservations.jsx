@@ -77,8 +77,11 @@ export default function Reservations() {
           onSubmit={onSubmit}
           className="reveal bg-ink-900 border border-gold-300/15 p-6 sm:p-8 lg:p-10 rounded-sm"
         >
+          {/* min-w-0 on the labels: grid items default to min-width auto,
+              so the date inputs' intrinsic width (iOS) could blow the
+              track out past the card edge. */}
           <div className="grid sm:grid-cols-2 gap-5">
-            <label className="block">
+            <label className="block min-w-0">
               <span className="block text-xs tracking-[0.3em] uppercase text-gold-300/70 mb-2">
                 {tp.arrivalLabel}
               </span>
@@ -93,7 +96,7 @@ export default function Reservations() {
                 className={`${inputClass} [color-scheme:dark]`}
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="block text-xs tracking-[0.3em] uppercase text-gold-300/70 mb-2">
                 {tp.departureLabel}
               </span>

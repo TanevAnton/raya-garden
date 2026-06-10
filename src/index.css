@@ -29,6 +29,19 @@
     background: linear-gradient(180deg, #8a661c, #c69b3b);
     border-radius: 10px;
   }
+  /* iOS Safari renders date inputs with an intrinsic min-width and a
+     centered value, ignoring w-full — the /book fields overflowed their
+     card on phones. appearance-none + min-width: 0 lets them shrink to
+     the container; the ::-webkit pseudo left-aligns the value so they
+     read like the other text inputs. */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+  }
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

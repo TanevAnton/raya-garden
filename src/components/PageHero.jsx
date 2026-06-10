@@ -65,11 +65,11 @@ export default function PageHero({
         }}
       />
       <div className="relative z-10 h-full flex flex-col justify-end max-w-7xl mx-auto px-6 lg:px-10 pb-16">
-        <div
-          className={`animate-fade-up transition-opacity duration-700 ease-out ${
-            ready ? "opacity-100" : "opacity-0"
-          }`}
-        >
+        {/* The fade-up entrance only starts once `ready` — an active CSS
+            animation overrides the opacity-0 class (keyframes beat the
+            cascade), so mounting with the animation attached would fade the
+            FALLBACK text in and visibly swap when Sanity resolves. */}
+        <div className={ready ? "animate-fade-up" : "opacity-0"}>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-px bg-gold-300" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">

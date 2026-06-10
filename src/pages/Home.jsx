@@ -125,11 +125,10 @@ function Hero({ t, slides, ready, phone }) {
       <div className="absolute inset-0 gradient-overlay-vignette pointer-events-none" />
 
       <div className="relative z-10 h-full flex flex-col justify-center max-w-7xl mx-auto px-6 lg:px-10 [@media(max-height:820px)]:justify-start [@media(max-height:820px)]:pt-28">
-        <div
-          className={`max-w-3xl animate-fade-up transition-opacity duration-700 ease-out ${
-            ready ? "opacity-100" : "opacity-0"
-          }`}
-        >
+        {/* fade-up only attaches once `ready` — an active CSS animation
+            overrides the opacity-0 class, so mounting with it attached
+            would fade the FALLBACK text in and swap when Sanity resolves. */}
+        <div className={`max-w-3xl ${ready ? "animate-fade-up" : "opacity-0"}`}>
           <div className="mb-8 inline-flex items-center gap-3 rounded-full bg-ink-950/35 px-4 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
             <div className="w-10 h-px bg-gold-300 flex-shrink-0" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">

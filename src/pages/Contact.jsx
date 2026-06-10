@@ -51,7 +51,12 @@ export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
-  const { data: site } = useSanityQuery(SITE_QUERY);
+  const { data: site, loading: siteLoading } = useSanityQuery(SITE_QUERY);
+
+  // Wait for siteSettings too: the address / phones / hours column reads
+  // from it, and gating only on the page doc let the translations.js
+  // fallback flash before the Sanity values swapped in.
+  const bodyLoading = pageLoading || siteLoading;
 
   // Social links — Sanity first, hardcoded fallback last.
   const instagramUrl = site?.instagramUrl || FALLBACK_INSTAGRAM;
@@ -161,7 +166,7 @@ export default function Contact() {
       />
       <div
         className={`transition-opacity duration-700 ease-out ${
-          pageLoading ? "opacity-0" : "opacity-100"
+          bodyLoading ? "opacity-0" : "opacity-100"
         }`}
       >
 

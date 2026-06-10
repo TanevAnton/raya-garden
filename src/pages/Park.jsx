@@ -22,7 +22,13 @@ export default function Park() {
   const tp = t.pages.park;
 
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
-  const { data: attractionsData } = useSanityQuery(ATTRACTIONS_QUERY);
+  const { data: attractionsData, loading: attractionsLoading } =
+    useSanityQuery(ATTRACTIONS_QUERY);
+
+  // The body fade has to wait for BOTH queries — if it only waited for the
+  // page doc, the attractions list would render its translations.js
+  // fallback first and visibly swap to the Sanity text a beat later.
+  const bodyLoading = pageLoading || attractionsLoading;
 
   // Each photo is editable independently in Studio:
   // - heroImage             → top hero banner
@@ -88,7 +94,7 @@ export default function Park() {
       />
       <div
         className={`transition-opacity duration-700 ease-out ${
-          pageLoading ? "opacity-0" : "opacity-100"
+          bodyLoading ? "opacity-0" : "opacity-100"
         }`}
       >
 

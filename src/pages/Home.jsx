@@ -479,8 +479,8 @@ function Offers({ t, lang, offers }) {
 
 // Rooms teaser — mirrors /hotel. Pulls the first 3 rooms (name, view,
 // price, photo) straight from the room documents so it stays in sync.
-function RoomsTeaser({ t, lang }) {
-  const { data } = useSanityQuery(ROOMS_TEASER_QUERY);
+// Data is fetched by Home so the page-level fade waits for it too.
+function RoomsTeaser({ t, lang, data }) {
   const tp = t.pages.hotel;
   const rooms = (data || []).map((r) => ({
     id: r.slug || r._id,
@@ -562,8 +562,8 @@ function RoomsTeaser({ t, lang }) {
 
 // Events teaser — mirrors /events. Pulls the intro + the first two gallery
 // items (weddings / corporate) from the events page document.
-function EventsTeaser({ t, lang }) {
-  const { data } = useSanityQuery(EVENTS_TEASER_QUERY);
+// Data is fetched by Home so the page-level fade waits for it too.
+function EventsTeaser({ t, lang, data }) {
   const tp = t.pages.events;
   const intro = pickLocale(data?.intro, lang) || tp.intro;
   const cards = (data?.gallery || []).slice(0, 2).map((g) => ({
@@ -638,9 +638,20 @@ function EventsTeaser({ t, lang }) {
 export default function Home() {
   const { lang, t } = useOutletContext();
   const { data: pageData, loading: pageLoading } = useSanityQuery(HOME_QUERY);
-  const { data: offers } = useSanityQuery(OFFERS_QUERY);
+  const { data: offers, loading: offersLoading } = useSanityQuery(OFFERS_QUERY);
   const { data: wineryUrlFromSanity } = useSanityQuery(WINERY_URL_QUERY);
   const { data: phoneFromSanity } = useSanityQuery(PHONE_QUERY);
+  const { data: roomsTeaserData, loading: roomsTeaserLoading } =
+    useSanityQuery(ROOMS_TEASER_QUERY);
+  const { data: eventsTeaserData, loading: eventsTeaserLoading } =
+    useSanityQuery(EVENTS_TEASER_QUERY);
+
+  // The body fades in as ONE unit only when every query that feeds visible
+  // text has resolved. Gating on pageLoading alone let sections render
+  // their translations.js fallback first and visibly swap ("flash of old
+  // text") whenever the other queries resolved a beat later.
+  const bodyLoading =
+    pageLoading || offersLoading || roomsTeaserLoading || eventsTeaserLoading;
 
   // Section teaser cards (Hotel / Restaurant / Winery / Park).
   // Render nothing while Sanity loads so the bundled hotel-all-*.png
@@ -744,13 +755,13 @@ export default function Home() {
       />
       <div
         className={`transition-opacity duration-700 ease-out ${
-          pageLoading ? "opacity-0" : "opacity-100"
+          bodyLoading ? "opacity-0" : "opacity-100"
         }`}
       >
       <Welcome t={tCMS} />
-      <RoomsTeaser t={tCMS} lang={lang} />
+      <RoomsTeaser t={tCMS} lang={lang} data={roomsTeaserData} />
       <Experience t={tCMS} items={experienceItems} />
-      <EventsTeaser t={tCMS} lang={lang} />
+      <EventsTeaser t={tCMS} lang={lang} data={eventsTeaserData} />
       <CtaBanner t={tCMS} />
       {offers && offers.length > 0 && <Offers t={tCMS} lang={lang} offers={offers} />}
       {sectionCardsData.map((card, i) => {

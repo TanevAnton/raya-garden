@@ -64,7 +64,12 @@ export default function Events() {
   const tp = t.pages.events;
 
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
-  const { data: brochures } = useSanityQuery(BROCHURES_QUERY);
+  const { data: brochures, loading: brochuresLoading } =
+    useSanityQuery(BROCHURES_QUERY);
+
+  // Wait for both queries so the brochure buttons don't pop in after the
+  // body has already faded in.
+  const bodyLoading = pageLoading || brochuresLoading;
 
   // Image gated on pageLoading so the bundled hotel-all-9.png doesn't
   // flash before Sanity responds.
@@ -115,7 +120,7 @@ export default function Events() {
       />
       <div
         className={`transition-opacity duration-700 ease-out ${
-          pageLoading ? "opacity-0" : "opacity-100"
+          bodyLoading ? "opacity-0" : "opacity-100"
         }`}
       >
 

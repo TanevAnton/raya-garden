@@ -251,6 +251,13 @@ export const translations = {
         title: "Резервирайте онлайн",
         subtitle:
           "Проверете наличност и резервирайте директно — сигурно и без комисиона.",
+        arrivalLabel: "Настаняване",
+        departureLabel: "Напускане",
+        guestsLabel: "Гости",
+        promoLabel: "Промо код (по избор)",
+        searchCta: "Виж свободни стаи",
+        orText: "или",
+        browseAll: "Отвори резервационната система",
         openNewTab: "Отвори в нов раздел",
       },
       contact: {
@@ -517,6 +524,13 @@ export const translations = {
         title: "Book online",
         subtitle:
           "Check availability and book directly — secure and commission-free.",
+        arrivalLabel: "Check-in",
+        departureLabel: "Check-out",
+        guestsLabel: "Guests",
+        promoLabel: "Promo code (optional)",
+        searchCta: "View available rooms",
+        orText: "or",
+        browseAll: "Open the booking engine",
         openNewTab: "Open in a new tab",
       },
       contact: {
@@ -798,6 +812,13 @@ export const translations = {
         title: "Rezervă online",
         subtitle:
           "Verificați disponibilitatea și rezervați direct — sigur și fără comision.",
+        arrivalLabel: "Check-in",
+        departureLabel: "Check-out",
+        guestsLabel: "Oaspeți",
+        promoLabel: "Cod promoțional (opțional)",
+        searchCta: "Vezi camerele disponibile",
+        orText: "sau",
+        browseAll: "Deschide motorul de rezervări",
         openNewTab: "Deschide într-o filă nouă",
       },
       contact: {

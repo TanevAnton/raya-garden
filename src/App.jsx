@@ -11,6 +11,7 @@ import Contact from "./pages/Contact.jsx";
 import Reservations from "./pages/Reservations.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import { translations } from "./translations.js";
+import { initClockWbe, setClockLang } from "./lib/clockWbe.js";
 
 const LANG_KEY = "raya.lang";
 const VALID_LANGS = ["bg", "en", "ro"];
@@ -54,6 +55,13 @@ export default function App() {
       cancelled = true;
     };
   }, []);
+
+  // Initialise the Clock booking engine once, then keep its language in
+  // sync with the site. init() is guarded + polls for the deferred script.
+  useEffect(() => {
+    initClockWbe(lang);
+    setClockLang(lang);
+  }, [lang]);
 
   // Manual switch (Nav buttons) — persist the choice so geo-IP no longer
   // applies on return visits.

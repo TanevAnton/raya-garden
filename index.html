@@ -41,6 +41,18 @@
     <link rel="stylesheet" href="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css" />
     <script defer src="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.js"></script>
 
+    <!-- Google Analytics 4 — same property the Clock booking engine reports
+         to, so site visits and booking conversions land in one place.
+         send_page_view is off: the SPA fires page_view on every route
+         change itself (see Layout.jsx). -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CCY6SD302S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-CCY6SD302S', { send_page_view: false });
+    </script>
+
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",

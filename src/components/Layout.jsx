@@ -11,6 +11,18 @@ export default function Layout({ lang, setLang, t }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
 
+  // GA4 page views. gtag is configured with send_page_view: false in
+  // index.html, so this is the only place page_view fires — once per
+  // route change, including the first load. Child page effects (useSeo)
+  // run before this parent effect, so document.title is already updated.
+  useEffect(() => {
+    window.gtag?.("event", "page_view", {
+      page_path: pathname,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+  }, [pathname]);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {

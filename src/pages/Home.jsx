@@ -131,9 +131,22 @@ function Hero({ t, slides, ready, phone }) {
           }`}
         >
           <div className="mb-8 inline-flex items-center gap-3 rounded-full bg-ink-950/35 px-4 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
-            <div className="w-10 h-px bg-gold-300" />
+            <div className="w-10 h-px bg-gold-300 flex-shrink-0" />
             <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
-              {t.hero.eyebrow}
+              {/* On phones the "Park Hotel · Велико Търново" line wraps
+                  mid-word, so split on the · and stack the location on its
+                  own full line; one line again from sm: up. */}
+              {t.hero.eyebrow.includes("·") ? (
+                <>
+                  {t.hero.eyebrow.split("·")[0].trim()}
+                  <span className="hidden sm:inline"> · </span>
+                  <span className="block sm:inline">
+                    {t.hero.eyebrow.split("·").slice(1).join("·").trim()}
+                  </span>
+                </>
+              ) : (
+                t.hero.eyebrow
+              )}
             </span>
           </div>
           <h1 className="font-display text-6xl sm:text-7xl lg:text-8xl xl:text-9xl leading-[0.95] text-cream-50 text-shadow-lg mb-8 text-balance">

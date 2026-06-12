@@ -148,7 +148,7 @@ function Hero({ t, slides, ready, phone }) {
               )}
             </span>
           </div>
-          <h1 className="font-display text-6xl sm:text-7xl lg:text-8xl xl:text-9xl leading-[0.95] text-cream-50 text-shadow-lg mb-8 text-balance">
+          <h1 className="font-display text-6xl sm:text-7xl xl:text-8xl leading-[0.95] text-cream-50 text-shadow-lg mb-8 text-balance">
             {t.hero.title}
             <br />
             <em className="italic gradient-gold font-light">{t.hero.titleAccent}</em>

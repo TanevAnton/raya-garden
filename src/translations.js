@@ -200,6 +200,7 @@ export const translations = {
         intro: "Капацитет до 270 души · Работно време: всеки ден · Открита градина с барбекю · Жива риба от нашето езеро · Жива музика и тематични вечери.",
         reservations: "Резервации: 0896 100 100",
         downloadMenu: "Изтегли пълно меню (PDF)",
+        downloadWineList: "Винен лист (PDF)",
       },
       winery: {
         eyebrow: "Винарна Ялово",
@@ -475,6 +476,7 @@ export const translations = {
         intro: "Capacity up to 270 · Open every day · Open garden with BBQ · Live fish from our lake · Live music and themed nights.",
         reservations: "Reservations: +359 896 100 100",
         downloadMenu: "Download full menu (PDF)",
+        downloadWineList: "Wine list (PDF)",
       },
       winery: {
         eyebrow: "Yalovo Winery",
@@ -757,6 +759,7 @@ export const translations = {
           "Capacitate de până la 270 · Deschis zilnic · Grădină exterioară cu grătar · Pește viu din lacul nostru · Muzică live și seri tematice.",
         reservations: "Rezervări: +359 896 100 100",
         downloadMenu: "Descarcă meniul complet (PDF)",
+        downloadWineList: "Listă de vinuri (PDF)",
       },
       winery: {
         eyebrow: "Crama Yalovo",

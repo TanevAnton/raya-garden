@@ -45,6 +45,14 @@ export const siteSettings = {
       options: { accept: "application/pdf" },
     },
     {
+      name: "wineListPdf",
+      title: "Wine list (PDF)",
+      description:
+        "Upload the wine list PDF. Shown as a second download button next to the menu on /restaurant.",
+      type: "file",
+      options: { accept: "application/pdf" },
+    },
+    {
       name: "weddingsBrochurePdf",
       title: "Wedding brochure (PDF)",
       description:

@@ -11,7 +11,10 @@ const PAGE_QUERY = `*[_type == "pageContent" && page == "restaurant"][0]{
   eyebrow, title, subtitle, intro, heroImage,
   gallery[]{ image, extraImages, title, text }
 }`;
-const MENU_PDF_QUERY = `*[_type == "siteSettings"][0]{ "url": menuPdf.asset->url }`;
+const MENU_PDF_QUERY = `*[_type == "siteSettings"][0]{
+  "url": menuPdf.asset->url,
+  "wineUrl": wineListPdf.asset->url
+}`;
 const FALLBACK_MENU_PDF =
   "https://rayagarden.bg/wp-content/uploads/2022/06/Menu-Raya-2025.pdf";
 
@@ -22,6 +25,9 @@ export default function Restaurant() {
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: menuPdfData } = useSanityQuery(MENU_PDF_QUERY);
   const menuPdfUrl = menuPdfData?.url || FALLBACK_MENU_PDF;
+  // Wine list has no static fallback — the button only shows once the
+  // PDF is uploaded in Studio (Site settings → Wine list).
+  const wineListUrl = menuPdfData?.wineUrl;
 
   // Image gated on pageLoading so the bundled hotel-all-8.png doesn't
   // flash before Sanity responds. Text uses translations as fallback.
@@ -150,15 +156,28 @@ export default function Restaurant() {
           <h2 className="font-display text-3xl md:text-5xl text-cream-50 mt-5 mb-8 text-balance leading-tight">
             {tp.title}
           </h2>
-          <a
-            href={menuPdfUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-          >
-            <Download className="w-4 h-4" />
-            {tp.downloadMenu}
-          </a>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <a
+              href={menuPdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            >
+              <Download className="w-4 h-4" />
+              {tp.downloadMenu}
+            </a>
+            {wineListUrl && (
+              <a
+                href={wineListUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+              >
+                <Download className="w-4 h-4" />
+                {tp.downloadWineList}
+              </a>
+            )}
+          </div>
         </div>
       </section>
       </div>

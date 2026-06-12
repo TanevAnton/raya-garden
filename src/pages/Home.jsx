@@ -129,24 +129,26 @@ function Hero({ t, slides, ready, phone }) {
             overrides the opacity-0 class, so mounting with it attached
             would fade the FALLBACK text in and swap when Sanity resolves. */}
         <div className={`max-w-3xl ${ready ? "animate-fade-up" : "opacity-0"}`}>
-          <div className="mb-8 inline-flex items-center gap-3 rounded-full bg-ink-950/35 px-4 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
-            <div className="w-10 h-px bg-gold-300 flex-shrink-0" />
-            <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
-              {/* On phones the "Park Hotel · Велико Търново" line wraps
-                  mid-word, so split on the · and stack the location on its
-                  own full line; one line again from sm: up. */}
-              {t.hero.eyebrow.includes("·") ? (
-                <>
-                  {t.hero.eyebrow.split("·")[0].trim()}
-                  <span className="hidden sm:inline"> · </span>
-                  <span className="block sm:inline">
-                    {t.hero.eyebrow.split("·").slice(1).join("·").trim()}
-                  </span>
-                </>
-              ) : (
-                t.hero.eyebrow
-              )}
-            </span>
+          {/* Pill is centered on phones, left-aligned from sm: up. */}
+          <div className="text-center sm:text-left">
+            <div className="mb-8 inline-flex items-center rounded-full bg-ink-950/35 px-5 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
+              <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90 text-center sm:text-left">
+                {/* On phones the "Park Hotel · Велико Търново" line wraps
+                    mid-word, so split on the · and stack the location on its
+                    own full line; one line again from sm: up. */}
+                {t.hero.eyebrow.includes("·") ? (
+                  <>
+                    {t.hero.eyebrow.split("·")[0].trim()}
+                    <span className="hidden sm:inline"> · </span>
+                    <span className="block sm:inline">
+                      {t.hero.eyebrow.split("·").slice(1).join("·").trim()}
+                    </span>
+                  </>
+                ) : (
+                  t.hero.eyebrow
+                )}
+              </span>
+            </div>
           </div>
           <h1 className="font-display text-6xl sm:text-7xl xl:text-8xl leading-[0.95] text-cream-50 text-shadow-lg mb-8 text-balance">
             {t.hero.title}

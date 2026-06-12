@@ -1,21 +1,34 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useSeo } from "../hooks/useSeo.js";
-import {
-  WBE_BASE_URL,
-  openBooking,
-  searchAvailability,
-} from "../lib/clockWbe.js";
+import { WBE_BASE_URL, searchAvailability } from "../lib/clockWbe.js";
 
 function isoDate(d) {
   return d.toISOString().slice(0, 10);
+}
+// Date-only ISO strings parse as UTC midnight, so do the math in UTC —
+// local setDate() would drift a day in UTC+ timezones like Bulgaria's.
+function addDays(iso, n) {
+  const d = new Date(iso);
+  d.setUTCDate(d.getUTCDate() + n);
+  return isoDate(d);
 }
 function defaultDates() {
   const today = new Date();
   const tomorrow = new Date();
   tomorrow.setDate(today.getDate() + 1);
   return { arrival: isoDate(today), departure: isoDate(tomorrow) };
+}
+// Some browsers only open the calendar when the tiny indicator icon is
+// clicked — showPicker() makes the whole field act as the trigger.
+// (Throws outside user gestures / when already open; both safe to ignore.)
+function openPicker(e) {
+  try {
+    e.currentTarget.showPicker?.();
+  } catch {
+    /* unsupported browser — native behaviour still works */
+  }
 }
 
 // /book — the on-site booking page. Picking dates (or "browse all rooms")
@@ -48,10 +61,6 @@ export default function Reservations() {
       bonusCode: promo || null,
     });
     if (!ok) window.open(WBE_BASE_URL, "_blank", "noopener");
-  };
-
-  const onBrowse = () => {
-    if (!openBooking()) window.open(WBE_BASE_URL, "_blank", "noopener");
   };
 
   const inputClass =
@@ -90,10 +99,20 @@ export default function Reservations() {
                 required
                 value={arrival}
                 min={isoDate(new Date())}
+                onClick={openPicker}
                 onChange={(e) =>
-                  setDates((d) => ({ ...d, arrival: e.target.value }))
+                  setDates((d) => {
+                    const next = e.target.value;
+                    // Keep checkout strictly after checkin: bump it to the
+                    // next day whenever the new arrival catches up to it.
+                    const departure =
+                      !next || (d.departure && d.departure > next)
+                        ? d.departure
+                        : addDays(next, 1);
+                    return { arrival: next, departure };
+                  })
                 }
-                className={`${inputClass} [color-scheme:dark]`}
+                className={`${inputClass} [color-scheme:dark] cursor-pointer`}
               />
             </label>
             <label className="block min-w-0">
@@ -104,11 +123,21 @@ export default function Reservations() {
                 type="date"
                 required
                 value={departure}
-                min={arrival}
+                min={addDays(arrival, 1)}
+                onClick={openPicker}
                 onChange={(e) =>
-                  setDates((d) => ({ ...d, departure: e.target.value }))
+                  setDates((d) => {
+                    const next = e.target.value;
+                    // Typed dates can bypass `min` — clamp anything on or
+                    // before the arrival to the following day.
+                    return {
+                      ...d,
+                      departure:
+                        next && next <= d.arrival ? addDays(d.arrival, 1) : next,
+                    };
+                  })
                 }
-                className={`${inputClass} [color-scheme:dark]`}
+                className={`${inputClass} [color-scheme:dark] cursor-pointer`}
               />
             </label>
           </div>
@@ -149,30 +178,6 @@ export default function Reservations() {
           </button>
         </form>
 
-        <div className="text-center mt-8 reveal">
-          <div className="text-xs uppercase tracking-[0.3em] text-cream-100/40 mb-4">
-            {tp.orText}
-          </div>
-          <button
-            type="button"
-            onClick={onBrowse}
-            className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
-          >
-            {tp.browseAll}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-          <div className="mt-6">
-            <a
-              href={WBE_BASE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2 text-xs tracking-[0.25em] uppercase text-gold-300/70 hover:text-gold-200 transition-colors"
-            >
-              {tp.openNewTab}
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-        </div>
       </div>
     </section>
   );

@@ -236,11 +236,11 @@ function Welcome({ t }) {
             <p className="text-lg text-cream-100/85 leading-relaxed mb-6 font-light">
               {t.welcome.lead}
             </p>
-            <p className="text-base text-cream-100/65 leading-relaxed">
+            <p className="text-lg text-cream-100/85 leading-relaxed font-light">
               {t.welcome.body}
             </p>
             {t.welcome.body2 && (
-              <p className="text-base text-cream-100/65 leading-relaxed mt-6">
+              <p className="text-lg text-cream-100/85 leading-relaxed font-light mt-6">
                 {t.welcome.body2}
               </p>
             )}

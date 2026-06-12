@@ -30,6 +30,8 @@ export const translations = {
         "Закътан сред тихата природа на хълм „Света гора“, Парк Хотел RAYA Garden е райско кътче насред гората. Сградата работи с геотермална енергия — природосъобразно решение с минимални въглеродни емисии.",
       body:
         "Хотелът разполага с 5 апартамента и 45 двойни стаи — с панорамна гледка към Велико Търново или към тихата зеленина на парк Света гора. Очакваме Ви целогодишно — за уикенд почивка, спа преживяване, романтика, бизнес среща или сватба.",
+      body2:
+        "Гостите на хотела разполагат с голям безплатен охраняем паркинг с 240 места, както и с 300 kW бързи зарядни станции за електромобили.",
       stat1: { num: "45", label: "Двойни стаи" },
       stat2: { num: "5", label: "Премиум апартамента" },
       stat3: { num: "270", label: "Места в ресторанта и лятната градина" },
@@ -306,6 +308,8 @@ export const translations = {
         "Tucked in the calm nature of Sveta Gora hill, Park Hotel RAYA Garden is a small paradise in the forest. The building runs on geothermal energy — an eco-friendly choice with minimal carbon emissions.",
       body:
         "We offer 5 suites and 45 double rooms — with panoramic views of historic Veliko Tarnovo or the green stillness of Sveta Gora park. Open all year, for weekend getaways, spa breaks, romance, business and weddings.",
+      body2:
+        "Hotel guests enjoy a large free secure car park with 240 spaces, along with 300 kW fast EV charging stations.",
       stat1: { num: "45", label: "Double Rooms" },
       stat2: { num: "5", label: "Premium Apartments" },
       stat3: { num: "270", label: "Restaurant & summer garden seats" },
@@ -579,6 +583,8 @@ export const translations = {
         "Ascuns în natura liniștită a dealului Sveta Gora, Park Hotel RAYA Garden este un mic paradis în pădure. Clădirea funcționează cu energie geotermală — o alegere ecologică, cu emisii minime de carbon.",
       body:
         "Oferim 5 apartamente și 45 de camere duble — cu vedere panoramică spre vechea capitală Veliko Tarnovo sau spre liniștea verde a parcului Sveta Gora. Deschis tot anul, pentru escapade de weekend, sejururi spa, romantism, business și nunți.",
+      body2:
+        "Oaspeții hotelului beneficiază de o parcare mare, gratuită și păzită, cu 240 de locuri, precum și de stații de încărcare rapidă de 300 kW pentru mașini electrice.",
       stat1: { num: "45", label: "Camere duble" },
       stat2: { num: "5", label: "Apartamente premium" },
       stat3: { num: "270", label: "Locuri în restaurant și grădina de vară" },

@@ -237,6 +237,11 @@ function Welcome({ t }) {
             <p className="text-base text-cream-100/65 leading-relaxed">
               {t.welcome.body}
             </p>
+            {t.welcome.body2 && (
+              <p className="text-base text-cream-100/65 leading-relaxed mt-6">
+                {t.welcome.body2}
+              </p>
+            )}
           </div>
         </div>
 
@@ -728,6 +733,8 @@ export default function Home() {
       ...t.welcome,
       lead: pickLocale(pageData?.intro, lang) || t.welcome.lead,
       body: pickLocale(findBlock("welcomeBody")?.body, lang) || t.welcome.body,
+      body2:
+        pickLocale(findBlock("welcomeBody2")?.body, lang) || t.welcome.body2,
     },
     cta: {
       ...t.cta,

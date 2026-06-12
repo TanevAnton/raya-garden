@@ -70,11 +70,14 @@ export default function PageHero({
             cascade), so mounting with the animation attached would fade the
             FALLBACK text in and visibly swap when Sanity resolves. */}
         <div className={ready ? "animate-fade-up" : "opacity-0"}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-px bg-gold-300" />
-            <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
-              {eyebrow}
-            </span>
+          {/* Same eyebrow pill as the Home hero — centered on phones,
+              left-aligned from sm: up. */}
+          <div className="text-center sm:text-left">
+            <div className="mb-6 inline-flex items-center rounded-full bg-ink-950/35 px-5 py-2 backdrop-blur-sm ring-1 ring-gold-300/15">
+              <span className="text-xs tracking-[0.4em] uppercase text-gold-200/90">
+                {eyebrow}
+              </span>
+            </div>
           </div>
           <h1
             id="page-hero-title"

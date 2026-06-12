@@ -13,7 +13,7 @@ export const translations = {
       reservation: "Запитване",
     },
     hero: {
-      eyebrow: "Park Hotel · Велико Търново",
+      eyebrow: "Парк Хотел · Велико Търново",
       title: "Уют сред",
       titleAccent: "тиха природа",
       subtitle:

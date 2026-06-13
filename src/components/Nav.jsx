@@ -160,6 +160,7 @@ export default function Nav({ lang, setLang, t }) {
               <Link
                 key={l.to}
                 to={l.to}
+                onClick={() => setOpen(false)}
                 className="font-display text-2xl text-cream-50 hover:text-gold-300 transition"
               >
                 {l.label}
@@ -180,6 +181,7 @@ export default function Nav({ lang, setLang, t }) {
             </div>
             <Link
               to="/book"
+              onClick={() => setOpen(false)}
               className="btn-gold px-5 py-3 text-xs tracking-[0.2em] uppercase text-center rounded-sm mt-2"
             >
               {t.nav.book}

@@ -1,183 +1,127 @@
 # Park Hotel RAYA Garden — Website
 
-Multi-page, cinematic, bilingual (BG/EN) website for Park Hotel RAYA Garden — Veliko Tarnovo, Bulgaria.
+Trilingual (BG / EN / RO) website for **Park Hotel RAYA Garden**, a boutique hotel on Sveta Gora park, Veliko Tarnovo, Bulgaria.
 
-Built with **React + Vite + React Router + Tailwind CSS**. Luxury boutique-hotel feel: dark theme, gold accents, Cormorant Garamond serif display, smooth-scroll storytelling and subtle motion.
+Built with **React 19 · Vite · React Router · Tailwind CSS**, with content managed in **Sanity CMS**. Luxury boutique-hotel feel — dark theme, gold accents, Cormorant Garamond serif display, cinematic imagery and subtle scroll motion.
+
+- **Live:** https://raya-garden.vercel.app
+- **CMS (staff login):** https://raya-garden.sanity.studio
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev       # http://localhost:5173
-npm run build     # production build → dist/
-npm run preview   # preview the production build
+cp .env.example .env.local   # fill in the values (see below)
+npm run dev                  # http://localhost:5173
 ```
 
-The build output (`dist/`) is a static site — deploys to **Vercel**, **Netlify**, **Cloudflare Pages**, or any static host.
+> **Node 18+ required** (Vite 5). If `npm run dev` fails with `crypto.getRandomValues is not a function`, your shell is on an old Node — switch with `nvm use 20` (or newer).
 
-## Preview without building
-
-Two options to see the design without `npm install`:
-
-| File | What it shows |
+| Command | What it does |
 | --- | --- |
-| `preview.html` | The original single-page version (one long scrolling page) |
-| `preview/index.html` | The full multi-page site — click through nav links to see every page |
+| `npm run dev` | Dev server with HMR → http://localhost:5173 |
+| `npm run build` | Production build → `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run studio:dev` | Run Sanity Studio locally → http://localhost:3333 |
+| `npm run studio:deploy` | Deploy Studio to `raya-garden.sanity.studio` |
 
-Just double-click `preview/index.html` to start.
+## Environment variables
 
-## Routes (in the React app)
+Copy `.env.example` → `.env.local` and fill in:
 
-| Path | What's on it |
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `VITE_SANITY_PROJECT_ID` | site + Studio | from sanity.io/manage → API |
+| `VITE_SANITY_DATASET` | site + Studio | usually `production` |
+| `VITE_FORMSPREE_ENDPOINT` | contact form | falls back to a `mailto:` draft if unset |
+| `SANITY_WRITE_TOKEN` | migration/seed scripts only | **server-side only — never prefix with `VITE_`** |
+
+The Google Analytics 4 ID and the Clock booking URL are non-secret and live in `index.html` / `src/lib/clockWbe.js` respectively (the booking URL is also editable in Studio via `siteSettings.bookingUrl`).
+
+## Routes
+
+| Path | Page |
 | --- | --- |
-| `/` | Cinematic home with hero slideshow, intro, stat band and section teasers |
-| `/hotel` | Room types with prices, sizes, amenities — Standard, Deluxe, Junior Suite, Luxury Suite |
-| `/restaurant` | Full menu — 7 categories, ~30 dishes with prices and descriptions |
-| `/winery` | Yalovo Winery story and wine list (6 bottles, vintages, tasting notes) |
-| `/lake` | Daily fishing rates, species pricing per kg, rules, what's included |
-| `/park` | Park & town overview, 6 nearby attractions |
-| `/events` | Wedding packages (3 tiers) + corporate / team-building packages (3 tiers) |
-| `/contact` | Contact info, map, working inquiry form (Formspree-ready) |
-| `*` (anything else) | Branded 404 with a link back home |
+| `/` | Home — hero slideshow, welcome, "Why us", rooms & events teasers, section cards, CTA |
+| `/hotel` | Rooms & suites — photos, prices (EUR + лв), amenities, "Included with every stay" |
+| `/restaurant` | Intro, photo gallery, menu PDF + wine list PDF downloads |
+| `/winery` | Yalovo Winery story + photo gallery, link to the external winery site |
+| `/park` | Park & town, nearby attractions |
+| `/events` | Weddings & corporate galleries, brochures, free-consultation CTA |
+| `/book` | On-site booking — date search that opens the Clock booking engine |
+| `/contact` | Contact info, map, inquiry form |
+| `*` | Branded 404 |
 
-All "Book Now" buttons point to the live Clock-Software booking engine the hotel already uses.
+## Content management (Sanity CMS)
+
+**Sanity is the source of truth for all content.** Staff edit text, swap photos, manage offers and PDFs in Studio; the site reads it live. `src/translations.js` (UI labels + page copy) and `src/data.js` (room fallbacks) are only used as a fallback when Sanity is unreachable.
+
+Every translatable field is a trilingual object (`{ bg, en, ro }`) via the reusable `localeString` / `localeText` / `localeArray` types — **Bulgarian is required; EN/RO are optional** and fall back BG → EN → RO via `pickLocale()`.
+
+**Document types** (`studio/schemas/`):
+
+| Schema | Purpose |
+| --- | --- |
+| `siteSettings` | Singleton — logo, phones, email, address, hours, socials, booking URL, menu & wine-list PDFs, brochures |
+| `pageContent` | One doc per page (home, hotel, restaurant, winery, park, events, contact) — hero copy, intros, galleries, section cards, experience cards, free-form blocks |
+| `room` | Rooms & suites — name, photos, price (EUR), size, capacity, amenities |
+| `specialOffer` | Toggleable offers shown on the Home page, with valid-from/to dates |
+| `attraction` | Nearby attractions listed on `/park` |
+
+A custom input shows the **лв (BGN) equivalent live under EUR price fields** (fixed peg 1 € = 1.95583 лв). Studio's sidebar has a **Quick edits** group for prices, offers and PDFs.
+
+### Seeding / migration (one-off)
+
+Add `SANITY_WRITE_TOKEN` to `.env.local` (Editor permissions), then run the relevant script from `scripts/` (e.g. `npm run migrate`). Scripts are idempotent — re-running refreshes documents rather than duplicating.
+
+## Booking integration
+
+All **"Резервирай"** buttons lead to `/book`, where guests pick dates and open the official **Clock PMS+ web booking engine** (loaded in `index.html`, wrapped in `src/lib/clockWbe.js`). It opens as an on-domain overlay and reports the booking funnel to the GA4 property configured in Clock.
+
+> The booking engine only renders on whitelisted domains (Clock dashboard → Website integration → Hotel domain). Production domains are allowlisted; add `http://localhost:5173` there if you need to test bookings locally.
+
+## Contact form
+
+`/contact` posts to a [Formspree](https://formspree.io) endpoint delivering to **hotel@svetagora.bg**. Set `VITE_FORMSPREE_ENDPOINT` in `.env.local`. If unset, the form opens the guest's mail client with a pre-filled draft instead of failing, and a persistent "email us directly" link always sits under the submit button. Includes a honeypot field for spam mitigation.
+
+## Deployment
+
+- **Frontend → Vercel.** `git push` to `main`, then `vercel --prod` from the repo root. The build is a static SPA (`dist/`) with a catch-all rewrite to `index.html` (see `vercel.json`).
+- **Studio → Sanity.** After any change under `studio/schemas/`, run `npm run studio:deploy` to update the hosted Studio.
+- **CORS:** in Sanity → API → CORS origins, allow `http://localhost:5173` and the production domain(s), or the site can't read content.
 
 ## Project structure
 
 ```
-RAYA Garden/
-├── index.html              ← Vite entry HTML, full meta tags + JSON-LD Hotel schema
-├── package.json
-├── vite.config.js
-├── tailwind.config.js
-├── postcss.config.js
-├── .env.example            ← copy to .env.local and add Formspree endpoint
-├── public/
-│   ├── robots.txt
-│   └── sitemap.xml
-├── preview.html            ← standalone single-page preview
-├── preview/                ← standalone multi-page preview (open preview/index.html)
+├── index.html              ← Vite entry: meta tags, JSON-LD Hotel schema, GA4, Clock assets
+├── vercel.json             ← SPA rewrite
 ├── src/
-│   ├── main.jsx
-│   ├── App.jsx             ← Routes + language persistence (localStorage)
-│   ├── index.css           ← Tailwind layers + custom utilities, prefers-reduced-motion
-│   ├── translations.js     ← Every BG/EN line
-│   ├── data.js             ← Rooms, menu, lake pricing, event packages
-│   ├── hooks/
-│   │   └── useSeo.js       ← per-page title, description, canonical, OG, Twitter
-│   ├── components/
-│   │   ├── Layout.jsx      ← Page wrapper (Nav, Footer, scroll progress, skip link)
-│   │   ├── Nav.jsx
-│   │   ├── Footer.jsx
-│   │   └── PageHero.jsx
-│   └── pages/
-│       ├── Home.jsx
-│       ├── Hotel.jsx
-│       ├── Restaurant.jsx
-│       ├── Winery.jsx
-│       ├── Lake.jsx
-│       ├── Park.jsx
-│       ├── Events.jsx
-│       ├── Contact.jsx
-│       └── NotFound.jsx
+│   ├── App.jsx             ← routes, language detection (geo-IP + localStorage), Clock init
+│   ├── translations.js     ← UI labels + fallback page copy (BG/EN/RO)
+│   ├── data.js             ← room fallbacks + image CDN base
+│   ├── lib/{sanity,clockWbe}.js
+│   ├── hooks/{useSanity,useSeo}.js
+│   ├── components/         ← Layout, Nav, Footer, PageHero, MediaGallery
+│   └── pages/              ← Home, Hotel, Restaurant, Winery, Park, Events, Reservations, Contact, NotFound
+├── studio/                 ← Sanity Studio (schemas, structure, custom inputs)
+├── scripts/                ← one-off migration / seed scripts
+└── public/                 ← robots.txt, sitemap.xml
 ```
 
-## Editing content
+## Notable details
 
-- **Copy / text:** all BG and EN strings live in `src/translations.js` — edit there.
-- **Room types, menu, prices, packages:** all in `src/data.js`. Change a price or add a dish — it updates everywhere.
-- **Images:** currently loaded from the existing `rayagarden.bg` CDN. To use your own photos, drop them in `public/images/` and update `IMG` in `src/data.js`.
-- **Colours / typography:** open `tailwind.config.js` and adjust the `colors` block. The gold/ink/cream scales drive the whole look.
+- **Trilingual** with geo-IP detection on first visit (BG → Bulgaria, RO → Romania, EN otherwise); manual switch persists to `localStorage`.
+- **SEO:** per-page title / description / canonical / Open Graph / Twitter via `useSeo()`; Hotel JSON-LD in `index.html`; `robots.txt` + `sitemap.xml`.
+- **Images** are Sanity-managed (via `@sanity/image-url`) and gated on load so the bundled fallbacks never flash before content arrives.
+- **Accessibility:** skip-to-content link, keyboard-visible focus, ARIA on the mobile menu and language switcher, `prefers-reduced-motion` respected.
 
-## Content management (Sanity CMS)
+## Contact
 
-Long-term content is managed in **Sanity Studio** — staff log in, edit text inline, upload images, create offers, etc. Changes are saved to Sanity's cloud and the public site picks them up on the next request (or after a redeploy for the static build).
-
-**Schemas** (`studio/schemas/`):
-- `siteSettings` — global phone, email, address, social links (singleton)
-- `pageContent` — per-page hero copy & intro for Home, Hotel, Restaurant, Winery, Lake, Park, Events, Contact
-- `room` — rooms & suites (price, size, amenities, photo)
-- `menuCategory` — menu categories with nested dishes
-- `wine` — Yalovo wine list
-- `lakePricing` — daily rates, species, rules (singleton)
-- `eventPackage` — wedding + corporate tiers
-- `specialOffer` — toggleable offers with valid-from/to dates
-- `attraction` — nearby attractions
-
-**Running Studio locally:**
-
-```bash
-npm install
-# fill .env.local with VITE_SANITY_PROJECT_ID + VITE_SANITY_DATASET
-npm run studio:dev      # opens http://localhost:3333
-```
-
-**Deploying Studio:**
-
-```bash
-npm run studio:deploy   # hosted free at https://<projectName>.sanity.studio
-```
-
-This gives the hotel staff a permanent login URL where they can manage all content.
-
-**Migrating existing data into Sanity (one-shot):**
-
-```bash
-# 1. Create a write token at sanity.io/manage → your project → API → Tokens
-# 2. Add SANITY_WRITE_TOKEN=... to .env.local
-npm run migrate
-```
-
-The migration is idempotent — re-running just refreshes documents instead of duplicating.
-
-**CORS:** in Sanity Studio dashboard → API → CORS origins, add:
-- `http://localhost:5173` (local dev)
-- `https://rayagarden.bg` (production)
-
-Without these, the frontend can't read from Sanity.
-
-## Contact form
-
-The `/contact` form posts JSON to a [Formspree](https://formspree.io) endpoint and is configured to deliver to **hotel@svetagora.bg**.
-
-**One-time setup (≈ 5 min):**
-
-1. Sign up at [formspree.io](https://formspree.io) using the hotel email.
-2. **New Form** → set the destination address to `hotel@svetagora.bg`.
-3. Copy the form endpoint (looks like `https://formspree.io/f/xnqjrwzd`).
-4. Copy `.env.example` to `.env.local` and paste it as `VITE_FORMSPREE_ENDPOINT=...`.
-5. Restart `npm run dev` (or rebuild for production).
-
-Free tier covers 50 submissions/month, which is plenty for a hotel contact form.
-
-**Defensive fallback:** if `VITE_FORMSPREE_ENDPOINT` is unset, the form opens the guest's own mail client with a pre-filled draft to `hotel@svetagora.bg` instead of silently failing. A persistent "Or email us directly" link sits under the submit button so guests always have a path. The form also includes a honeypot field for spam mitigation.
-
-## SEO & performance
-
-- Per-page meta tags via the `useSeo()` hook — title, description, canonical, Open Graph, Twitter cards.
-- Hotel JSON-LD structured data in `index.html` for rich Google results.
-- `robots.txt` + `sitemap.xml` in `public/`.
-- Hero image preloaded with `fetchpriority="high"`; below-the-fold images use `loading="lazy" decoding="async"`.
-- `prefers-reduced-motion` respected — animations disabled for users who request it.
-
-## Accessibility
-
-- Skip-to-content link, keyboard-visible focus rings, ARIA on the mobile menu and lang switcher.
-- All interactive controls reachable by keyboard. Tested with VoiceOver on macOS.
-
-## Design notes
-
-- **Typography:** Cormorant Garamond (serif display) + Inter (sans body). Loaded from Google Fonts.
-- **Palette:** deep ink black + warm gold + cream — premium without being cold.
-- **Motion:** Hero crossfade slideshow, slow Ken-Burns zoom, intersection-observer reveal on scroll, hover lift on cards, top scroll-progress bar.
-- **Bilingual:** BG/EN switcher in the top nav. Saves choice to `localStorage`, also adds `lang` attribute to `<html>` dynamically.
-- **Booking integration:** all "Book Now" buttons go to the live Clock-Software engine — `https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003`
-
-## Contact info
-
-- Phone: +359 879 107 500
-- Restaurant reservations: 0896 100 100
+- Phone: +359 879 107 500 · Restaurant: 0896 100 100
 - Email: hotel@svetagora.bg
-- Location: Sveta Gora Park, 5000 Veliko Tarnovo, Bulgaria
-- Instagram: [@raya.garden](https://www.instagram.com/raya.garden/)
-- Facebook: [hotel.sveta.gora](https://www.facebook.com/hotel.sveta.gora)
+- Sveta Gora Park, 5000 Veliko Tarnovo, Bulgaria
+- Instagram: [@parkhotel_raya_garden](https://www.instagram.com/parkhotel_raya_garden/) · Facebook: [hotel.sveta.gora](https://www.facebook.com/hotel.sveta.gora)
+
+---
+
+© Park Hotel RAYA Garden. Proprietary — all rights reserved.

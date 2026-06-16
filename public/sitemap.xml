@@ -6,5 +6,6 @@
   <url><loc>https://rayagarden.bg/winery</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://rayagarden.bg/park</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://rayagarden.bg/events</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://rayagarden.bg/book</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://rayagarden.bg/contact</loc><changefreq>yearly</changefreq><priority>0.6</priority></url>
 </urlset>

@@ -27,10 +27,10 @@
     { "source": "/mobile-home", "destination": "/", "permanent": true },
     { "source": "/parallaxiiii", "destination": "/", "permanent": true },
     { "source": "/year-2024", "destination": "/", "permanent": true },
-    { "source": "/оферти", "destination": "/", "permanent": true },
-    { "source": "/нова-година", "destination": "/", "permanent": true },
-    { "source": "/нова-година-2", "destination": "/", "permanent": true },
-    { "source": "/нова-година-2023", "destination": "/", "permanent": true }
+    { "source": "/%d0%be%d1%84%d0%b5%d1%80%d1%82%d0%b8", "destination": "/", "permanent": true },
+    { "source": "/%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0", "destination": "/", "permanent": true },
+    { "source": "/%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0-2", "destination": "/", "permanent": true },
+    { "source": "/%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0-2023", "destination": "/", "permanent": true }
   ],
   "rewrites": [
     { "source": "/((?!assets|robots\\.txt|sitemap\\.xml).*)", "destination": "/index.html" }

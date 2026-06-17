@@ -31,3 +31,6 @@ pnpm-debug.log*
 .claude/
 .sanity/
 .vercel
+
+# Build artifacts for manual upload
+*.zip

@@ -1,0 +1,90 @@
+# Park Hotel RAYA Garden — Apache/LiteSpeed config for SuperHosting.
+# Lives in public/ so `npm run build` copies it into dist/. Upload the
+# contents of dist/ (including this file) to public_html on the host.
+#
+# Order matters: HTTPS + canonical host → old-URL 301s → trailing-slash
+# tidy → SPA fallback. The 301s match the slash form directly so old
+# WordPress links redirect in a single hop.
+
+Options -MultiViews
+RewriteEngine On
+RewriteBase /
+
+# ───────────────────────── HTTPS + canonical host ─────────────────────────
+# Force HTTPS (requires the SSL certificate to be active on the host first).
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# www → non-www (canonical is rayagarden.bg, matching the <link rel=canonical>).
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+# ───────────────── 301 redirects: old WordPress URLs → new pages ─────────────────
+RewriteRule ^restorant-veliko-tarnovo/?$   /restaurant [L,R=301]
+RewriteRule ^m-restaurant/?$               /restaurant [L,R=301]
+RewriteRule ^restorant-za-svatba/?$        /events     [L,R=301]
+RewriteRule ^team-building/?$              /events     [L,R=301]
+RewriteRule ^firmeni-sabitia/?$            /events     [L,R=301]
+RewriteRule ^vinarna/?$                    /winery     [L,R=301]
+RewriteRule ^m-winery/?$                   /winery     [L,R=301]
+RewriteRule ^project/winery/?$             /winery     [L,R=301]
+RewriteRule ^surroundings/?$               /park       [L,R=301]
+RewriteRule ^m-surroundings/?$             /park       [L,R=301]
+RewriteRule ^project/park/?$               /park       [L,R=301]
+RewriteRule ^m-hotel/?$                     /hotel      [L,R=301]
+RewriteRule ^hotel-arbanasi/?$             /hotel      [L,R=301]
+RewriteRule ^project/double-room/?$        /hotel      [L,R=301]
+RewriteRule ^project/apartment/?$          /hotel      [L,R=301]
+RewriteRule ^reservation/?$                /book       [L,R=301]
+RewriteRule ^lake/?$                       /park       [L,R=301]
+RewriteRule ^m-lake/?$                     /park       [L,R=301]
+RewriteRule ^project/lake/?$               /park       [L,R=301]
+RewriteRule ^gallery/?$                    /           [L,R=301]
+RewriteRule ^mobile-home/?$                /           [L,R=301]
+RewriteRule ^parallaxiiii/?$               /           [L,R=301]
+RewriteRule ^year-2024/?$                  /           [L,R=301]
+
+# Old Cyrillic offer / New-Year pages → home (match the %-encoded request path).
+RewriteCond %{REQUEST_URI} ^/%d0%be%d1%84%d0%b5%d1%80%d1%82%d0%b8/?$ [NC,OR]
+RewriteCond %{REQUEST_URI} ^/%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0(-2|-2023)?/?$ [NC]
+RewriteRule ^ / [L,R=301]
+
+# ───────────────────────── canonical: drop trailing slash ─────────────────────────
+# /foo/ → /foo for anything that isn't a real directory (keeps URLs tidy;
+# old slash URLs above already redirected, so they never reach this).
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ /$1 [L,R=301]
+
+# ───────────────────────── SPA fallback ─────────────────────────
+# Serve real files/dirs as-is; everything else → index.html so React
+# Router handles deep links and page refreshes.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
+
+# ───────────────────────── caching ─────────────────────────
+# Vite fingerprints filenames in /assets, so they can cache forever.
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                "access plus 1 year"
+  ExpiresByType application/javascript  "access plus 1 year"
+  ExpiresByType image/png               "access plus 6 months"
+  ExpiresByType image/jpeg              "access plus 6 months"
+  ExpiresByType image/svg+xml           "access plus 6 months"
+  ExpiresByType image/webp              "access plus 6 months"
+  ExpiresByType font/woff2              "access plus 1 year"
+</IfModule>
+<IfModule mod_headers.c>
+  <FilesMatch "\.(?:js|css|woff2|png|jpe?g|svg|webp)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  # index.html must always revalidate so new deploys are picked up.
+  <FilesMatch "index\.html$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+</IfModule>
+
+# ───────────────────────── compression ─────────────────────────
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>

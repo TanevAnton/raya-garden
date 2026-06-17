@@ -1,0 +1,59 @@
+name: Build & deploy to SuperHosting
+
+# Push to main → build the static site → FTP-sync dist/ to SuperHosting.
+# Sanity content is fetched in the browser at runtime, so content edits in
+# Studio go live with no rebuild — this only runs when the code changes.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {} # lets you trigger a deploy manually from the Actions tab
+
+concurrency:
+  group: deploy-superhosting
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    # Skip the FTP step until the credentials are configured, so the first
+    # push (before secrets exist) still builds green instead of failing red.
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        # These VITE_* values are public client config (they ship inside the
+        # JS bundle either way), so they live here rather than in secrets.
+        env:
+          VITE_SANITY_PROJECT_ID: q2yxl7gs
+          VITE_SANITY_DATASET: production
+          VITE_FORMSPREE_ENDPOINT: https://formspree.io/f/mvzlnlav
+        run: npm run build
+
+      - name: Deploy to SuperHosting via FTPS
+        if: ${{ env.HAS_FTP == 'true' }}
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          # Trailing slash on local-dir is required by the action.
+          local-dir: ./dist/
+          # Where the site is served from. If your FTP account already opens
+          # inside public_html, change this to ./
+          server-dir: ${{ vars.FTP_SERVER_DIR || 'public_html/' }}
+          # Don't wipe files the build doesn't manage (e.g. cgi-bin, cron).
+          dangerous-clean-slate: false

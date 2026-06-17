@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "trailingSlash": false,
   "redirects": [
     { "source": "/restorant-veliko-tarnovo", "destination": "/restaurant", "permanent": true },
     { "source": "/m-restaurant", "destination": "/restaurant", "permanent": true },

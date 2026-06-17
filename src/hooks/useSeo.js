@@ -31,10 +31,13 @@ function setLink(rel, href) {
   el.setAttribute("href", href);
 }
 
-export function useSeo({ title, description, image, path, lang }) {
+// `titleExact` sets the document title verbatim (no brand/location suffix)
+// — used where an exact <title> is dictated, e.g. the SEO-specified home
+// title. Otherwise the page title gets the "· Brand · Location" suffix.
+export function useSeo({ title, titleExact, description, image, path, lang }) {
   useEffect(() => {
     const brand = `${SITE_NAME} · ${LOCATION[lang] || LOCATION.bg}`;
-    const fullTitle = title ? `${title} · ${brand}` : brand;
+    const fullTitle = titleExact || (title ? `${title} · ${brand}` : brand);
     document.title = fullTitle;
 
     setMeta('meta[name="description"]', "content", description);
@@ -56,5 +59,5 @@ export function useSeo({ title, description, image, path, lang }) {
       setLink("canonical", canonical);
       setMeta('meta[property="og:url"]', "content", canonical);
     }
-  }, [title, description, image, path, lang]);
+  }, [title, titleExact, description, image, path, lang]);
 }

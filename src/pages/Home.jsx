@@ -745,8 +745,16 @@ export default function Home() {
     },
   };
 
+  // Exact home <title> per SEO migration guidance (keeps continuity with
+  // the old site's home title). Verbatim — no brand/location suffix.
+  const HOME_TITLE = {
+    bg: "Raya Garden | Хотел във Велико Търново",
+    en: "Raya Garden | Hotel in Veliko Tarnovo",
+    ro: "Raya Garden | Hotel în Veliko Tarnovo",
+  };
+
   useSeo({
-    title: null,
+    titleExact: HOME_TITLE[lang] || HOME_TITLE.bg,
     description: tCMS.hero.subtitle,
     image: heroImage || `${IMG}/hotel-all-1.png`,
     path: "/",

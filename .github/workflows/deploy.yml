@@ -42,18 +42,19 @@ jobs:
           VITE_FORMSPREE_ENDPOINT: https://formspree.io/f/mvzlnlav
         run: npm run build
 
-      - name: Deploy to SuperHosting via FTPS
+      # Deploy with lftp over explicit FTPS. SuperHosting's Pure-FTPd uses a
+      # self-signed cert (CN cloud.theadmin.net), so standard FTPS actions
+      # fail strict verification — lftp keeps the transfer encrypted but
+      # skips cert verification. `mirror -R --delete` makes the remote folder
+      # match dist/ exactly (uploads changed files, removes stale ones),
+      # including the hidden .htaccess.
+      - name: Deploy to SuperHosting via FTPS (lftp)
         if: ${{ env.HAS_FTP == 'true' }}
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          # Trailing slash on local-dir is required by the action.
-          local-dir: ./dist/
-          # Where the site is served from. If your FTP account already opens
-          # inside public_html, change this to ./
-          server-dir: ${{ vars.FTP_SERVER_DIR || 'public_html/' }}
-          # Don't wipe files the build doesn't manage (e.g. cgi-bin, cron).
-          dangerous-clean-slate: false
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR: ${{ vars.FTP_SERVER_DIR || 'rayagarden.bg/' }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 20; set net:max-retries 2; set net:persist-retries 3; open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; mirror -R --delete --parallel=2 --verbose --exclude-glob .git* ./dist/ \"$FTP_DIR\""

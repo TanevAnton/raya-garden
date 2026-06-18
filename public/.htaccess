@@ -44,9 +44,11 @@ RewriteRule ^mobile-home/?$                /           [L,R=301]
 RewriteRule ^parallaxiiii/?$               /           [L,R=301]
 RewriteRule ^year-2024/?$                  /           [L,R=301]
 
-# Old Cyrillic offer / New-Year pages → home (match the %-encoded request path).
-RewriteCond %{REQUEST_URI} ^/%d0%be%d1%84%d0%b5%d1%80%d1%82%d0%b8/?$ [NC,OR]
-RewriteCond %{REQUEST_URI} ^/%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0(-2|-2023)?/?$ [NC]
+# Old Cyrillic offer / New-Year pages → home. Match THE_REQUEST (the raw
+# request line, still %-encoded) because this server hands mod_rewrite a
+# decoded REQUEST_URI, so an encoded REQUEST_URI match would miss.
+RewriteCond %{THE_REQUEST} \s/+%d0%be%d1%84%d0%b5%d1%80%d1%82%d0%b8/?[\s?] [NC,OR]
+RewriteCond %{THE_REQUEST} \s/+%d0%bd%d0%be%d0%b2%d0%b0-%d0%b3%d0%be%d0%b4%d0%b8%d0%bd%d0%b0(-2|-2023)?/?[\s?] [NC]
 RewriteRule ^ / [L,R=301]
 
 # ───────────────────────── canonical: drop trailing slash ─────────────────────────

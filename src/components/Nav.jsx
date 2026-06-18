@@ -4,8 +4,7 @@ import { Menu, X, ArrowRight } from "lucide-react";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor } from "../lib/sanity.js";
 
-const FALLBACK_LOGO =
-  "https://rayagarden.bg/wp-content/uploads/2021/12/cropped-Logo-Raya-270x270.png";
+const FALLBACK_LOGO = "/img/logo.png";
 const LOGO_QUERY = `*[_type == "siteSettings"][0]{ logo }`;
 
 export function Logo({ className = "" }) {

@@ -15,8 +15,10 @@ const MENU_PDF_QUERY = `*[_type == "siteSettings"][0]{
   "url": menuPdf.asset->url,
   "wineUrl": wineListPdf.asset->url
 }`;
+// Fallback only if Sanity is unreachable — points at the menu PDF's stable
+// Sanity CDN URL (the menu itself is editable in Studio: siteSettings.menuPdf).
 const FALLBACK_MENU_PDF =
-  "https://rayagarden.bg/wp-content/uploads/2022/06/Menu-Raya-2025.pdf";
+  "https://cdn.sanity.io/files/q2yxl7gs/production/ddb48ae7d80007591b77b5f5394b06032b0279ef.pdf";
 
 export default function Restaurant() {
   const { lang, t } = useOutletContext();

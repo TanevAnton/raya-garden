@@ -3,7 +3,10 @@
 // Prices are in EUR. The UI shows BGN as a secondary currency,
 // computed at render time using the fixed peg 1 EUR = 1.95583 BGN.
 
-export const IMG = "https://rayagarden.bg/wp-content/uploads/2022/01";
+// Self-hosted base for the few bundled fallback photos in public/img/.
+// (The old WordPress media URLs died when this domain moved to the new
+// site; the real content images all come from Sanity.)
+export const IMG = "https://rayagarden.bg/img";
 
 export const rooms = {
   bg: [

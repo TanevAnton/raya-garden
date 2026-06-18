@@ -4,8 +4,7 @@ const SITE_NAME = "Park Hotel RAYA Garden";
 // Location appended to the browser title, in the script that matches the
 // active language (Cyrillic for BG, Latin for EN/RO).
 const LOCATION = { bg: "Велико Търново", en: "Veliko Tarnovo", ro: "Veliko Tarnovo" };
-const DEFAULT_IMAGE =
-  "https://rayagarden.bg/wp-content/uploads/2022/01/hotel-all-1.png";
+const DEFAULT_IMAGE = "https://rayagarden.bg/img/hotel-all-1.png";
 
 function setMeta(selector, attr, value) {
   if (!value) return;

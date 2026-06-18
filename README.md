@@ -4,7 +4,7 @@ Trilingual (BG / EN / RO) website for **Park Hotel RAYA Garden**, a boutique hot
 
 Built with **React 19 · Vite · React Router · Tailwind CSS**, with content managed in **Sanity CMS**. Luxury boutique-hotel feel — dark theme, gold accents, Cormorant Garamond serif display, cinematic imagery and subtle scroll motion.
 
-- **Live:** https://raya-garden.vercel.app
+- **Live:** https://rayagarden.bg (SuperHosting; auto-deployed from `main` via GitHub Actions)
 - **CMS (staff login):** https://raya-garden.sanity.studio
 
 ## Quick start
@@ -86,26 +86,22 @@ All **"Резервирай"** buttons lead to `/book`, where guests pick dates 
 
 ## Deployment
 
-**Frontend → SuperHosting** (static hosting, cPanel / LiteSpeed). The site is a static SPA — build locally and upload:
+**Frontend → SuperHosting** (static hosting, LiteSpeed). **Automatic on push:** a push to `main` runs `.github/workflows/deploy.yml`, which builds the site and FTPS-syncs `dist/` (including the hidden `.htaccess`) into the `rayagarden.bg/` docroot. Nothing to run by hand.
 
-1. `npm run build` → `dist/`. The Sanity project, Formspree endpoint, GA ID etc. are **baked in at build time** from `.env.local`, so set those before building.
-2. Upload the **contents of `dist/`** (including the hidden `.htaccess`) into `public_html/` — via cPanel File Manager (zip `dist/`, upload, extract) or FTP. Replace the previous files.
-3. `dist/.htaccess` handles HTTPS, `www → non-www`, the old-URL **301 redirects**, the **SPA fallback** (deep links / refresh → `index.html`) and asset caching. It must sit in the web root beside `index.html`.
-
-> Edit the `.htaccess` **source at `public/.htaccess`** — Vite copies it into `dist/` on every build. SSL must be active on the host before the HTTPS redirect works (Let's Encrypt via cPanel).
+- Build-time config (`VITE_SANITY_*`, Formspree, GA) is set in the workflow / `.env.local`; FTP credentials are GitHub **secrets** (`FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`), target folder is the `FTP_SERVER_DIR` repo **variable**.
+- `public/.htaccess` (copied into `dist/` by the build) handles HTTPS, `www → non-www`, the old-WP-URL **301 redirects**, the **SPA fallback** (deep links / refresh → `index.html`) and caching. Edit it at `public/.htaccess`, never in `dist/`.
+- The host's FTPS cert is self-signed, so the workflow deploys with `lftp` (encrypted, cert verification off).
 
 **Studio → Sanity.** After any change under `studio/schemas/`, run `npm run studio:deploy`.
 
 **CORS:** in Sanity → API → CORS origins, allow `http://localhost:5173` and `https://rayagarden.bg`, or the site can't read content.
-
-> `vercel.json` is kept only for the optional Vercel **preview** deploy used during development; SuperHosting ignores it.
 
 ## Project structure
 
 ```
 ├── index.html              ← Vite entry: meta tags, JSON-LD Hotel schema, GA4, Clock assets
 ├── public/.htaccess        ← SuperHosting: HTTPS, 301 redirects, SPA fallback, caching
-├── vercel.json             ← optional Vercel preview only (SuperHosting ignores it)
+├── .github/workflows/      ← build + FTPS auto-deploy to SuperHosting
 ├── src/
 │   ├── App.jsx             ← routes, language detection (geo-IP + localStorage), Clock init
 │   ├── translations.js     ← UI labels + fallback page copy (BG/EN/RO)

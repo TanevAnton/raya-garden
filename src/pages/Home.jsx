@@ -188,7 +188,10 @@ function Hero({ t, slides, ready, phone }) {
           </div>
         </div>
 
-        <div className="absolute bottom-12 right-6 lg:right-10 flex gap-2">
+        {/* Hidden on phones — the stacked CTA buttons reach the bottom-right
+            on small screens and would overlap these dots. The slideshow
+            still auto-rotates; manual dots return from sm: up. */}
+        <div className="absolute bottom-12 right-6 lg:right-10 hidden sm:flex gap-2">
           {slides.map((_, i) => (
             <button
               key={i}

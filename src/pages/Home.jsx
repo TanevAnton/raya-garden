@@ -17,6 +17,8 @@ import {
   Mountain,
   Users,
   Waves,
+  ParkingSquare,
+  Zap,
 } from "lucide-react";
 
 // String keys here map to the dropdown values in studio/schemas/pageContent.js
@@ -243,9 +245,15 @@ function Welcome({ t }) {
               {t.welcome.body}
             </p>
             {t.welcome.body2 && (
-              <p className="text-lg text-cream-100/85 leading-relaxed font-light mt-6">
-                {t.welcome.body2}
-              </p>
+              <div className="mt-8 flex items-start gap-4 rounded-sm border border-gold-300/25 bg-gold-300/[0.06] p-5">
+                <div className="flex items-center gap-2 text-gold-300 mt-0.5 flex-shrink-0">
+                  <ParkingSquare className="w-5 h-5" />
+                  <Zap className="w-5 h-5" />
+                </div>
+                <p className="text-base lg:text-lg text-cream-50 leading-relaxed font-light">
+                  {t.welcome.body2}
+                </p>
+              </div>
             )}
           </div>
         </div>

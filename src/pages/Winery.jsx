@@ -173,10 +173,10 @@ export default function Winery() {
           <p className="text-cream-100/75 mb-10">{visitText}</p>
           <div className="flex flex-wrap gap-4 justify-center">
             <a
-              href="tel:+359879107500"
+              href="tel:+359896100100"
               className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
             >
-              +359 879 107 500
+              +359 896 100 100
               <ArrowRight className="w-4 h-4" />
             </a>
             <a

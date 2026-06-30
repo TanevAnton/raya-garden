@@ -54,7 +54,7 @@ const OFFERS_QUERY = `*[_type == "specialOffer" && active == true] | order(order
 const WINERY_URL_QUERY = `*[_type == "siteSettings"][0].wineryUrl`;
 const FALLBACK_WINERY_URL = "https://www.vinarnayalovo.com";
 const PHONE_QUERY = `*[_type == "siteSettings"][0].phone`;
-const FALLBACK_PHONE = "+359 879 107 500";
+const FALLBACK_PHONE = "+359 896 100 100";
 // Home teasers pull live data from the same docs the subpages use, so the
 // cards always mirror what's on /hotel and /events.
 const ROOMS_TEASER_QUERY = `*[_type == "room"] | order(order asc)[0...3]{
@@ -421,7 +421,7 @@ function CtaBanner({ t }) {
             <Calendar className="w-4 h-4" />
           </Link>
           <a
-            href="tel:+359879107500"
+            href="tel:+359896100100"
             className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3"
           >
             <Phone className="w-4 h-4" />

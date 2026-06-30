@@ -147,13 +147,13 @@ export const translations = {
       text:
         "Свържете се с нас или резервирайте директно онлайн. Целогодишно работно време, гъвкави условия за групи и събития.",
       btn1: "Резервирай онлайн",
-      btn2: "Обади се: +359 879 107 500",
+      btn2: "Обади се: +359 896 100 100",
     },
     contact: {
       eyebrow: "Намерете ни",
       title: "Контакти",
       address: "Парк „Света гора“, 5000 Велико Търново, България",
-      phone: "+359 879 107 500",
+      phone: "+359 896 100 100",
       restaurantPhone: "0896 100 100 · Резервации в ресторанта",
       email: "hotel@svetagora.bg",
       hours: "Рецепция: 24/7 · Check-in: след 14:00 · Check-out: до 12:00",
@@ -423,13 +423,13 @@ export const translations = {
       text:
         "Contact us or book directly online. Open year-round, with flexible options for groups and events.",
       btn1: "Book online",
-      btn2: "Call: +359 879 107 500",
+      btn2: "Call: +359 896 100 100",
     },
     contact: {
       eyebrow: "Find us",
       title: "Contact",
       address: "Sveta Gora Park, 5000 Veliko Tarnovo, Bulgaria",
-      phone: "+359 879 107 500",
+      phone: "+359 896 100 100",
       restaurantPhone: "+359 896 100 100 · Restaurant reservations",
       email: "hotel@svetagora.bg",
       hours: "Reception: 24/7 · Check-in: after 14:00 · Check-out: until 12:00",
@@ -702,13 +702,13 @@ export const translations = {
       text:
         "Contactează-ne sau rezervă direct online. Deschis tot anul, cu opțiuni flexibile pentru grupuri și evenimente.",
       btn1: "Rezervă online",
-      btn2: "Sună: +359 879 107 500",
+      btn2: "Sună: +359 896 100 100",
     },
     contact: {
       eyebrow: "Găsește-ne",
       title: "Contact",
       address: "Parcul Sveta Gora, 5000 Veliko Tarnovo, Bulgaria",
-      phone: "+359 879 107 500",
+      phone: "+359 896 100 100",
       restaurantPhone: "+359 896 100 100 · Rezervări la restaurant",
       email: "hotel@svetagora.bg",
       hours: "Recepție: 24/7 · Check-in: după 14:00 · Check-out: până la 12:00",

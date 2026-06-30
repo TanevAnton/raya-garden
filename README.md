@@ -124,7 +124,7 @@ All **"Резервирай"** buttons lead to `/book`, where guests pick dates 
 
 ## Contact
 
-- Phone: +359 879 107 500 · Restaurant: 0896 100 100
+- Phone: +359 896 100 100 · Restaurant: 0896 100 100
 - Email: hotel@svetagora.bg
 - Sveta Gora Park, 5000 Veliko Tarnovo, Bulgaria
 - Instagram: [@parkhotel_raya_garden](https://www.instagram.com/parkhotel_raya_garden/) · Facebook: [hotel.sveta.gora](https://www.facebook.com/hotel.sveta.gora)

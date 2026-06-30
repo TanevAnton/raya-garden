@@ -58,7 +58,7 @@ export default function Footer({ t }) {
             <div className="space-y-2 text-sm text-cream-100/70">
               <div>{t.contact.address}</div>
               <a
-                href="tel:+359879107500"
+                href="tel:+359896100100"
                 className="block hover:text-gold-200 transition-colors"
               >
                 {t.contact.phone}

@@ -37,7 +37,7 @@ function EventCard({ Icon, heading, description, phone, pdfUrl, t }) {
       )}
       <div className="flex flex-wrap gap-4 mt-auto">
         <a
-          href={`tel:${(phone || "+359879107500").replace(/\s/g, "")}`}
+          href={`tel:${(phone || "+359896100100").replace(/\s/g, "")}`}
           className="btn-gold px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
         >
           <Phone className="w-4 h-4" />
@@ -213,11 +213,11 @@ export default function Events() {
             {consultingText}
           </p>
           <a
-            href={`tel:${(brochures?.phone || "+359879107500").replace(/\s/g, "")}`}
+            href={`tel:${(brochures?.phone || "+359896100100").replace(/\s/g, "")}`}
             className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
           >
             <Phone className="w-4 h-4" />
-            {brochures?.phone || "+359 879 107 500"}
+            {brochures?.phone || "+359 896 100 100"}
           </a>
         </div>
       </section>

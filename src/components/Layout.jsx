@@ -11,16 +11,18 @@ export default function Layout({ lang, setLang, t }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
 
-  // GA4 page views. gtag is configured with send_page_view: false in
-  // index.html, so this is the only place page_view fires — once per
-  // route change, including the first load. Child page effects (useSeo)
-  // run before this parent effect, so document.title is already updated.
+  // GA4 + Facebook Pixel page views. Both are initialised in index.html
+  // WITHOUT an automatic page view (send_page_view: false / no PageView in
+  // the base code), so this is the only place they fire — once per route
+  // change, including the first load. Child page effects (useSeo) run
+  // before this parent effect, so document.title is already updated.
   useEffect(() => {
     window.gtag?.("event", "page_view", {
       page_path: pathname,
       page_location: window.location.href,
       page_title: document.title,
     });
+    window.fbq?.("track", "PageView");
   }, [pathname]);
 
   useEffect(() => {

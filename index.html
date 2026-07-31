@@ -121,6 +121,39 @@
     <noscript><img height="1" width="1" style="display:none" alt=""
       src="https://www.facebook.com/tr?id=2833505250333119&amp;ev=PageView&amp;noscript=1"
     /></noscript>
+
+    <!-- Clock WBE → GA4 ecommerce tracking (per the SEO consultant).
+         The Clock integration script (loaded in <head>) calls this global
+         callback on every page change inside the booking overlay; on the
+         "completed" page it reports a GA4 purchase with the booking
+         number as transaction_id. Runs on the parent page by design —
+         gtag only exists here, not inside Clock's iframe. -->
+    <script>
+      window.clockPmsWbePageViewCallback = function (params) {
+        gtag('event', 'page_view', {
+          page_title: ['BookDirect', params.hotelName, params.pageName].join(' / ')
+        });
+
+        // Start of Custom Tracking Script
+        if (params.pageName === 'completed') {
+          gtag('event', 'purchase', {
+            page_title: ['BookDirect', params.hotelName, params.pageName].join(' / '),
+            currency: params.totalPriceCurrency,
+            transaction_id: params.bookingNumbers.join('-'),
+            value: (params.totalPriceCents / 100).toString(),
+            items: [
+              {
+                item_name: 'Accommodation',
+                item_category: params.stay,
+                item_category2: params.arrival,
+                item_category3: params.departure,
+              },
+            ],
+          });
+        }
+        // End of Custom Tracking Script
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

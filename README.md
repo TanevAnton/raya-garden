@@ -43,7 +43,7 @@ The Google Analytics 4 ID and the Clock booking URL are non-secret and live in `
 | Path | Page |
 | --- | --- |
 | `/` | Home — hero slideshow, welcome, "Why us", rooms & events teasers, section cards, CTA |
-| `/hotel` | Rooms & suites — photos, prices (EUR + лв), amenities, "Included with every stay" |
+| `/hotel` | Rooms & suites — photos, prices (EUR), amenities, "Included with every stay" |
 | `/restaurant` | Intro, photo gallery, menu PDF + wine list PDF downloads |
 | `/winery` | Yalovo Winery story + photo gallery, link to the external winery site |
 | `/park` | Park & town, nearby attractions |
@@ -68,7 +68,7 @@ Every translatable field is a trilingual object (`{ bg, en, ro }`) via the reusa
 | `specialOffer` | Toggleable offers shown on the Home page, with valid-from/to dates |
 | `attraction` | Nearby attractions listed on `/park` |
 
-A custom input shows the **лв (BGN) equivalent live under EUR price fields** (fixed peg 1 € = 1.95583 лв). Studio's sidebar has a **Quick edits** group for prices, offers and PDFs.
+Prices are entered and displayed in EUR only. Studio's sidebar has a **Quick edits** group for prices, offers and PDFs.
 
 ### Seeding / migration (one-off)
 
@@ -110,7 +110,7 @@ All **"Резервирай"** buttons lead to `/book`, where guests pick dates 
 │   ├── hooks/{useSanity,useSeo}.js
 │   ├── components/         ← Layout, Nav, Footer, PageHero, MediaGallery
 │   └── pages/              ← Home, Hotel, Restaurant, Winery, Park, Events, Reservations, Contact, NotFound
-├── studio/                 ← Sanity Studio (schemas, structure, custom inputs)
+├── studio/                 ← Sanity Studio (schemas, desk structure)
 ├── scripts/                ← one-off migration / seed scripts
 └── public/                 ← robots.txt, sitemap.xml
 ```

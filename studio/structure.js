@@ -17,7 +17,7 @@ export const structure = (S) =>
                 .title("💰 Room prices")
                 .child(
                   S.documentTypeList("room")
-                    .title("Room prices (in EUR — BGN shown automatically)")
+                    .title("Room prices (in EUR)")
                 ),
               S.documentTypeListItem("specialOffer")
                 .title("🎁 Special offers")

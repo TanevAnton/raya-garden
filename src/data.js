@@ -1,7 +1,6 @@
 // Fallback data used only when Sanity is unreachable. The CMS is the
 // source of truth — edit content in Studio, not here.
-// Prices are in EUR. The UI shows BGN as a secondary currency,
-// computed at render time using the fixed peg 1 EUR = 1.95583 BGN.
+// Prices are in EUR — the only currency shown on the site.
 
 // Self-hosted base for the few bundled fallback photos in public/img/.
 // (The old WordPress media URLs died when this domain moved to the new

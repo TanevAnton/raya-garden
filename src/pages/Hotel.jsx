@@ -170,9 +170,6 @@ export default function Hotel() {
                       {r.price} €
                     </div>
                     <div className="text-xs text-cream-100/55 mt-1">{tp.perNight}</div>
-                    <div className="text-[11px] text-cream-100/40 mt-0.5">
-                      ≈ {(r.price * 1.95583).toFixed(2)} {lang === "bg" ? "лв" : "BGN"}
-                    </div>
                   </div>
                   <Link
                     to="/book"

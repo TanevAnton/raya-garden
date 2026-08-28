@@ -25,6 +25,12 @@ export const structure = (S) =>
                   S.documentTypeList("specialOffer")
                     .title("Special offers (toggle Active to hide)")
                 ),
+              S.documentTypeListItem("eventPage")
+                .title("🎉 Event pages (New Year… — on/off)")
+                .child(
+                  S.documentTypeList("eventPage")
+                    .title("Event pages (toggle Active to show/hide)")
+                ),
               S.listItem()
                 .id("brochures-shortcut")
                 .title("📄 PDFs (menu + brochures)")
@@ -51,6 +57,7 @@ export const structure = (S) =>
         .child(S.documentTypeList("pageContent").title("Pages")),
       S.divider(),
       S.documentTypeListItem("specialOffer").title("Special offers"),
+      S.documentTypeListItem("eventPage").title("Event pages"),
       S.divider(),
       S.documentTypeListItem("room").title("Rooms & suites"),
       S.documentTypeListItem("attraction").title("Nearby attractions"),

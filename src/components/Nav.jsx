@@ -2,10 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { useSanityQuery } from "../hooks/useSanity.js";
-import { urlFor } from "../lib/sanity.js";
+import { urlFor, pickLocale } from "../lib/sanity.js";
 
 const FALLBACK_LOGO = "/img/logo.png";
 const LOGO_QUERY = `*[_type == "siteSettings"][0]{ logo }`;
+// Active seasonal/event pages (New Year…) get a GOLD link in the menu.
+// Toggling the document's Active off in Studio removes the link (and the
+// page itself) — nothing to redeploy.
+const EVENT_NAV_QUERY = `*[_type == "eventPage" && active == true] | order(order asc){
+  "slug": slug.current, menuTitle
+}`;
 
 export function Logo({ className = "" }) {
   const { data } = useSanityQuery(LOGO_QUERY);
@@ -50,6 +56,11 @@ export default function Nav({ lang, setLang, t }) {
     setOpen(false);
   }, [pathname]);
 
+  const { data: eventPagesData } = useSanityQuery(EVENT_NAV_QUERY);
+  const eventLinks = (eventPagesData || [])
+    .filter((e) => e.slug)
+    .map((e) => ({ to: `/event/${e.slug}`, label: pickLocale(e.menuTitle, lang) }));
+
   const links = [
     { to: "/hotel", label: t.nav.hotel },
     { to: "/restaurant", label: t.nav.restaurant },
@@ -82,6 +93,24 @@ export default function Nav({ lang, setLang, t }) {
                   isActive ? "text-gold-300" : "text-cream-100/80 hover:text-gold-200"
                 }`
               }
+            >
+              {({ isActive }) => (
+                <>
+                  {l.label}
+                  <span
+                    className={`absolute -bottom-1 left-0 h-px bg-gold-300 transition-all duration-500 ${
+                      isActive ? "w-full" : "w-0 group-hover:w-full"
+                    }`}
+                  />
+                </>
+              )}
+            </NavLink>
+          ))}
+          {eventLinks.map((l) => (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              className="text-sm tracking-wide transition-colors relative group text-gold-300 hover:text-gold-200"
             >
               {({ isActive }) => (
                 <>
@@ -150,7 +179,7 @@ export default function Nav({ lang, setLang, t }) {
       <div
         id="mobile-nav"
         className={`lg:hidden overflow-hidden transition-all duration-500 ${
-          open ? "max-h-[600px] mt-4" : "max-h-0"
+          open ? "max-h-[720px] mt-4" : "max-h-0"
         }`}
       >
         <div className="px-6 py-6 bg-ink-900/95 backdrop-blur-xl border-y border-gold-300/10">
@@ -161,6 +190,16 @@ export default function Nav({ lang, setLang, t }) {
                 to={l.to}
                 onClick={() => setOpen(false)}
                 className="font-display text-2xl text-cream-50 hover:text-gold-300 transition"
+              >
+                {l.label}
+              </Link>
+            ))}
+            {eventLinks.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setOpen(false)}
+                className="font-display text-2xl text-gold-300 hover:text-gold-200 transition"
               >
                 {l.label}
               </Link>

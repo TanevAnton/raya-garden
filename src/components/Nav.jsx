@@ -80,7 +80,7 @@ export default function Nav({ lang, setLang, t }) {
           : "py-6 bg-transparent"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-between gap-4 xl:gap-8">
         <Logo />
 
         <nav

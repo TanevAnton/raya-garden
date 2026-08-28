@@ -83,13 +83,19 @@ export default function Nav({ lang, setLang, t }) {
       <div className="max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-between">
         <Logo />
 
-        <nav className="hidden lg:flex items-center gap-7">
+        <nav
+          className={`hidden lg:flex items-center ${
+            lang === "bg" ? "gap-4 xl:gap-6" : "gap-7"
+          }`}
+        >
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               className={({ isActive }) =>
-                `text-sm tracking-wide transition-colors relative group ${
+                `${
+                  lang === "bg" ? "text-[13px] xl:text-sm" : "text-sm"
+                } tracking-wide whitespace-nowrap transition-colors relative group ${
                   isActive ? "text-gold-300" : "text-cream-100/80 hover:text-gold-200"
                 }`
               }
@@ -110,7 +116,9 @@ export default function Nav({ lang, setLang, t }) {
             <NavLink
               key={l.to}
               to={l.to}
-              className="text-sm tracking-wide transition-colors relative group text-gold-300 hover:text-gold-200"
+              className={`${
+                lang === "bg" ? "text-[13px] xl:text-sm" : "text-sm"
+              } tracking-wide whitespace-nowrap transition-colors relative group text-gold-300 hover:text-gold-200`}
             >
               {({ isActive }) => (
                 <>

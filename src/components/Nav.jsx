@@ -20,7 +20,7 @@ export function Logo({ className = "" }) {
     : FALLBACK_LOGO;
 
   return (
-    <Link to="/" className={`flex items-center gap-3 group ${className}`}>
+    <Link to="/" className={`flex items-center gap-3 group shrink-0 ${className}`}>
       <div className="w-10 h-10 rounded-full border border-gold-300/60 overflow-hidden flex items-center justify-center bg-ink-950 transition-transform duration-700 group-hover:rotate-[12deg]">
         <img
           src={logoUrl}
@@ -28,7 +28,7 @@ export function Logo({ className = "" }) {
           className="w-full h-full object-cover"
         />
       </div>
-      <div className="leading-tight">
+      <div className="leading-tight whitespace-nowrap">
         <div className="font-display text-xl tracking-wider text-cream-50">
           RAYA <span className="text-gold-300">Garden</span>
         </div>

@@ -109,16 +109,70 @@ export default function EventPage() {
                   </div>
                 ))}
               </div>
-              {priceText && (
-                <div className="text-center mt-10 reveal">
-                  <div className="font-display text-3xl md:text-4xl gradient-gold">
-                    {priceText}
-                  </div>
-                </div>
-              )}
             </div>
           </section>
         )}
+
+        {/* Booking panel — deliberately above the photo story: the price and
+            the ways to act on it belong together at the decision point,
+            while the gallery keeps selling below. Framed with the same
+            corner accents as the gallery images. */}
+        <section className="pb-24 bg-ink-950">
+          <div className="max-w-4xl mx-auto px-6 lg:px-10 reveal">
+            <div className="relative overflow-hidden border border-gold-300/20 bg-gradient-to-b from-ink-900/90 to-ink-900/30 px-6 py-12 sm:px-12 text-center">
+              <div className="absolute -top-px -left-px w-16 h-16 border-l-2 border-t-2 border-gold-300/50 pointer-events-none" />
+              <div className="absolute -bottom-px -right-px w-16 h-16 border-r-2 border-b-2 border-gold-300/50 pointer-events-none" />
+
+              {priceText && (
+                <div className="font-display text-4xl md:text-5xl gradient-gold leading-none">
+                  {priceText}
+                </div>
+              )}
+
+              <div
+                className={`divider-gold w-24 mx-auto mb-8 ${
+                  priceText ? "mt-8" : ""
+                }`}
+              />
+
+              <div className="flex flex-wrap gap-4 justify-center">
+                <Link
+                  to="/book"
+                  className="btn-gold px-10 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+                >
+                  {t.nav.book}
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <a
+                  href={`tel:${phone.replace(/\s/g, "")}`}
+                  className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+                >
+                  <Phone className="w-4 h-4" />
+                  {phone}
+                </a>
+              </div>
+
+              {/* Downloads are secondary — quiet links, not buttons competing
+                  with the booking CTA. */}
+              {offerPdfs.length > 0 && (
+                <div className="mt-10 pt-8 border-t border-gold-300/10 flex flex-wrap gap-x-10 gap-y-4 justify-center">
+                  {offerPdfs.map((o, i) => (
+                    <a
+                      key={i}
+                      href={o.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group inline-flex items-center gap-3 text-xs tracking-[0.25em] uppercase text-gold-300/85 hover:text-gold-200 transition-colors"
+                    >
+                      <Download className="w-4 h-4 transition-transform duration-500 group-hover:translate-y-0.5" />
+                      {o.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* Photo gallery — alternating image + text rows */}
         {gallery.length > 0 && (
@@ -164,39 +218,6 @@ export default function EventPage() {
           </section>
         )}
 
-        {/* CTA — book / call / offer PDFs */}
-        <section className="py-24 bg-ink-950">
-          <div className="max-w-3xl mx-auto px-6 text-center reveal">
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Link
-                to="/book"
-                className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-              >
-                {t.nav.book}
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <a
-                href={`tel:${phone.replace(/\s/g, "")}`}
-                className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-              >
-                <Phone className="w-4 h-4" />
-                {phone}
-              </a>
-              {offerPdfs.map((o, i) => (
-                <a
-                  key={i}
-                  href={o.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-                >
-                  <Download className="w-4 h-4" />
-                  {o.label}
-                </a>
-              ))}
-            </div>
-          </div>
-        </section>
       </div>
     </>
   );

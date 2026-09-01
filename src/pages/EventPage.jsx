@@ -15,7 +15,7 @@ import { urlFor, pickLocale } from "../lib/sanity.js";
 const PAGE_QUERY = `*[_type == "eventPage" && slug.current == $slug && active == true][0]{
   eyebrow, title, subtitle, heroImage, intro, highlights, priceText,
   gallery[]{ image, extraImages, title, text },
-  offerPdfs[]{ label, "url": pdf.asset->url }
+  offerPdfs[]{ label, previewImage, "url": pdf.asset->url }
 }`;
 const PHONE_QUERY = `*[_type == "siteSettings"][0].phone`;
 const FALLBACK_PHONE = "+359 896 100 100";
@@ -55,7 +55,13 @@ export default function EventPage() {
   // Only entries that actually have a file uploaded become buttons.
   const offerPdfs = (data?.offerPdfs || [])
     .filter((o) => o.url)
-    .map((o) => ({ url: o.url, label: pickLocale(o.label, lang) }));
+    .map((o) => ({
+      url: o.url,
+      label: pickLocale(o.label, lang),
+      preview: o.previewImage
+        ? urlFor(o.previewImage).width(320).quality(80).url()
+        : null,
+    }));
 
   useSeo({
     title: hero.title || null,
@@ -152,20 +158,37 @@ export default function EventPage() {
                 </a>
               </div>
 
-              {/* Downloads are secondary — quiet links, not buttons competing
-                  with the booking CTA. */}
+              {/* Downloads: each offer shows a cover thumbnail of its first
+                  page, so guests see what they're opening. Still visually
+                  secondary to the booking CTA above. */}
               {offerPdfs.length > 0 && (
-                <div className="mt-10 pt-8 border-t border-gold-300/10 flex flex-wrap gap-x-10 gap-y-4 justify-center">
+                <div className="mt-10 pt-10 border-t border-gold-300/10 flex flex-wrap gap-6 justify-center">
                   {offerPdfs.map((o, i) => (
                     <a
                       key={i}
                       href={o.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="group inline-flex items-center gap-3 text-xs tracking-[0.25em] uppercase text-gold-300/85 hover:text-gold-200 transition-colors"
+                      className="group w-[210px] shrink-0 text-left border border-gold-300/15 bg-ink-950/40 hover:border-gold-300/45 hover:bg-ink-950/70 transition-all duration-500"
                     >
-                      <Download className="w-4 h-4 transition-transform duration-500 group-hover:translate-y-0.5" />
-                      {o.label}
+                      {o.preview && (
+                        <div className="relative aspect-[3/4] overflow-hidden bg-ink-900">
+                          <img
+                            src={o.preview}
+                            alt={o.label}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover object-top opacity-85 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700"
+                          />
+                          <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 px-4 py-3.5">
+                        <Download className="w-4 h-4 text-gold-300 flex-shrink-0 transition-transform duration-500 group-hover:translate-y-0.5" />
+                        <span className="text-[11px] tracking-[0.2em] uppercase text-cream-100/85 group-hover:text-gold-200 transition-colors leading-snug">
+                          {o.label}
+                        </span>
+                      </div>
                     </a>
                   ))}
                 </div>

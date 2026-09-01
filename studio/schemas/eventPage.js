@@ -106,10 +106,21 @@ export const eventPage = {
               type: "file",
               options: { accept: "application/pdf" },
             },
+            {
+              name: "previewImage",
+              title: "Preview image (optional)",
+              description:
+                "A small cover thumbnail shown next to the download link — usually the first page of the PDF. If left empty the link still works, just without a picture.",
+              type: "image",
+              options: { hotspot: true },
+            },
           ],
           preview: {
-            select: { title: "label.bg", media: "pdf" },
-            prepare: ({ title }) => ({ title: title || "(unnamed PDF)" }),
+            select: { title: "label.bg", media: "previewImage" },
+            prepare: ({ title, media }) => ({
+              title: title || "(unnamed PDF)",
+              media,
+            }),
           },
         },
       ],

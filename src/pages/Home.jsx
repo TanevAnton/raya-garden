@@ -63,6 +63,12 @@ const ROOMS_TEASER_QUERY = `*[_type == "room"] | order(order asc)[0...3]{
 const EVENTS_TEASER_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   intro, gallery[]{ image, title, text }
 }`;
+// Seasonal event page (New Year…) promoted on the home page. Same source
+// as the gold menu link in Nav.jsx: only an Active document is returned,
+// so flipping the toggle off in Studio removes this banner too.
+const EVENT_CTA_QUERY = `*[_type == "eventPage" && active == true] | order(order asc)[0]{
+  "slug": slug.current, menuTitle, eyebrow, title, subtitle, heroImage
+}`;
 
 const heroImages = [
   `${IMG}/hotel-all-1.png`,
@@ -497,6 +503,68 @@ function Offers({ t, lang, offers }) {
 // Rooms teaser — mirrors /hotel. Pulls the first 3 rooms (name, view,
 // price, photo) straight from the room documents so it stays in sync.
 // Data is fetched by Home so the page-level fade waits for it too.
+// Gold banner for the active seasonal event page, sat between the welcome
+// stats and the rooms teaser. Renders nothing when no eventPage document
+// is Active, so the home page closes back up out of season.
+function EventTeaser({ t, lang, data }) {
+  if (!data?.slug) return null;
+
+  const menuTitle = pickLocale(data.menuTitle, lang);
+  const title = pickLocale(data.title, lang) || menuTitle;
+  const badge = pickLocale(data.eyebrow, lang) || t.eventTeaser.badge;
+  const subtitle = pickLocale(data.subtitle, lang);
+  const image = data.heroImage
+    ? urlFor(data.heroImage).width(1200).quality(82).url()
+    : "";
+  if (!title) return null;
+
+  return (
+    <section className="relative bg-ink-950">
+      <div className="max-w-7xl mx-auto px-6 lg:px-10">
+        <Link
+          to={`/event/${data.slug}`}
+          className="group grid md:grid-cols-12 border border-gold-300/30 bg-gold-300/[0.05] hover:border-gold-300/60 hover:bg-gold-300/[0.08] transition-colors duration-700 overflow-hidden reveal"
+        >
+          {image && (
+            <div className="md:col-span-5 relative aspect-[16/9] md:aspect-auto md:min-h-[320px] overflow-hidden">
+              <img
+                src={image}
+                alt={title}
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover img-luxury group-hover:scale-[1.04] transition-transform duration-[1200ms]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-ink-950/70 via-ink-950/10 to-transparent pointer-events-none" />
+            </div>
+          )}
+          <div
+            className={`${
+              image ? "md:col-span-7" : "md:col-span-12"
+            } p-8 md:p-12 lg:p-14 flex flex-col justify-center`}
+          >
+            <span className="inline-flex items-center gap-2.5 self-start text-[11px] tracking-[0.3em] uppercase text-gold-300">
+              <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
+              {badge}
+            </span>
+            <h2 className="font-display text-3xl md:text-4xl lg:text-5xl leading-[1.1] text-cream-50 mt-5 text-balance">
+              {title}
+            </h2>
+            {subtitle && (
+              <p className="text-base lg:text-lg text-cream-100/75 leading-relaxed mt-5 font-light max-w-xl">
+                {subtitle}
+              </p>
+            )}
+            <span className="btn-gold px-8 py-4 mt-9 self-start text-xs tracking-[0.3em] uppercase font-medium rounded-sm inline-flex items-center gap-3">
+              {t.eventTeaser.cta}
+              <ArrowRight className="w-4 h-4 transition-transform duration-500 group-hover:translate-x-1" />
+            </span>
+          </div>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function RoomsTeaser({ t, lang, data }) {
   const tp = t.pages.hotel;
   const rooms = (data || []).map((r) => ({
@@ -662,13 +730,19 @@ export default function Home() {
     useSanityQuery(ROOMS_TEASER_QUERY);
   const { data: eventsTeaserData, loading: eventsTeaserLoading } =
     useSanityQuery(EVENTS_TEASER_QUERY);
+  const { data: eventCtaData, loading: eventCtaLoading } =
+    useSanityQuery(EVENT_CTA_QUERY);
 
   // The body fades in as ONE unit only when every query that feeds visible
   // text has resolved. Gating on pageLoading alone let sections render
   // their translations.js fallback first and visibly swap ("flash of old
   // text") whenever the other queries resolved a beat later.
   const bodyLoading =
-    pageLoading || offersLoading || roomsTeaserLoading || eventsTeaserLoading;
+    pageLoading ||
+    offersLoading ||
+    roomsTeaserLoading ||
+    eventsTeaserLoading ||
+    eventCtaLoading;
 
   // Section teaser cards (Hotel / Restaurant / Winery / Park).
   // Render nothing while Sanity loads so the bundled hotel-all-*.png
@@ -786,6 +860,7 @@ export default function Home() {
         }`}
       >
       <Welcome t={tCMS} />
+      <EventTeaser t={tCMS} lang={lang} data={eventCtaData} />
       <RoomsTeaser t={tCMS} lang={lang} data={roomsTeaserData} />
       <Experience t={tCMS} items={experienceItems} />
       <EventsTeaser t={tCMS} lang={lang} data={eventsTeaserData} />

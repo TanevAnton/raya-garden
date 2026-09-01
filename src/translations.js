@@ -12,6 +12,10 @@ export const translations = {
       book: "Резервирай",
       reservation: "Запитване",
     },
+    eventTeaser: {
+      badge: "Специално предложение",
+      cta: "Виж предложението",
+    },
     hero: {
       eyebrow: "Парк Хотел · Велико Търново",
       title: "Уют сред",
@@ -291,6 +295,10 @@ export const translations = {
       book: "Book Now",
       reservation: "Inquiry",
     },
+    eventTeaser: {
+      badge: "Special offer",
+      cta: "See the offer",
+    },
     hero: {
       eyebrow: "Park Hotel · Veliko Tarnovo",
       title: "Serenity in",
@@ -566,6 +574,10 @@ export const translations = {
       contact: "Contact",
       book: "Rezervă",
       reservation: "Cerere",
+    },
+    eventTeaser: {
+      badge: "Ofertă specială",
+      cta: "Vezi oferta",
     },
     hero: {
       eyebrow: "Park Hotel · Veliko Tarnovo",

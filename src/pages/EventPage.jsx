@@ -141,17 +141,21 @@ export default function EventPage() {
                 }`}
               />
 
-              <div className="flex flex-wrap gap-4 justify-center">
+              {/* Equal-width columns, not a centred flex row: the two labels
+                  differ in length, so centring the row alone pushed the gap
+                  between them off the panel's centre line (and out of line
+                  with the gap between the offer cards below). */}
+              <div className="grid gap-4 sm:grid-cols-2 sm:max-w-[540px] sm:mx-auto">
                 <Link
                   to="/book"
-                  className="btn-gold px-10 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+                  className="btn-gold px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center justify-center gap-3"
                 >
                   {t.nav.book}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <a
                   href={`tel:${phone.replace(/\s/g, "")}`}
-                  className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+                  className="btn-ghost px-8 py-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center justify-center gap-3"
                 >
                   <Phone className="w-4 h-4" />
                   {phone}

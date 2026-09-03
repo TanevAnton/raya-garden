@@ -1,4 +1,21 @@
 User-agent: *
 Allow: /
 
+# Explicit allow rules for OpenAI's crawlers — each is a separate robots.txt
+# token (a rule for one doesn't cover the others), and OAI-AdsBot in
+# particular is what ChatGPT's ad-preview / landing-page-review tool uses.
+# The wildcard rule above already permits everyone, but some validators
+# specifically look for a named allow block, so make it explicit.
+User-agent: OAI-AdsBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
 Sitemap: https://rayagarden.bg/sitemap.xml

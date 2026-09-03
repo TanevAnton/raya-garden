@@ -71,7 +71,7 @@ RewriteRule ^(.+)/$ /$1 [L,R=301]
 # different content), not cloaking. The -f test falls through to the
 # normal SPA fallback whenever a snapshot is missing or stale, so a bot
 # never gets a broken response — worst case, today's behaviour.
-SetEnvIfNoCase User-Agent "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|PerplexityBot|Googlebot|Bingbot|DuckDuckBot|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot" IS_BOT
+SetEnvIfNoCase User-Agent "GPTBot|ChatGPT-User|OAI-SearchBot|OAI-AdsBot|ClaudeBot|PerplexityBot|Googlebot|Bingbot|DuckDuckBot|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot" IS_BOT
 
 RewriteCond %{ENV:IS_BOT} =1
 RewriteCond %{REQUEST_URI} ^/event/([^/]+)/?$

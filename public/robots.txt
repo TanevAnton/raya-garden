@@ -1,4 +1,32 @@
 User-agent: *
 Disallow:
+Allow: /
+
+# OpenAI's crawlers are named explicitly per OpenAI's own advertiser
+# guidance: OAI-AdsBot validates the landing pages of ChatGPT ads, and
+# OAI-SearchBot is recommended alongside it. Each is a separate robots.txt
+# token, so a rule for one does not cover the others.
+#
+# Every group carries BOTH an empty "Disallow:" (the oldest, universally
+# understood allow-everything form) and "Allow: /" (what OpenAI's guidance
+# shows), because Allow is a spec extension and a group holding only an
+# Allow line can be read as empty by a strict parser. ASCII only - no
+# typographic dashes or quotes for a parser to trip over.
+
+User-agent: OAI-AdsBot
+Disallow:
+Allow: /
+
+User-agent: OAI-SearchBot
+Disallow:
+Allow: /
+
+User-agent: ChatGPT-User
+Disallow:
+Allow: /
+
+User-agent: GPTBot
+Disallow:
+Allow: /
 
 Sitemap: https://rayagarden.bg/sitemap.xml

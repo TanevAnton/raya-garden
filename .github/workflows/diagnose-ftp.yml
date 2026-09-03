@@ -24,57 +24,8 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch the site as each OpenAI crawler (live, from the runner)
-        run: |
-          # Every request is bounded: a hang is itself a finding, but an
-          # unbounded curl would stall the job for the best part of an hour
-          # and publish no log at all (Actions only exposes logs on finish).
-          C='--connect-timeout 10 --max-time 25'
-
-          echo "===================== REACHABILITY ====================="
-          getent hosts rayagarden.bg || echo "  DNS: no A record resolved"
-          curl -sS $C -o /dev/null -w '  TLS handshake+connect: connect=%{time_connect}s tls=%{time_appconnect}s\n' \
-               https://rayagarden.bg/ || echo "  CONNECT FAILED"
-
-          echo ""
-          echo "===================== PER USER-AGENT ====================="
-          # The browser UA is the control: if it succeeds where the crawler
-          # UAs hang or 403, the host is filtering on user agent. If every
-          # one fails alike, the runner's network path is the problem, not
-          # anything the crawler sees.
-          while IFS='|' read -r name ua; do
-            for url in "https://rayagarden.bg/robots.txt" "https://rayagarden.bg/?lang=bg"; do
-              printf '%-14s %-38s ' "$name" "${url#https://rayagarden.bg}"
-              curl -sS $C -A "$ua" -o /tmp/body -D /tmp/hdr \
-                   -w 'status=%{http_code} type=%{content_type} bytes=%{size_download} time=%{time_total}s\n' \
-                   "$url" || echo "REQUEST FAILED (timeout or refused)"
-              grep -iE '^(cache-control|server|x-|cf-)' /tmp/hdr | sed 's/^/                 /' || true
-            done
-          done <<'UAS'
-          OAI-AdsBot|Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)
-          OAI-SearchBot|Mozilla/5.0 (compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)
-          ChatGPT-User|Mozilla/5.0 (compatible; ChatGPT-User/1.0; +https://openai.com/bot)
-          GPTBot|Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com/gptbot)
-          browser-ctrl|Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36
-          UAS
-
-          echo ""
-          echo "===================== robots.txt AS SERVED RIGHT NOW ====================="
-          curl -sS $C -A "Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)" \
-               https://rayagarden.bg/robots.txt || echo "(fetch failed)"
-
-          echo ""
-          echo "===================== LANDING PAGE: SNAPSHOT OR EMPTY SHELL? ====================="
-          if curl -sS $C -A "Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)" \
-                  "https://rayagarden.bg/?lang=bg" -o /tmp/lp.html; then
-            echo "bytes: $(wc -c < /tmp/lp.html)  |  visible words: $(sed -e 's/<[^>]*>/ /g' /tmp/lp.html | tr -s ' \n' ' ' | wc -w)"
-            grep -o '<title>[^<]*</title>' /tmp/lp.html | head -1
-            grep -o '<meta name="description" content="[^"]\{0,120\}' /tmp/lp.html | head -1
-          else
-            echo "(fetch failed)"
-          fi
-
       - name: Look for OpenAI crawler traffic in the access log
+        timeout-minutes: 6
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -149,3 +100,56 @@ jobs:
           echo ""
           echo "===================== WAF HARD-BLOCK LIST HITS (last 15, any bot) ====================="
           grep -i 'hard-blocked bot' /tmp/dl/error.log | tail -15 || echo "(none)"
+
+      - name: Fetch the site as each OpenAI crawler (live, from the runner)
+        timeout-minutes: 4
+        continue-on-error: true
+        run: |
+          # Every request is bounded: a hang is itself a finding, but an
+          # unbounded curl would stall the job for the best part of an hour
+          # and publish no log at all (Actions only exposes logs on finish).
+          C='--connect-timeout 10 --max-time 25'
+
+          echo "===================== REACHABILITY ====================="
+          timeout 10 getent hosts rayagarden.bg || echo "  DNS: no A record resolved"
+          curl -sS $C -o /dev/null -w '  TLS handshake+connect: connect=%{time_connect}s tls=%{time_appconnect}s\n' \
+               https://rayagarden.bg/ || echo "  CONNECT FAILED"
+
+          echo ""
+          echo "===================== PER USER-AGENT ====================="
+          # The browser UA is the control: if it succeeds where the crawler
+          # UAs hang or 403, the host is filtering on user agent. If every
+          # one fails alike, the runner's network path is the problem, not
+          # anything the crawler sees.
+          while IFS='|' read -r name ua; do
+            for url in "https://rayagarden.bg/robots.txt" "https://rayagarden.bg/?lang=bg"; do
+              printf '%-14s %-38s ' "$name" "${url#https://rayagarden.bg}"
+              curl -sS $C -A "$ua" -o /tmp/body -D /tmp/hdr \
+                   -w 'status=%{http_code} type=%{content_type} bytes=%{size_download} time=%{time_total}s\n' \
+                   "$url" || echo "REQUEST FAILED (timeout or refused)"
+              grep -iE '^(cache-control|server|x-|cf-)' /tmp/hdr | sed 's/^/                 /' || true
+            done
+          done <<'UAS'
+          OAI-AdsBot|Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)
+          OAI-SearchBot|Mozilla/5.0 (compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)
+          ChatGPT-User|Mozilla/5.0 (compatible; ChatGPT-User/1.0; +https://openai.com/bot)
+          GPTBot|Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com/gptbot)
+          browser-ctrl|Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36
+          UAS
+
+          echo ""
+          echo "===================== robots.txt AS SERVED RIGHT NOW ====================="
+          curl -sS $C -A "Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)" \
+               https://rayagarden.bg/robots.txt || echo "(fetch failed)"
+
+          echo ""
+          echo "===================== LANDING PAGE: SNAPSHOT OR EMPTY SHELL? ====================="
+          if curl -sS $C -A "Mozilla/5.0 (compatible; OAI-AdsBot/1.0; +https://openai.com/searchbot)" \
+                  "https://rayagarden.bg/?lang=bg" -o /tmp/lp.html; then
+            echo "bytes: $(wc -c < /tmp/lp.html)  |  visible words: $(sed -e 's/<[^>]*>/ /g' /tmp/lp.html | tr -s ' \n' ' ' | wc -w)"
+            grep -o '<title>[^<]*</title>' /tmp/lp.html | head -1
+            grep -o '<meta name="description" content="[^"]\{0,120\}' /tmp/lp.html | head -1
+          else
+            echo "(fetch failed)"
+          fi
+

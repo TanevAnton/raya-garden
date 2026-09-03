@@ -32,16 +32,19 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 30; set net:max-retries 2;'
+          # xfer:clobber on — lftp otherwise refuses to overwrite an existing
+          # local file, which silently turned the fetch into a no-op.
+          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 30; set net:max-retries 2; set xfer:clobber on;'
           conn() { lftp -c "$OPTS open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; $1"; }
 
           mkdir -p /tmp/dl
-          # Pre-create so a failed fetch degrades into "empty log" rather than
-          # aborting the whole job on the first grep (bash -e).
-          touch /tmp/dl/access.log /tmp/dl/error.log
           echo "===================== FETCHING LOGS ====================="
           conn "get access-logs/rayagarden.bg -o /tmp/dl/access.log" && echo "access log OK" || echo "access log FETCH FAILED"
           conn "get access-logs/rayagarden.bg.error_log -o /tmp/dl/error.log" && echo "error log OK" || echo "error log FETCH FAILED"
+          # Only stand in for a file the fetch genuinely failed to produce, so
+          # the greps below don't abort the job under bash -e.
+          [ -f /tmp/dl/access.log ] || touch /tmp/dl/access.log
+          [ -f /tmp/dl/error.log ] || touch /tmp/dl/error.log
           ls -la /tmp/dl/
 
           echo "===================== ACCESS LOG SUMMARY ====================="

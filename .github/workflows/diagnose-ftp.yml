@@ -2,15 +2,20 @@ name: Diagnose crawler access (manual, temporary)
 
 # One-off, READ-ONLY diagnostic. Investigating why OpenAI's OAI-AdsBot
 # reports it can't access rayagarden.bg even though the server answers
-# that user agent with a 200 from every external vantage point we tried —
-# the remaining suspect is host-level bot/IP filtering (Imunify360,
-# ModSecurity, cPanel bad-bot rules) that blocks the crawler before Apache
-# and therefore never shows up in an outside test.
+# that user agent with a 200 from every external vantage point we tried.
 #
-# Uses the same FTP secrets deploy.yml already uses. Takes no input and
-# runs a fixed command list: it only lists directories and downloads log
-# files to the runner to grep them. It never writes, moves or deletes
-# anything on the server. Delete this file once the investigation is done.
+# Layout discovered by the first run: the cPanel account is `svetagorab`
+# and ~/access-logs is a symlink to /var/log/apache/domlogs/svetagorabg,
+# holding a per-domain `rayagarden.bg` access log.
+#
+# Decisive check: cross-reference every client IP in that log against
+# OpenAI's published crawler ranges (openai.com/adsbot.json + searchbot.json).
+# If none of their IPs appear, the crawler is being blocked upstream of
+# Apache and the fix is with the host, not in this repo.
+#
+# Uses the same FTP secrets deploy.yml uses. Takes no input, runs a fixed
+# command list, only reads — never writes to the server. Delete this file
+# once the investigation is done.
 
 on:
   workflow_dispatch: {}
@@ -19,7 +24,7 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect account layout and grep logs for crawler hits
+      - name: Fetch access log and check for OpenAI crawler traffic
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
@@ -27,49 +32,91 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
-          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 20; set net:max-retries 2;'
+          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 30; set net:max-retries 2;'
           conn() { lftp -c "$OPTS open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; $1"; }
 
-          echo "===================== ROOT LISTING ====================="
-          conn "ls -la" || true
-
-          echo "===================== TREE (depth 2) ====================="
-          conn "find -d 2 ." 2>/dev/null | head -300 || true
-
-          echo "===================== COMMON LOG LOCATIONS ====================="
-          for d in logs access-logs .logs var/log tmp; do
-            echo "--- $d ---"
-            conn "ls -la $d" 2>&1 | head -40 || true
-          done
-
-          echo "===================== LOG-LIKE PATHS FOUND ====================="
-          conn "find -d 3 ." 2>/dev/null > /tmp/tree.txt || true
-          echo "(tree entries: $(wc -l < /tmp/tree.txt))"
-          grep -iE 'log' /tmp/tree.txt | head -60 || echo "(none)"
-
-          echo "===================== DOWNLOAD + GREP LOGS ====================="
           mkdir -p /tmp/dl
-          grep -iE '(access|error).*log|\.log(\.gz)?$' /tmp/tree.txt \
-            | grep -vE '/$' | head -8 > /tmp/candidates.txt || true
-          if [ ! -s /tmp/candidates.txt ]; then
-            echo "No log files reachable over FTP — logs likely live outside this account's FTP jail."
-          else
-            while IFS= read -r f; do
-              [ -z "$f" ] && continue
-              safe=$(echo "$f" | tr '/' '_')
-              echo "--- fetching $f ---"
-              conn "get \"$f\" -o /tmp/dl/$safe" >/dev/null 2>&1 || { echo "(fetch failed)"; continue; }
-              echo "--- crawler hits in $f ---"
-              if [ "${f##*.}" = "gz" ]; then
-                zgrep -iE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' "/tmp/dl/$safe" | tail -40 || echo "(no crawler hits)"
-              else
-                grep -iE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' "/tmp/dl/$safe" | tail -40 || echo "(no crawler hits)"
-              fi
-            done < /tmp/candidates.txt
-          fi
+          # Pre-create so a failed fetch degrades into "empty log" rather than
+          # aborting the whole job on the first grep (bash -e).
+          touch /tmp/dl/access.log /tmp/dl/error.log
+          echo "===================== FETCHING LOGS ====================="
+          conn "get access-logs/rayagarden.bg -o /tmp/dl/access.log" && echo "access log OK" || echo "access log FETCH FAILED"
+          conn "get access-logs/rayagarden.bg.error_log -o /tmp/dl/error.log" && echo "error log OK" || echo "error log FETCH FAILED"
+          ls -la /tmp/dl/
 
-          echo "===================== SERVER-SIDE CONFIG FILES ====================="
-          for f in .htaccess rayagarden.bg/.htaccess public_html/.htaccess; do
-            echo "--- $f ---"
-            conn "cat $f" 2>&1 | head -30 || true
-          done
+          echo "===================== ACCESS LOG SUMMARY ====================="
+          echo "total lines: $(wc -l < /tmp/dl/access.log)"
+          echo "--- first entry ---"; head -1 /tmp/dl/access.log
+          echo "--- last entry ---";  tail -1 /tmp/dl/access.log
+
+          echo "===================== ANY OPENAI / AI CRAWLER BY USER-AGENT ====================="
+          grep -icE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' /tmp/dl/access.log || echo 0
+          grep -iE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' /tmp/dl/access.log | tail -30 || echo "(none found)"
+
+          echo "===================== ALL BOT-ISH USER AGENTS SEEN (top 30) ====================="
+          grep -oiE '"[^"]*(bot|crawler|spider|slurp)[^"]*"$' /tmp/dl/access.log \
+            | sort | uniq -c | sort -rn | head -30 || echo "(none)"
+
+          echo "===================== NON-200 RESPONSES (top 20) ====================="
+          awk '{for(i=1;i<=NF;i++) if($i ~ /^"(GET|POST|HEAD)$/){print $(i+2)}}' /tmp/dl/access.log \
+            | sort | uniq -c | sort -rn | head -20 || echo "(parse failed)"
+
+          echo "===================== IP CROSS-CHECK vs OPENAI PUBLISHED RANGES ====================="
+          curl -s -o /tmp/adsbot.json https://openai.com/adsbot.json || echo "(adsbot.json fetch failed)"
+          curl -s -o /tmp/searchbot.json https://openai.com/searchbot.json || echo "(searchbot.json fetch failed)"
+          curl -s -o /tmp/gptbot.json https://openai.com/gptbot.json || echo "(gptbot.json fetch failed)"
+          head -c 300 /tmp/adsbot.json; echo
+
+          python3 - <<'PY'
+          import ipaddress, json, re, glob, collections
+
+          nets = []
+          for path in glob.glob('/tmp/*.json'):
+              try:
+                  data = json.load(open(path))
+              except Exception as e:
+                  print(f"  (could not parse {path}: {e})")
+                  continue
+              for p in data.get('prefixes', []):
+                  for key in ('ipv4Prefix', 'ipv6Prefix'):
+                      if key in p:
+                          try:
+                              nets.append((ipaddress.ip_network(p[key]), path.split('/')[-1]))
+                          except ValueError:
+                              pass
+          print(f"loaded {len(nets)} OpenAI published prefixes")
+
+          ips = collections.Counter()
+          with open('/tmp/dl/access.log', errors='replace') as fh:
+              for line in fh:
+                  m = re.match(r'^(\S+)', line)
+                  if m:
+                      ips[m.group(1)] += 1
+          print(f"unique client IPs in access log: {len(ips)}")
+
+          hits = collections.Counter()
+          for ip, count in ips.items():
+              try:
+                  addr = ipaddress.ip_address(ip)
+              except ValueError:
+                  continue
+              for net, src in nets:
+                  if addr.version == net.version and addr in net:
+                      hits[(ip, src)] += count
+                      break
+
+          if hits:
+              print("*** OpenAI crawler IPs FOUND in access log: ***")
+              for (ip, src), count in hits.most_common(20):
+                  print(f"  {ip}  ({src})  {count} requests")
+          else:
+              print("*** NO requests from any OpenAI published IP range ***")
+              print("    -> the crawler is being blocked BEFORE Apache (host firewall),")
+              print("       or it never attempted a request at all.")
+          PY
+
+          echo "===================== ERROR LOG: recent + any modsec/denied ====================="
+          grep -icE 'modsec|ModSecurity|denied|Forbidden' /tmp/dl/error.log || echo 0
+          grep -iE 'modsec|ModSecurity|denied|Forbidden' /tmp/dl/error.log | tail -20 || echo "(none)"
+          echo "--- last 10 error log lines ---"
+          tail -10 /tmp/dl/error.log

@@ -42,6 +42,21 @@ jobs:
           VITE_FORMSPREE_ENDPOINT: https://formspree.io/f/mvzlnlav
         run: npm run build
 
+      # Renders a static HTML snapshot of each page (via a headless
+      # Chromium + Sanity fetch) into dist/__snapshots__/. public/.htaccess
+      # serves these to bot user agents (GPTBot, ChatGPT-User, Googlebot...)
+      # that don't run JavaScript, since the built index.html is otherwise
+      # just an empty <div id="root"></div> until React renders client-side.
+      # Never blocks the deploy: the script itself swallows its own errors
+      # and exits 0, and continue-on-error is a second safety net — bots
+      # just fall back to today's behaviour if a snapshot is missing.
+      - name: Prerender pages for crawlers
+        continue-on-error: true
+        env:
+          VITE_SANITY_PROJECT_ID: q2yxl7gs
+          VITE_SANITY_DATASET: production
+        run: npm run prerender:bots
+
       # Deploy with lftp over explicit FTPS. SuperHosting's Pure-FTPd uses a
       # self-signed cert (CN cloud.theadmin.net), so standard FTPS actions
       # fail strict verification — lftp keeps the transfer encrypted but

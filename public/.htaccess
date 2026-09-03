@@ -57,6 +57,37 @@ RewriteRule ^ / [L,R=301]
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)/$ /$1 [L,R=301]
 
+# ───────────────────────── bot snapshot serving ─────────────────────────
+# This app renders entirely client-side (React + a Sanity fetch), so the
+# built index.html is just <div id="root"></div> until JS runs — a crawler
+# that doesn't execute JavaScript (e.g. OpenAI's ChatGPT-Ads preview
+# fetcher) sees an empty page and reports it "couldn't access" the site,
+# even though nothing is actually blocked (see robots.txt: Allow: /).
+# `npm run prerender:bots` (wired into the deploy workflow, after
+# `vite build`) captures a real rendered snapshot of each page into
+# __snapshots__/ — serve that to known bot user agents instead. Human
+# visitors always get the live SPA below; this is standard "dynamic
+# rendering" (bots get a static copy of the SAME visible content, not
+# different content), not cloaking. The -f test falls through to the
+# normal SPA fallback whenever a snapshot is missing or stale, so a bot
+# never gets a broken response — worst case, today's behaviour.
+SetEnvIfNoCase User-Agent "GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|PerplexityBot|Googlebot|Bingbot|DuckDuckBot|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot" IS_BOT
+
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{REQUEST_URI} ^/event/([^/]+)/?$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/event-%1.html -f
+RewriteRule ^ /__snapshots__/event-%1.html [L]
+
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{REQUEST_URI} ^/(hotel|restaurant|winery|park|events|book|contact)/?$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/%1.html -f
+RewriteRule ^ /__snapshots__/%1.html [L]
+
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{REQUEST_URI} ^/?$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/home.html -f
+RewriteRule ^ /__snapshots__/home.html [L]
+
 # ───────────────────────── SPA fallback ─────────────────────────
 # Serve real files/dirs as-is; everything else → index.html so React
 # Router handles deep links and page refreshes.

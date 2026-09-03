@@ -11,11 +11,12 @@ export default function Layout({ lang, setLang, t }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
 
-  // GA4 + Facebook Pixel page views. Both are initialised in index.html
-  // WITHOUT an automatic page view (send_page_view: false / no PageView in
-  // the base code), so this is the only place they fire — once per route
-  // change, including the first load. Child page effects (useSeo) run
-  // before this parent effect, so document.title is already updated.
+  // GA4 + Facebook Pixel + OpenAI Ads page views. All three are initialised
+  // in index.html WITHOUT an automatic page view (send_page_view: false / no
+  // PageView in the base code / the OAIQ SDK has no automatic page tracking
+  // at all), so this is the only place they fire — once per route change,
+  // including the first load. Child page effects (useSeo) run before this
+  // parent effect, so document.title is already updated.
   useEffect(() => {
     window.gtag?.("event", "page_view", {
       page_path: pathname,
@@ -23,6 +24,14 @@ export default function Layout({ lang, setLang, t }) {
       page_title: document.title,
     });
     window.fbq?.("track", "PageView");
+    // page_viewed needs contents[] to pass OpenAI's schema validation —
+    // without it the event is accepted (202) and then silently dropped.
+    window.oaiq?.("measure", "page_viewed", {
+      type: "contents",
+      contents: [
+        { id: pathname, name: document.title, content_type: "product" },
+      ],
+    });
   }, [pathname]);
 
   useEffect(() => {

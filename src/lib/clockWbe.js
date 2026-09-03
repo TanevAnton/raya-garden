@@ -60,12 +60,27 @@ export function setClockLang(lang) {
 //
 // window.oaiq is defined synchronously by the pixel loader in <head>, but
 // stay defensive — an ad blocker or the prerender step can leave it absent.
+//
+// PAYLOAD SCHEMA MATTERS: per developers.openai.com/ads/measurement-pixel,
+// checkout_started requires amount, currency AND contents[] alongside the
+// type. The abbreviated `{type:"contents"}` from the setup dialog gets a
+// 202 at the ingest endpoint — it's accepted for async processing — and is
+// then dropped in validation, so it never reaches the event stream. Amount
+// is an integer in minor units; it's 0 here because the guest has only
+// opened the booking engine and Clock hasn't priced a stay yet.
 export function trackCheckoutStarted() {
   if (typeof window === "undefined") return;
   if (window.oaiqCheckoutStarted) return;
   if (typeof window.oaiq !== "function") return;
   window.oaiqCheckoutStarted = true;
-  window.oaiq("measure", "checkout_started", { type: "contents" });
+  window.oaiq("measure", "checkout_started", {
+    type: "contents",
+    amount: 0,
+    currency: "EUR",
+    contents: [
+      { id: "accommodation", name: "Accommodation", content_type: "product" },
+    ],
+  });
 }
 
 // Open the booking overlay straight to the room list.

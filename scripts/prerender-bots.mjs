@@ -87,6 +87,28 @@ async function main() {
 
   try {
     const page = await browser.newPage();
+
+    // Every route below is a real page load, so GA4/GTM/Meta/OpenAI-ads
+    // beacons would fire from the CI runner on each deploy and land in the
+    // reports as fake traffic — and worse, as fake ad-attribution data.
+    // None of them affect what gets rendered, so drop them at the network
+    // layer. Sanity and the app's own assets must still go through.
+    const TRACKER_HOSTS = [
+      "googletagmanager.com",
+      "google-analytics.com",
+      "analytics.google.com",
+      "doubleclick.net",
+      "connect.facebook.net",
+      "facebook.com",
+      "bzrcdn.openai.com",
+    ];
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const url = req.url();
+      if (TRACKER_HOSTS.some((h) => url.includes(h))) req.abort();
+      else req.continue();
+    });
+
     for (const route of routes) {
       // ?lang=bg pins the snapshot's language deterministically — without
       // it the app's geo-IP lookup would pick a language per the build

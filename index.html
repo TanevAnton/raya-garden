@@ -11,6 +11,13 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-M5Z8T4VB');</script>
     <!-- End Google Tag Manager -->
+
+    <!-- OpenAI / ChatGPT Ads pixel (OAIQ). Snippet as issued by the ads
+         dashboard for pixel P2hrm2618T2J6j8wrHQtpP — must stay byte-exact
+         and appear only once per page. -->
+    <script>!function(w,d,s,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;var j=d.createElement(s);j.async=1;j.src=u;var f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(j,f)}(window,document,"script","https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"P2hrm2618T2J6j8wrHQtpP",debug:true});</script>
+    <!-- End OpenAI Ads pixel -->
+
     <meta name="theme-color" content="#0a0908" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Park Hotel RAYA Garden" />
@@ -129,7 +136,18 @@
          number as transaction_id. Runs on the parent page by design —
          gtag only exists here, not inside Clock's iframe. -->
     <script>
+      // Fires once, the first time the booking overlay opens. The callback
+      // below runs on EVERY page change inside the overlay, so without this
+      // guard each step of the funnel would report another ad conversion.
+      var oaiqCheckoutStarted = false;
+
       window.clockPmsWbePageViewCallback = function (params) {
+        // ChatGPT Ads conversion: the guest has entered the booking engine.
+        if (!oaiqCheckoutStarted && typeof window.oaiq === 'function') {
+          oaiqCheckoutStarted = true;
+          window.oaiq('measure', 'checkout_started', { type: 'contents' });
+        }
+
         gtag('event', 'page_view', {
           page_title: ['BookDirect', params.hotelName, params.pageName].join(' / ')
         });

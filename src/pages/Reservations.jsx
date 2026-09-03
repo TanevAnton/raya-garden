@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useSeo } from "../hooks/useSeo.js";
-import { WBE_BASE_URL, searchAvailability } from "../lib/clockWbe.js";
+import {
+  WBE_BASE_URL,
+  searchAvailability,
+  trackCheckoutStarted,
+} from "../lib/clockWbe.js";
 
 function isoDate(d) {
   return d.toISOString().slice(0, 10);
@@ -60,7 +64,12 @@ export default function Reservations() {
       adults: Number(adults) || 2,
       bonusCode: promo || null,
     });
-    if (!ok) window.open(WBE_BASE_URL, "_blank", "noopener");
+    if (!ok) {
+      // Overlay unavailable — the engine opens in a new tab instead, which
+      // is still the guest entering checkout, so report it either way.
+      trackCheckoutStarted();
+      window.open(WBE_BASE_URL, "_blank", "noopener");
+    }
   };
 
   const inputClass =

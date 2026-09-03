@@ -1,0 +1,75 @@
+name: Diagnose crawler access (manual, temporary)
+
+# One-off, READ-ONLY diagnostic. Investigating why OpenAI's OAI-AdsBot
+# reports it can't access rayagarden.bg even though the server answers
+# that user agent with a 200 from every external vantage point we tried —
+# the remaining suspect is host-level bot/IP filtering (Imunify360,
+# ModSecurity, cPanel bad-bot rules) that blocks the crawler before Apache
+# and therefore never shows up in an outside test.
+#
+# Uses the same FTP secrets deploy.yml already uses. Takes no input and
+# runs a fixed command list: it only lists directories and downloads log
+# files to the runner to grep them. It never writes, moves or deletes
+# anything on the server. Delete this file once the investigation is done.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect account layout and grep logs for crawler hits
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 20; set net:max-retries 2;'
+          conn() { lftp -c "$OPTS open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; $1"; }
+
+          echo "===================== ROOT LISTING ====================="
+          conn "ls -la" || true
+
+          echo "===================== TREE (depth 2) ====================="
+          conn "find -d 2 ." 2>/dev/null | head -300 || true
+
+          echo "===================== COMMON LOG LOCATIONS ====================="
+          for d in logs access-logs .logs var/log tmp; do
+            echo "--- $d ---"
+            conn "ls -la $d" 2>&1 | head -40 || true
+          done
+
+          echo "===================== LOG-LIKE PATHS FOUND ====================="
+          conn "find -d 3 ." 2>/dev/null > /tmp/tree.txt || true
+          echo "(tree entries: $(wc -l < /tmp/tree.txt))"
+          grep -iE 'log' /tmp/tree.txt | head -60 || echo "(none)"
+
+          echo "===================== DOWNLOAD + GREP LOGS ====================="
+          mkdir -p /tmp/dl
+          grep -iE '(access|error).*log|\.log(\.gz)?$' /tmp/tree.txt \
+            | grep -vE '/$' | head -8 > /tmp/candidates.txt || true
+          if [ ! -s /tmp/candidates.txt ]; then
+            echo "No log files reachable over FTP — logs likely live outside this account's FTP jail."
+          else
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              safe=$(echo "$f" | tr '/' '_')
+              echo "--- fetching $f ---"
+              conn "get \"$f\" -o /tmp/dl/$safe" >/dev/null 2>&1 || { echo "(fetch failed)"; continue; }
+              echo "--- crawler hits in $f ---"
+              if [ "${f##*.}" = "gz" ]; then
+                zgrep -iE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' "/tmp/dl/$safe" | tail -40 || echo "(no crawler hits)"
+              else
+                grep -iE 'OAI-AdsBot|GPTBot|OAI-SearchBot|ChatGPT' "/tmp/dl/$safe" | tail -40 || echo "(no crawler hits)"
+              fi
+            done < /tmp/candidates.txt
+          fi
+
+          echo "===================== SERVER-SIDE CONFIG FILES ====================="
+          for f in .htaccess rayagarden.bg/.htaccess public_html/.htaccess; do
+            echo "--- $f ---"
+            conn "cat $f" 2>&1 | head -30 || true
+          done

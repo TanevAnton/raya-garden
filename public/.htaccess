@@ -115,6 +115,14 @@ RewriteRule ^ /index.html [L]
   <FilesMatch "index\.html$">
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
+  # robots.txt likewise. Crawlers cache it for hours by default, and with no
+  # explicit policy they fall back to heuristics off Last-Modified — so a
+  # fix to it can take a day to be noticed. ChatGPT Ads rejected a landing
+  # page over robots.txt while the live file plainly allowed everything,
+  # which is exactly what a stale cached copy looks like.
+  <FilesMatch "robots\.txt$">
+    Header set Cache-Control "no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
 </IfModule>
 
 # ───────────────────────── compression ─────────────────────────

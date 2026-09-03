@@ -1,0 +1,101 @@
+name: Diagnose crawler access (manual, temporary)
+
+# READ-ONLY diagnostic. Question it answers: when ChatGPT Ads reprocesses
+# the ad and reports "the site blocks crawler access in robots.txt", does
+# OAI-AdsBot actually reach this server at all?
+#
+#   absent entirely     -> blocked upstream of Apache, or never attempted
+#   present with 403/429 -> the host's ModSecurity bot-control is rejecting it
+#   present with 200     -> the crawl succeeded and the rejection is stale
+#
+# Context: the access log shows OpenAI's ChatGPT-User reaching the site fine
+# from its published 9.129.x.x ranges, while OAI-AdsBot has never appeared —
+# and this host runs a bot-control ruleset that demonstrably 403s DotBot and
+# Amazonbot on /robots.txt.
+#
+# Uses the same FTP secrets deploy.yml uses. Fixed command list, no inputs:
+# it only downloads logs to the runner and greps them. Never writes to the
+# server. Delete once the investigation is done.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Look for OpenAI crawler traffic in the access log
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+          # xfer:clobber on — lftp otherwise refuses to overwrite a local
+          # file, which silently turns the fetch into a no-op.
+          OPTS='set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 30; set net:max-retries 2; set xfer:clobber on;'
+          conn() { lftp -c "$OPTS open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; $1"; }
+
+          mkdir -p /tmp/dl
+          conn "get access-logs/rayagarden.bg -o /tmp/dl/access.log" && echo "access log OK" || echo "FETCH FAILED"
+          conn "get access-logs/rayagarden.bg.error_log -o /tmp/dl/error.log" && echo "error log OK" || echo "FETCH FAILED"
+          [ -f /tmp/dl/access.log ] || touch /tmp/dl/access.log
+          [ -f /tmp/dl/error.log ] || touch /tmp/dl/error.log
+          echo "access log lines: $(wc -l < /tmp/dl/access.log)  |  last entry:"
+          tail -1 /tmp/dl/access.log
+
+          echo ""
+          echo "===================== OAI-AdsBot BY USER-AGENT ====================="
+          grep -ic 'OAI-AdsBot' /tmp/dl/access.log || echo 0
+          grep -i 'OAI-AdsBot' /tmp/dl/access.log | tail -30 || echo "(none)"
+
+          echo ""
+          echo "===================== ANY robots.txt FETCH, LAST 40 ====================="
+          grep 'robots.txt' /tmp/dl/access.log | tail -40 || echo "(none)"
+
+          echo ""
+          echo "===================== IP CROSS-CHECK vs OPENAI RANGES ====================="
+          for f in adsbot searchbot gptbot chatgpt-user; do
+            curl -s -o "/tmp/$f.json" "https://openai.com/$f.json" || echo "($f.json fetch failed)"
+          done
+
+          python3 - <<'PY'
+          import ipaddress, json, re, glob, collections
+          nets = []
+          for path in glob.glob('/tmp/*.json'):
+              try: data = json.load(open(path))
+              except Exception: continue
+              for p in data.get('prefixes', []):
+                  for k in ('ipv4Prefix', 'ipv6Prefix'):
+                      if k in p:
+                          try: nets.append((ipaddress.ip_network(p[k]), path.split('/')[-1]))
+                          except ValueError: pass
+          print(f"loaded {len(nets)} OpenAI prefixes")
+
+          rows = collections.defaultdict(list)
+          for line in open('/tmp/dl/access.log', errors='replace'):
+              m = re.match(r'^(\S+)', line)
+              if not m: continue
+              try: a = ipaddress.ip_address(m.group(1))
+              except ValueError: continue
+              for net, src in nets:
+                  if a.version == net.version and a in net:
+                      rows[src].append(line.rstrip())
+                      break
+
+          if not rows:
+              print("*** NO requests from ANY OpenAI published range ***")
+          for src, lines in rows.items():
+              print(f"\n--- {src}: {len(lines)} requests ---")
+              for l in lines[-12:]:
+                  print("   " + l[:190])
+          PY
+
+          echo ""
+          echo "===================== WAF DENIALS MENTIONING OPENAI ====================="
+          grep -iE 'modsec|denied' /tmp/dl/error.log | grep -iE 'oai|openai|adsbot|gptbot|chatgpt' | tail -20 || echo "(no OpenAI-related WAF denials)"
+
+          echo ""
+          echo "===================== WAF HARD-BLOCK LIST HITS (last 15, any bot) ====================="
+          grep -i 'hard-blocked bot' /tmp/dl/error.log | tail -15 || echo "(none)"

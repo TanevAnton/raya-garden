@@ -62,9 +62,9 @@ export const siteSettings = {
     },
     {
       name: "weddingsBrochurePreview",
-      title: "Wedding brochure cover (preview image)",
+      title: "Wedding brochure cover (optional)",
       description:
-        "Optional. A picture of the brochure's first page, shown above the link on /events so guests see what they're opening. Leave empty and the plain button is used instead.",
+        "Leave empty and /events shows the brochure's own first page as the cover. Upload something here only to show a different picture instead.",
       type: "image",
       options: { hotspot: true },
     },
@@ -78,9 +78,9 @@ export const siteSettings = {
     },
     {
       name: "corporateBrochurePreview",
-      title: "Corporate brochure cover (preview image)",
+      title: "Corporate brochure cover (optional)",
       description:
-        "Optional. A picture of the brochure's first page, shown above the link on /events. Leave empty and the plain button is used instead.",
+        "Leave empty and /events shows the brochure's own first page as the cover. Upload something here only to show a different picture instead.",
       type: "image",
       options: { hotspot: true },
     },

@@ -42,6 +42,20 @@ jobs:
           VITE_FORMSPREE_ENDPOINT: https://formspree.io/f/mvzlnlav
         run: npm run build
 
+      # Re-renders the /events brochure covers from page 1 of whatever
+      # PDFs are uploaded in Studio, over the committed public/img copies.
+      # Swapping a brochure in Sanity therefore refreshes its cover on the
+      # next deploy, with no code change. Never blocks the deploy: the
+      # script keeps the committed cover and exits 0 on any failure.
+      - name: Render brochure covers from the PDFs
+        continue-on-error: true
+        env:
+          VITE_SANITY_PROJECT_ID: q2yxl7gs
+          VITE_SANITY_DATASET: production
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
+          npm run covers:pdf
+
       # Renders a static HTML snapshot of each page (via a headless
       # Chromium + Sanity fetch) into dist/__snapshots__/. public/.htaccess
       # serves these to bot user agents (GPTBot, ChatGPT-User, Googlebot...)

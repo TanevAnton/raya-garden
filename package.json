@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview --host",
     "prerender:bots": "node scripts/prerender-bots.mjs",
+    "covers:pdf": "node scripts/generate-pdf-covers.mjs",
     "migrate": "node scripts/migrate-to-sanity.mjs",
     "seed:restaurant-gallery": "node scripts/seed-restaurant-gallery.mjs",
     "seed:winery-gallery": "node scripts/seed-winery-gallery.mjs",

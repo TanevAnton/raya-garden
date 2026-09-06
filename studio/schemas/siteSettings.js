@@ -61,12 +61,28 @@ export const siteSettings = {
       options: { accept: "application/pdf" },
     },
     {
+      name: "weddingsBrochurePreview",
+      title: "Wedding brochure cover (preview image)",
+      description:
+        "Optional. A picture of the brochure's first page, shown above the link on /events so guests see what they're opening. Leave empty and the plain button is used instead.",
+      type: "image",
+      options: { hotspot: true },
+    },
+    {
       name: "corporateBrochurePdf",
       title: "Corporate events brochure (PDF)",
       description:
         "Upload the corporate / team-building brochure. Shown as a \"View brochure\" button on /events.",
       type: "file",
       options: { accept: "application/pdf" },
+    },
+    {
+      name: "corporateBrochurePreview",
+      title: "Corporate brochure cover (preview image)",
+      description:
+        "Optional. A picture of the brochure's first page, shown above the link on /events. Leave empty and the plain button is used instead.",
+      type: "image",
+      options: { hotspot: true },
     },
   ],
   preview: { prepare: () => ({ title: "Site settings" }) },

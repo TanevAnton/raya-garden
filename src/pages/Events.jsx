@@ -16,14 +16,21 @@ const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
 const BROCHURES_QUERY = `*[_type == "siteSettings"][0]{
   phone,
   "weddingsPdf": weddingsBrochurePdf.asset->url,
-  "corporatePdf": corporateBrochurePdf.asset->url
+  weddingsBrochurePreview,
+  "corporatePdf": corporateBrochurePdf.asset->url,
+  corporateBrochurePreview
 }`;
 
 function findBlock(blocks, key) {
   return blocks?.find((b) => b.key === key);
 }
 
-function EventCard({ Icon, heading, description, phone, pdfUrl, t }) {
+function EventCard({ Icon, heading, description, phone, pdfUrl, preview, t }) {
+  // With a cover uploaded the brochure becomes a thumbnail card carrying its
+  // own label — the same treatment the offer PDFs get on /event/<slug>. With
+  // no cover it stays the plain ghost button next to "Call us".
+  const showCover = Boolean(pdfUrl && preview);
+
   return (
     <article className="reveal bg-ink-900 border border-gold-300/10 p-10 md:p-14 flex flex-col items-start">
       <Icon className="w-9 h-9 text-gold-300 mb-6" />
@@ -35,25 +42,56 @@ function EventCard({ Icon, heading, description, phone, pdfUrl, t }) {
           {description}
         </p>
       )}
-      <div className="flex flex-wrap gap-4 mt-auto">
-        <a
-          href={`tel:${(phone || "+359896100100").replace(/\s/g, "")}`}
-          className="btn-gold px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
-        >
-          <Phone className="w-4 h-4" />
-          {t.pages.events.callUs}
-        </a>
-        {pdfUrl && (
+
+      {/* Cover + CTAs share one bottom-aligned block, so the two cards line
+          up even though their descriptions run to different lengths. */}
+      <div className="mt-auto w-full">
+        {showCover && (
           <a
             href={pdfUrl}
             target="_blank"
             rel="noreferrer"
-            className="btn-ghost px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            className="group block w-[220px] mb-8 border border-gold-300/15 bg-ink-950/40 hover:border-gold-300/45 hover:bg-ink-950/70 transition-all duration-500"
           >
-            <ExternalLink className="w-4 h-4" />
-            {t.pages.events.viewBrochure}
+            <div className="relative aspect-[3/4] overflow-hidden bg-ink-950">
+              <img
+                src={preview}
+                alt={heading}
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover object-top opacity-85 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700"
+              />
+              <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <ExternalLink className="w-4 h-4 text-gold-300 flex-shrink-0 transition-transform duration-500 group-hover:-translate-y-0.5" />
+              <span className="text-[11px] tracking-[0.2em] uppercase text-cream-100/85 group-hover:text-gold-200 transition-colors leading-snug">
+                {t.pages.events.viewBrochure}
+              </span>
+            </div>
           </a>
         )}
+
+        <div className="flex flex-wrap gap-4">
+          <a
+            href={`tel:${(phone || "+359896100100").replace(/\s/g, "")}`}
+            className="btn-gold px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+          >
+            <Phone className="w-4 h-4" />
+            {t.pages.events.callUs}
+          </a>
+          {pdfUrl && !showCover && (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-ghost px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {t.pages.events.viewBrochure}
+            </a>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -88,6 +126,13 @@ export default function Events() {
   const consultingBlock = findBlock(pageData?.blocks, "consulting");
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
   const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
+
+  // Brochure covers are optional; without one the card falls back to the
+  // plain "View brochure" button.
+  const brochureCover = (image) =>
+    image ? urlFor(image).width(420).quality(80).url() : null;
+  const weddingsCover = brochureCover(brochures?.weddingsBrochurePreview);
+  const corporateCover = brochureCover(brochures?.corporateBrochurePreview);
 
   const gallery = (pageData?.gallery || []).map((item) => {
     const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
@@ -188,6 +233,7 @@ export default function Events() {
             description={tp.weddingsDescription}
             phone={brochures?.phone}
             pdfUrl={brochures?.weddingsPdf}
+            preview={weddingsCover}
             t={t}
           />
           <EventCard
@@ -196,6 +242,7 @@ export default function Events() {
             description={tp.corporateDescription}
             phone={brochures?.phone}
             pdfUrl={brochures?.corporatePdf}
+            preview={corporateCover}
             t={t}
           />
         </div>

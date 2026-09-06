@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Heart, Briefcase, Phone, ExternalLink } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
@@ -40,8 +41,11 @@ function findBlock(blocks, key) {
 
 function EventCard({ Icon, heading, description, phone, pdfUrl, cover, t }) {
   // The brochure link carries its own cover — the same treatment the offer
-  // PDFs get on /event/<slug>. Without a PDF uploaded there is no link at all.
-  const showCover = Boolean(pdfUrl && cover?.src);
+  // PDFs get on /event/<slug>. Without a PDF uploaded there is no link at all,
+  // and a cover that fails to load falls back to the plain button rather than
+  // leaving an empty frame.
+  const [coverBroken, setCoverBroken] = useState(false);
+  const showCover = Boolean(pdfUrl && cover?.src && !coverBroken);
   // Width follows the page's own shape, so both covers come out COVER_HEIGHT
   // tall; on a screen too narrow for that the box scales down by its aspect
   // ratio rather than letterboxing.
@@ -84,6 +88,7 @@ function EventCard({ Icon, heading, description, phone, pdfUrl, cover, t }) {
                 alt={heading}
                 loading="lazy"
                 decoding="async"
+                onError={() => setCoverBroken(true)}
                 className="w-full h-full object-contain opacity-85 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700"
               />
               <div className="absolute inset-0 ring-1 ring-inset ring-gold-300/10 pointer-events-none" />

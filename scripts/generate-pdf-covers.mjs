@@ -36,7 +36,7 @@ const OUT_DIR = path.resolve("dist/img");
 // aspect still renders — the page contains it rather than cropping — but
 // the mismatch is logged so the constant can be corrected.
 const COVERS = [
-  { key: "weddings", field: "weddingsBrochurePdf", width: 520, aspect: 210 / 297 },
+  { key: "weddings", field: "weddingsBrochurePdf", width: 440, aspect: 210 / 297 },
   { key: "corporate", field: "corporateBrochurePdf", width: 640, aspect: 16 / 9 },
 ];
 

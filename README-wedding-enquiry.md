@@ -121,3 +121,49 @@ hotel's confirmation:
 php -S 127.0.0.1:8088 -t public          # the API (set the RAYA_SMTP_* vars)
 npm run dev                               # the site; /api is proxied to :8088
 ```
+
+## Smoke test after configuring the mailer
+
+Run this from any machine once the SMTP settings are in place and the site is
+deployed. It sends a clearly labelled test enquiry through the real endpoint —
+the same path the configurator uses — so a `200` with a reference means the
+relay accepted the message, not that a form validated.
+
+```bash
+curl -sS -X POST https://rayagarden.bg/api/wedding-enquiry.php \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "offerVersion": "2026-09-08.1",
+    "lang": "bg",
+    "elapsedSeconds": 120,
+    "website": "",
+    "date": { "mode": "date", "date": "2027-06-12", "time": "16:00" },
+    "guests": { "standard": 60, "children": 0 },
+    "menus": { "primary": "menu-1", "mixed": false, "allocation": {} },
+    "childMenus": {},
+    "extras": { "tent": { "selected": true, "hours": 2 } },
+    "requests": {},
+    "otherWishes": "ТЕСТ — проверка на доставката, моля игнорирайте.",
+    "contact": {
+      "name": "ТЕСТ Запитване",
+      "phone": "+359 896 100 100",
+      "email": "<your own address, so the Reply-To is yours>",
+      "address": "Парк „Света гора“, 5000 Велико Търново",
+      "message": "ТЕСТ — изпратено при настройката на конфигуратора."
+    },
+    "consent": true
+  }'
+```
+
+Expected answers:
+
+| Response | Meaning |
+| --- | --- |
+| `{"ok":true,"reference":"RG-WD-…"}` | The relay **accepted** the message. Check hotel@svetagora.bg for arrival — acceptance is not the same as inbox delivery (spam filters, forwarding rules). |
+| `{"ok":false,"error":"mailer-not-configured"}` (503) | The SMTP settings aren't being found. Check the config file path or the env vars. |
+| `{"ok":false,"error":"send-failed"}` (502) | The relay refused or was unreachable. The server log line `[wedding-enquiry] RG-WD-… send failed at <stage>: <reply>` names the stage (connect, auth, mail-from, rcpt-to, body). |
+| `{"ok":false,"error":"validation",…}` | The payload was rejected; the `fields` object names what. |
+
+Repeating the identical command within 10 minutes returns the first reference
+with `"duplicate":true` and sends nothing — change the message text to send a
+second one. Five accepted sends per IP per hour.

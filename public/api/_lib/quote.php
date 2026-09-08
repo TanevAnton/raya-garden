@@ -11,6 +11,33 @@ if (!defined('RAYA_ENQUIRY')) {
     exit;
 }
 
+// mbstring stand-ins. The extension is not guaranteed on shared hosting, and
+// a missing mb_* call is a fatal error rather than a graceful degradation.
+// These are UTF-8 correct for the three functions this file needs.
+if (!function_exists('mb_substr')) {
+    function mb_substr($string, $start, $length = null, $encoding = null)
+    {
+        $chars = preg_split('//u', $string, -1, PREG_SPLIT_NO_EMPTY);
+        if (!is_array($chars)) {
+            return substr($string, $start, $length === null ? PHP_INT_MAX : $length);
+        }
+        return implode('', array_slice($chars, $start, $length));
+    }
+}
+if (!function_exists('mb_strlen')) {
+    function mb_strlen($string, $encoding = null)
+    {
+        return preg_match_all('/./us', $string) ?: 0;
+    }
+}
+if (!function_exists('mb_strtoupper')) {
+    function mb_strtoupper($string, $encoding = null)
+    {
+        // Cosmetic only (an email heading); ASCII-only uppercasing is fine.
+        return strtoupper($string);
+    }
+}
+
 const RAYA_MAX_GUESTS = 2000;   // abuse guard, not a venue capacity
 const RAYA_MAX_HOURS = 24;
 
@@ -41,7 +68,7 @@ function raya_str($value, int $max): string
 }
 
 /** Strictly a whole number in range, or null when it isn't one. */
-function raya_int($value, int $min, int $max): ?int
+function raya_int($value, int $min, int $max)
 {
     if (is_int($value)) {
         $n = $value;
@@ -575,7 +602,9 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
     }
     if ($quote['venueOverlap']) {
         $labels = array_map(
-            static fn($id) => raya_label($offer, 'extras', $id),
+            function ($id) use ($offer) {
+                return raya_label($offer, 'extras', $id);
+            },
             $quote['venueOverlap']
         );
         $rows[] = [
@@ -629,7 +658,9 @@ function raya_render_text(array $blocks): string
 
 function raya_render_html(array $blocks): string
 {
-    $esc = static fn($s) => htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $esc = function ($s) {
+        return htmlspecialchars((string) $s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    };
     $html = '<!doctype html><html lang="bg"><head><meta charset="utf-8">'
         . '<title>Ново сватбено запитване</title></head>'
         . '<body style="margin:0;padding:24px;background:#f5f3ee;'

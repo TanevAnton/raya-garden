@@ -89,7 +89,9 @@ did not accept.**
 
 ## Requirements on the host
 
-- PHP 7.4+ — no Composer, no extensions beyond the defaults.
+- PHP 7.0+ — no Composer required. `mbstring` is used when present and
+  stood in for when it isn't; `curl` or `allow_url_fopen` is needed to reach
+  Formspree; `openssl` only for the SMTP transport.
 - **Outbound HTTPS from PHP** (cURL, or `allow_url_fopen`) so the server can
   reach Formspree. If the host blocks it the endpoint answers `502
   send-failed` and logs `formspree send failed at connect: …`; that is the
@@ -141,11 +143,18 @@ npm run dev                               # the site; /api is proxied to :8088
 
 ## Self-test — is the host able to run this at all?
 
-Open in a browser:
+Two probes. Start with the second if the first returns a 500.
 
 ```
-https://rayagarden.bg/api/wedding-enquiry.php?selftest=1
+https://rayagarden.bg/api/wedding-enquiry.php?selftest=1   # the endpoint reporting on itself
+https://rayagarden.bg/api/php-check.php                    # a PHP 5-era probe that runs even
+                                                           # when the endpoint cannot be parsed
 ```
+
+`php-check.php` reports the PHP version, which extensions are present, whether
+the host can reach Formspree, and — the useful part — whether this PHP can
+*parse* each of the endpoint's files, naming the syntax error if not. Safe to
+leave in place, safe to delete.
 
 What you see tells you where a failure is:
 

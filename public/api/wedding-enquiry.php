@@ -135,7 +135,9 @@ if (is_string($rateRaw)) {
     if (is_array($decoded)) {
         $hits = array_values(array_filter(
             $decoded,
-            static fn($t) => is_int($t) && $t > $now - 3600
+            function ($t) use ($now) {
+                return is_int($t) && $t > $now - 3600;
+            }
         ));
     }
 }

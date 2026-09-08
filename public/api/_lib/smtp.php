@@ -17,9 +17,9 @@ if (!defined('RAYA_ENQUIRY')) {
 
 final class SmtpResult
 {
-    public bool $ok;
-    public string $error;
-    public string $stage;
+    /** @var bool */   public $ok;
+    /** @var string */ public $error;
+    /** @var string */ public $stage;
 
     public function __construct(bool $ok, string $stage = '', string $error = '')
     {
@@ -32,8 +32,8 @@ final class SmtpResult
 final class Smtp
 {
     private $socket = null;
-    private array $cfg;
-    private string $lastReply = '';
+    /** @var array */  private $cfg;
+    /** @var string */ private $lastReply = '';
 
     public function __construct(array $cfg)
     {

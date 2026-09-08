@@ -245,7 +245,7 @@ export const translations = {
         corporateDescription:
           "Конференции, тиймбилдинг и фирмени тържества. Изтеглете брошурата за пълните пакети или ни се обадете директно.",
         callUs: "Обади се",
-        configuratorCta: "Създайте своята сватбена оферта",
+        configuratorCta: "Конфигурирайте своята сватбена оферта",
         configuratorIntro:
           "Изберете меню и допълнения за Вашия ден и ни изпратете запитване за персонална оферта.",
         viewBrochure: "Разгледай брошурата (PDF)",
@@ -528,7 +528,7 @@ export const translations = {
         corporateDescription:
           "Conferences, team-building and company celebrations. Download the brochure for full details or call us directly.",
         callUs: "Call us",
-        configuratorCta: "Build your wedding offer",
+        configuratorCta: "Configure your wedding offer",
         configuratorIntro:
           "Choose a menu and extras for your day and send us an enquiry for a personal offer.",
         viewBrochure: "View brochure (PDF)",
@@ -825,7 +825,7 @@ export const translations = {
         corporateDescription:
           "Conferințe, teambuilding și sărbători corporative. Descărcați broșura pentru detalii complete sau sunați-ne direct.",
         callUs: "Sună",
-        configuratorCta: "Creați-vă oferta de nuntă",
+        configuratorCta: "Configurați-vă oferta de nuntă",
         configuratorIntro:
           "Alegeți meniul și extraopțiunile pentru ziua dumneavoastră și trimiteți-ne o solicitare pentru o ofertă personalizată.",
         viewBrochure: "Vezi broșura (PDF)",

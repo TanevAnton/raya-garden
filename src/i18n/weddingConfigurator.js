@@ -11,13 +11,13 @@
 
 const bg = {
   meta: {
-    title: "Създайте своята сватбена оферта",
+    title: "Конфигурирайте своята сватбена оферта",
     description:
       "Изберете меню, допълнителни услуги и детайли за Вашия сватбен ден в RAYA Garden и изпратете запитване за персонална оферта.",
   },
   intro: {
     eyebrow: "RAYA GARDEN",
-    title: "Създайте своята сватбена оферта",
+    title: "Конфигурирайте своята сватбена оферта",
     lead: "Изберете меню, допълнителни услуги и детайли за Вашия ден. В края ще получите ориентировъчна стойност и ще можете да изпратите запитването си директно към нашия екип.",
   },
   steps: ["Дата и гости", "Избор на меню", "Допълнителни услуги", "Преглед и изпращане"],
@@ -152,13 +152,13 @@ const bg = {
 
 const en = {
   meta: {
-    title: "Build your wedding offer",
+    title: "Configure your wedding offer",
     description:
       "Choose your menu, extra services and the details of your wedding day at RAYA Garden, then send us an enquiry for a personal offer.",
   },
   intro: {
     eyebrow: "RAYA GARDEN",
-    title: "Build your wedding offer",
+    title: "Configure your wedding offer",
     lead: "Choose your menu, extra services and the details of your day. At the end you'll see an indicative estimate and can send your enquiry straight to our team.",
   },
   steps: ["Date & guests", "Menu", "Extra services", "Review & send"],
@@ -292,13 +292,13 @@ const en = {
 
 const ro = {
   meta: {
-    title: "Creați-vă oferta de nuntă",
+    title: "Configurați-vă oferta de nuntă",
     description:
       "Alegeți meniul, serviciile suplimentare și detaliile zilei dumneavoastră la RAYA Garden și trimiteți-ne o solicitare pentru o ofertă personalizată.",
   },
   intro: {
     eyebrow: "RAYA GARDEN",
-    title: "Creați-vă oferta de nuntă",
+    title: "Configurați-vă oferta de nuntă",
     lead: "Alegeți meniul, serviciile suplimentare și detaliile zilei dumneavoastră. La final veți vedea o valoare orientativă și veți putea trimite solicitarea direct echipei noastre.",
   },
   steps: ["Data și invitații", "Meniu", "Servicii suplimentare", "Verificare și trimitere"],

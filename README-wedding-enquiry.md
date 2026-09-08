@@ -89,7 +89,7 @@ did not accept.**
 
 ## Requirements on the host
 
-- PHP 8.0+ — no Composer, no extensions beyond the defaults.
+- PHP 7.4+ — no Composer, no extensions beyond the defaults.
 - **Outbound HTTPS from PHP** (cURL, or `allow_url_fopen`) so the server can
   reach Formspree. If the host blocks it the endpoint answers `502
   send-failed` and logs `formspree send failed at connect: …`; that is the
@@ -138,6 +138,27 @@ hotel's confirmation:
 php -S 127.0.0.1:8088 -t public          # the API (set the RAYA_SMTP_* vars)
 npm run dev                               # the site; /api is proxied to :8088
 ```
+
+## Self-test — is the host able to run this at all?
+
+Open in a browser:
+
+```
+https://rayagarden.bg/api/wedding-enquiry.php?selftest=1
+```
+
+What you see tells you where a failure is:
+
+| What comes back | Meaning |
+| --- | --- |
+| `{"ok":true,"selftest":{…}}` | PHP runs the endpoint. Read the fields: `transport_reachable` says whether the host can reach Formspree, `offer_config_readable` whether the prices are being found. |
+| PHP source code, or a download prompt | PHP is not executing in that folder. Ask the host to enable it (or check the PHP version selector in cPanel). |
+| The RAYA Garden website | A rewrite is swallowing `/api/`. Check `.htaccess` reached the server. |
+| `500` | Usually the PHP version. The code needs 7.4+; older parses it as an error. |
+| `403` / `404` | The file did not upload, or the host blocks it. |
+
+It reports capability only — no credentials, no configuration values, no
+enquiry data.
 
 ## Smoke test after configuring the mailer
 

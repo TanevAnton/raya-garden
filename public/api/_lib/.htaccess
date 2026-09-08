@@ -1,1 +1,9 @@
-Require all denied
+# Library files are included by ../wedding-enquiry.php, never fetched directly.
+# Both forms, so this holds on Apache 2.4 and on older/LiteSpeed setups.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

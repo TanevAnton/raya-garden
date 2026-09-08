@@ -64,6 +64,9 @@ export default function WeddingConfigurator() {
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | submitting | sent | error
   const [errorMessage, setErrorMessage] = useState("");
+  // Short technical code shown under the apology: a guest can quote it and
+  // it names the failing stage without a trip through the server log.
+  const [errorDetail, setErrorDetail] = useState("");
   const [reference, setReference] = useState("");
   const [includedOpen, setIncludedOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -222,6 +225,7 @@ export default function WeddingConfigurator() {
 
     setStatus("submitting");
     setErrorMessage("");
+    setErrorDetail("");
 
     const payload = {
       offerVersion: offer.version,
@@ -320,13 +324,14 @@ export default function WeddingConfigurator() {
         return;
       }
 
-      throw new Error(body.error || `HTTP ${res.status}`);
+      throw new Error(`${res.status} ${body.error || "unexpected-response"}`);
     } catch (err) {
       // Never claim delivery we cannot see: any non-ok answer keeps the
       // configuration and asks the guest to retry.
       console.error("[wedding-enquiry]", err);
       setStatus("error");
       setErrorMessage(s.contact.errSend);
+      setErrorDetail(String(err.message || err).slice(0, 120));
     }
   };
 
@@ -365,6 +370,7 @@ export default function WeddingConfigurator() {
       errors={errors}
       status={status}
       errorMessage={errorMessage}
+      errorDetail={errorDetail}
       reference={reference}
       phone={phone}
       onEdit={goToStep}

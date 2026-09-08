@@ -43,7 +43,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
-function raya_respond(int $status, array $payload): never
+function raya_respond(int $status, array $payload)
 {
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
@@ -54,6 +54,47 @@ function raya_respond(int $status, array $payload): never
 function raya_log(string $reference, string $message): void
 {
     error_log('[wedding-enquiry] ' . $reference . ' ' . $message);
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && isset($_GET['selftest'])) {
+    // Health check: can this host actually run the endpoint and reach the
+    // mail transport? Capability only — nothing here reveals credentials,
+    // configured values or any enquiry.
+    $offerReadable = is_readable(__DIR__ . '/wedding-offer.json');
+    $formspree = getenv('RAYA_FORMSPREE_ENDPOINT');
+    if (!is_string($formspree) || $formspree === '') {
+        $formspree = RAYA_FORMSPREE_ENDPOINT;
+    }
+
+    $reach = 'not tested';
+    if ($formspree !== '' && function_exists('curl_init')) {
+        $ch = curl_init($formspree);
+        curl_setopt_array($ch, [
+            CURLOPT_NOBODY => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 6,
+        ]);
+        $reach = curl_exec($ch) === false
+            ? 'unreachable: ' . curl_error($ch)
+            : 'reachable (HTTP ' . (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE) . ')';
+        curl_close($ch);
+    } elseif ($formspree !== '') {
+        $reach = ini_get('allow_url_fopen') ? 'no curl; allow_url_fopen on' : 'no curl; allow_url_fopen off';
+    }
+
+    raya_respond(200, [
+        'ok' => true,
+        'selftest' => [
+            'php' => PHP_VERSION,
+            'curl' => function_exists('curl_init'),
+            'allow_url_fopen' => (bool) ini_get('allow_url_fopen'),
+            'offer_config_readable' => $offerReadable,
+            'transport' => $formspree !== '' ? 'formspree' : 'smtp-or-none',
+            'transport_reachable' => $reach,
+            'writable_temp' => is_writable(sys_get_temp_dir()),
+        ],
+    ]);
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

@@ -21,6 +21,7 @@ export default function StepReview({
   errors,
   status,
   errorMessage,
+  errorDetail,
   reference,
   phone,
   onEdit,
@@ -149,7 +150,14 @@ export default function StepReview({
               className="flex items-start gap-2 text-sm text-red-200 border border-red-400/30 bg-red-500/[0.06] px-4 py-3"
             >
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{fill(errorMessage, { phone })}</span>
+              <span>
+                {fill(errorMessage, { phone })}
+                {errorDetail && (
+                  <span className="block mt-1 font-mono text-[11px] text-red-200/50">
+                    {errorDetail}
+                  </span>
+                )}
+              </span>
             </p>
           )}
 

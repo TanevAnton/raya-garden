@@ -245,6 +245,18 @@ function raya_validate(array $in, array $offer): array
             $entry['quantity'] = 1;
         }
 
+        // Where the cocktail is held decides whether a space is charged, so
+        // the choice is required and must be one the offer lists.
+        if (!empty($extra['locations'])) {
+            $locationIds = raya_ids($extra['locations']);
+            $location = raya_str($sel['location'] ?? '', 40);
+            if (!in_array($location, $locationIds, true)) {
+                $errors['extra.' . $id . '.location'] = 'required';
+                continue;
+            }
+            $entry['location'] = $location;
+        }
+
         // Canapé selection: exactly the number the offer specifies, no repeats.
         if (!empty($extra['cateringChoices'])) {
             $wanted = (int) $extra['cateringChoices'];
@@ -279,7 +291,13 @@ function raya_validate(array $in, array $offer): array
         if (!isset($d['extras'][$extra['id']])) {
             continue;
         }
-        foreach ($extra['requires'] ?? [] as $requiredId) {
+        $requires = $extra['requires'] ?? [];
+        foreach ($extra['locations'] ?? [] as $location) {
+            if ($location['id'] === ($d['extras'][$extra['id']]['location'] ?? '')) {
+                $requires = array_merge($requires, $location['requires'] ?? []);
+            }
+        }
+        foreach ($requires as $requiredId) {
             if (isset($d['extras'][$requiredId])) {
                 continue;
             }
@@ -483,8 +501,14 @@ function raya_build_quote(array $d, array $offer): array
     // says so rather than inventing a bundle.
     $explained = [];
     foreach ($offer['extras'] as $extra) {
-        if (isset($d['extras'][$extra['id']])) {
-            $explained = array_merge($explained, $extra['requires'] ?? []);
+        if (!isset($d['extras'][$extra['id']])) {
+            continue;
+        }
+        $explained = array_merge($explained, $extra['requires'] ?? []);
+        foreach ($extra['locations'] ?? [] as $location) {
+            if ($location['id'] === ($d['extras'][$extra['id']]['location'] ?? '')) {
+                $explained = array_merge($explained, $location['requires'] ?? []);
+            }
         }
     }
     $overlap = array_values(array_diff(
@@ -581,7 +605,7 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
         } else {
             $label = $line['label'] ?? $line['id'];
             if (!empty($d['extras'][$line['id']]['auto'])) {
-                $label .= ' (задължителен при изнесен ритуал)';
+                $label .= ' (заради избраното място)';
             }
         }
         if (isset($line['minTotalCents'])) {
@@ -610,6 +634,18 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
                 return $choice;
             }, $entry['catering']);
             $rows[] = ['Избрани хапки', implode('; ', $names)];
+        }
+        if (!empty($entry['location'])) {
+            foreach ($offer['extras'] as $extra) {
+                if ($extra['id'] !== $id) {
+                    continue;
+                }
+                foreach ($extra['locations'] ?? [] as $location) {
+                    if ($location['id'] === $entry['location']) {
+                        $rows[] = ['Място за уелкъм коктейла', $location['label']];
+                    }
+                }
+            }
         }
         if ($entry['notes'] !== '') {
             $rows[] = ['Бележка — ' . raya_label($offer, 'extras', $id), $entry['notes']];

@@ -93,9 +93,13 @@ const bg = {
     cateringCounter: "Избрани: {n} от {max}",
     cateringError: "Моля, изберете точно {max} вида хапки.",
     notesLabel: "Бележка (по избор)",
-    requiredBadge: "Задължително при изнесен ритуал",
+    locationLabel: "Къде да бъде уелкъм коктейлът?",
+    locationHint: "Изборът на място определя дали се начислява наем.",
+    locationIncluded: "Без допълнителен наем",
+    locationRequired: "Моля, изберете място за уелкъм коктейла.",
+    requiredBadge: "Задължително при избраното място",
     requiredNote:
-      "Наемът на откритата тераса се начислява автоматично, когато е избран изнесен ритуал — коктейлът се провежда на нея.",
+      "Наемът се начислява автоматично заради избраното място за уелкъм коктейла.",
     overlapWarning:
       "Избрали сте няколко пространства/услуги за ритуала. Офертата не уточнява дали те се комбинират — стойността събира избраните позиции поотделно и комбинацията подлежи на потвърждение.",
     roomsLabel: "Приблизителен брой стаи",
@@ -244,9 +248,13 @@ const en = {
     cateringCounter: "Selected: {n} of {max}",
     cateringError: "Please select exactly {max} kinds.",
     notesLabel: "Note (optional)",
-    requiredBadge: "Required with the outdoor ceremony",
+    locationLabel: "Where should the welcome cocktail be held?",
+    locationHint: "The place you choose decides whether a hire fee applies.",
+    locationIncluded: "No extra hire fee",
+    locationRequired: "Please choose where the welcome cocktail is held.",
+    requiredBadge: "Required by the place you chose",
     requiredNote:
-      "The open-terrace fee is added automatically when the outdoor ceremony is selected — that is where the cocktail is held.",
+      "This hire fee is added automatically because of the place chosen for the welcome cocktail.",
     overlapWarning:
       "You've selected several ceremony spaces/services. The offer doesn't say whether they combine — the estimate adds the selected items separately and the combination is subject to confirmation.",
     roomsLabel: "Approximate number of rooms",
@@ -393,9 +401,13 @@ const ro = {
     cateringCounter: "Alese: {n} din {max}",
     cateringError: "Vă rugăm să alegeți exact {max} tipuri.",
     notesLabel: "Notă (opțional)",
-    requiredBadge: "Obligatoriu cu ceremonia în aer liber",
+    locationLabel: "Unde să aibă loc cocktailul de bun venit?",
+    locationHint: "Locul ales stabilește dacă se percepe o taxă de închiriere.",
+    locationIncluded: "Fără taxă suplimentară",
+    locationRequired: "Vă rugăm să alegeți locul cocktailului de bun venit.",
+    requiredBadge: "Obligatoriu pentru locul ales",
     requiredNote:
-      "Taxa pentru terasa deschisă se adaugă automat când este aleasă ceremonia în aer liber — acolo are loc cocktailul.",
+      "Taxa se adaugă automat din cauza locului ales pentru cocktailul de bun venit.",
     overlapWarning:
       "Ați ales mai multe spații/servicii pentru ceremonie. Oferta nu precizează dacă se combină — valoarea adună pozițiile separat, iar combinația se confirmă de hotel.",
     roomsLabel: "Număr aproximativ de camere",

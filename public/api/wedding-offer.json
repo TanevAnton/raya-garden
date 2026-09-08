@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-09.3",
+  "version": "2026-09-09.4",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -299,8 +299,26 @@
           "name": "Тарталети с шоколадов мус"
         }
       ],
-      "requires": [
-        "terrace"
+      "locations": [
+        {
+          "id": "terrace",
+          "label": "Панорамна тераса на лобито",
+          "labelEn": "Panoramic lobby terrace",
+          "labelRo": "Terasa panoramică a lobby-ului",
+          "requires": [
+            "terrace"
+          ]
+        },
+        {
+          "id": "restaurant",
+          "label": "Закритият ресторант",
+          "labelEn": "The indoor restaurant",
+          "labelRo": "Restaurantul interior",
+          "requires": [],
+          "note": "Включено в наема на ресторанта.",
+          "noteEn": "Covered by the restaurant hire.",
+          "noteRo": "Inclus în închirierea restaurantului."
+        }
       ]
     },
     {

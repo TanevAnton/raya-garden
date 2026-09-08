@@ -10,7 +10,7 @@ function unitLabel(s, unit) {
 }
 
 /** Priced addition — collapsed to a price row until it is added. */
-function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers, required }) {
+function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers, required, offerExtras }) {
   const selected = Boolean(selection?.selected);
   const label =
     lang === "en" ? extra.labelEn || extra.label : lang === "ro" ? extra.labelRo || extra.label : extra.label;
@@ -19,7 +19,7 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
   const toggle = () =>
     onChange(
       selected
-        ? { selected: false, covers: "", hours: "", catering: [], notes: "" }
+        ? { selected: false, covers: "", hours: "", catering: [], location: "", notes: "" }
         : {
             ...selection,
             selected: true,
@@ -127,6 +127,81 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                 max={24}
                 onChange={(v) => onChange({ ...selection, hours: v })}
               />
+            )}
+
+            {extra.locations && (
+              <fieldset>
+                <legend className={labelClass}>{s.extras.locationLabel}</legend>
+                <p className="text-xs text-cream-100/45 mb-3 leading-relaxed">
+                  {s.extras.locationHint}
+                </p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {extra.locations.map((location) => {
+                    const picked = selection.location === location.id;
+                    const name =
+                      lang === "en"
+                        ? location.labelEn || location.label
+                        : lang === "ro"
+                        ? location.labelRo || location.label
+                        : location.label;
+                    const note =
+                      lang === "en"
+                        ? location.noteEn || location.note
+                        : lang === "ro"
+                        ? location.noteRo || location.note
+                        : location.note;
+                    // What choosing this place costs, straight from the extra
+                    // it pulls in — never a number typed in twice.
+                    const fees = (location.requires || [])
+                      .map((id) => offerExtras.find((e) => e.id === id))
+                      .filter(Boolean);
+                    return (
+                      <button
+                        key={location.id}
+                        type="button"
+                        onClick={() => onChange({ ...selection, location: location.id })}
+                        aria-pressed={picked}
+                        className={`text-left px-4 py-3 border transition ${
+                          picked
+                            ? "border-gold-300/60 bg-gold-300/10"
+                            : "border-gold-300/15 hover:border-gold-300/40"
+                        }`}
+                      >
+                        <span className="flex items-start gap-2">
+                          <Check
+                            className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
+                              picked ? "text-gold-300" : "text-transparent"
+                            }`}
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm text-cream-50">{name}</span>
+                            <span className="block text-[11px] text-gold-300/70 mt-1">
+                              {fees.length
+                                ? fees
+                                    .map(
+                                      (fee) =>
+                                        `+ ${formatMoney(fee.priceCents, lang)} ${unitLabel(s, fee.unit)}`
+                                    )
+                                    .join(" · ")
+                                : s.extras.locationIncluded}
+                            </span>
+                            {note && (
+                              <span className="block text-[11px] text-cream-100/45 mt-1">
+                                {note}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors[`extra.${extra.id}.location`] && (
+                  <p role="alert" className="text-xs text-red-300/90 mt-3">
+                    {errors[`extra.${extra.id}.location`]}
+                  </p>
+                )}
+              </fieldset>
             )}
 
             {extra.catering && (
@@ -280,7 +355,12 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
   const requiredIds = new Set(
     offer.extras
       .filter((extra) => config.extras[extra.id]?.selected)
-      .flatMap((extra) => extra.requires || [])
+      .flatMap((extra) => {
+        const location = (extra.locations || []).find(
+          (l) => l.id === config.extras[extra.id]?.location
+        );
+        return [...(extra.requires || []), ...(location?.requires || [])];
+      })
   );
 
   return (
@@ -297,6 +377,7 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
               errors={errors}
               defaultCovers={defaultCovers}
               required={requiredIds.has(extra.id)}
+              offerExtras={offer.extras}
               selection={config.extras[extra.id] || {}}
               onChange={(next) =>
                 update("extras", { ...config.extras, [extra.id]: next })

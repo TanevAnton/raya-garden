@@ -114,9 +114,13 @@ export default function WeddingConfigurator() {
   useEffect(() => {
     const required = new Set();
     for (const extra of offer.extras) {
-      if (config.extras[extra.id]?.selected) {
-        for (const id of extra.requires || []) required.add(id);
-      }
+      const selection = config.extras[extra.id];
+      if (!selection?.selected) continue;
+      for (const id of extra.requires || []) required.add(id);
+      // A place can carry a hire fee of its own: the terrace is rented, the
+      // restaurant is already covered by the package.
+      const location = (extra.locations || []).find((l) => l.id === selection.location);
+      for (const id of location?.requires || []) required.add(id);
     }
     setConfig((prev) => {
       let next = prev.extras;
@@ -155,7 +159,12 @@ export default function WeddingConfigurator() {
     const explained = new Set(
       offer.extras
         .filter((e) => config.extras[e.id]?.selected)
-        .flatMap((e) => e.requires || [])
+        .flatMap((e) => {
+          const location = (e.locations || []).find(
+            (l) => l.id === config.extras[e.id]?.location
+          );
+          return [...(e.requires || []), ...(location?.requires || [])];
+        })
     );
     return offer.venueOverlapIds.filter(
       (id) => config.extras[id]?.selected && !explained.has(id)
@@ -193,6 +202,9 @@ export default function WeddingConfigurator() {
           }
           if (extra.unit === "per_hour" && toCount(selection.hours) < 1) {
             next[`extra.${extra.id}.hours`] = s.contact.errRequired;
+          }
+          if (extra.locations && !extra.locations.some((l) => l.id === selection.location)) {
+            next[`extra.${extra.id}.location`] = s.extras.locationRequired;
           }
           if (extra.cateringChoices && (selection.catering?.length || 0) !== extra.cateringChoices) {
             next[`extra.${extra.id}.catering`] = fill(s.extras.cateringError, {
@@ -246,6 +258,7 @@ export default function WeddingConfigurator() {
     if (field === "primaryMenu") return s.menus.errNoMenu;
     if (field === "childMenus") return fill(s.menus.childSumError, { n: children });
     if (field.endsWith(".catering")) return fill(s.extras.cateringError, { max: 3 });
+    if (field.endsWith(".location")) return s.extras.locationRequired;
     if (field === "phone") return s.contact.errPhone;
     if (field === "email") return s.contact.errEmail;
     if (field === "consent") return s.contact.errConsent;
@@ -293,6 +306,7 @@ export default function WeddingConfigurator() {
               covers: toCount(sel.covers) || undefined,
               hours: toCount(sel.hours) || undefined,
               catering: sel.catering || undefined,
+              location: sel.location || undefined,
               notes: sel.notes || "",
             },
           ])

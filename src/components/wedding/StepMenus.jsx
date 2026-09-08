@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Check, ChevronDown, Plus, X } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { StepHeading, NumberField, TextArea } from "./fields.jsx";
-import { formatMoney, upgradesForMenu } from "../../lib/weddingPricing.js";
+import { formatMoney } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
-function MenuCard({ menu, offer, s, selected, onSelect }) {
+function MenuCard({ menu, offer, s, lang, selected, onSelect, chosenUpgrades, onToggleUpgrade }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -87,6 +87,63 @@ function MenuCard({ menu, offer, s, selected, onSelect }) {
         >
           {selected ? s.menus.selected : s.menus.select}
         </button>
+
+        {/* Upgrades belong to this variant, so they live in its card and
+            appear once it is chosen — an upgrade to a menu nobody picked is
+            just noise in the grid. */}
+        {selected && menu.upgrades?.length > 0 && (
+          <div className="mt-5 pt-5 border-t border-gold-300/10">
+            <div className="text-[11px] tracking-[0.2em] uppercase text-gold-300/70">
+              {s.menus.upgradesTitle}
+            </div>
+            <p className="text-[11px] text-cream-100/45 leading-relaxed mt-1 mb-3">
+              {s.menus.upgradesHint}
+            </p>
+            <ul className="space-y-2">
+              {menu.upgrades.map((upgrade) => {
+                const chosen = chosenUpgrades.includes(upgrade.id);
+                return (
+                  <li key={upgrade.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggleUpgrade(upgrade.id)}
+                      aria-pressed={chosen}
+                      className={`w-full text-left border px-3 py-2.5 flex items-start gap-3 transition ${
+                        chosen
+                          ? "border-gold-300/50 bg-gold-300/[0.07]"
+                          : "border-gold-300/15 hover:border-gold-300/35"
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center border transition ${
+                          chosen
+                            ? "bg-gold-300/90 border-gold-300 text-ink-950"
+                            : "border-gold-300/40 text-transparent"
+                        }`}
+                      >
+                        <Check className="w-3 h-3" strokeWidth={3} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                          <span className="text-sm text-cream-50">{upgrade.name}</span>
+                          <span className="text-[10px] tracking-[0.15em] uppercase text-gold-300/70">
+                            {upgrade.priceCents == null
+                              ? s.menus.upgradeOnRequest
+                              : `${formatMoney(upgrade.priceCents, lang)} ${s.menus.upgradePerGuest}`}
+                          </span>
+                        </span>
+                        <span className="block text-[11px] text-cream-100/55 leading-relaxed mt-1">
+                          {upgrade.text}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -100,7 +157,6 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
   const { menus, childMenus } = config;
   const children = Number.parseInt(config.guests.children, 10) || 0;
   const included = offer.inclusions.filter((item) => item.asOption);
-  const upgrades = upgradesForMenu(offer, menus.primary);
   const chosenUpgrades = config.menuUpgrades || [];
 
   const childAllocated = Object.values(childMenus).reduce(
@@ -121,8 +177,18 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
               menu={menu}
               offer={offer}
               s={s}
+              lang={lang}
               selected={menus.primary === menu.id}
               onSelect={() => update("menus", { ...menus, primary: menu.id })}
+              chosenUpgrades={chosenUpgrades}
+              onToggleUpgrade={(id) =>
+                update(
+                  "menuUpgrades",
+                  chosenUpgrades.includes(id)
+                    ? chosenUpgrades.filter((u) => u !== id)
+                    : [...chosenUpgrades, id]
+                )
+              }
             />
           ))}
         </div>
@@ -134,74 +200,6 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
         )}
       </section>
 
-      {/* Upgrades belong to a variant, so they only appear once one is chosen.
-          An upgrade the hotel has not priced is offered as a request: shown
-          as "price on request" and kept out of the estimate. */}
-      {menus.primary && upgrades.length > 0 && (
-        <section>
-          <StepHeading hint={s.menus.upgradesHint}>{s.menus.upgradesTitle}</StepHeading>
-          <div className="space-y-4">
-            {upgrades.map((upgrade) => {
-              const chosen = chosenUpgrades.includes(upgrade.id);
-              return (
-                <article
-                  key={upgrade.id}
-                  className={`border p-5 transition-all duration-500 ${
-                    chosen ? "border-gold-300/50 bg-ink-900" : "border-gold-300/15 bg-ink-900/50"
-                  }`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-display text-xl text-cream-50 leading-snug">
-                        {upgrade.name}
-                      </h3>
-                      <p className="text-xs text-cream-100/60 leading-relaxed mt-2 max-w-prose">
-                        {upgrade.text}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      {upgrade.priceCents == null ? (
-                        <div className="text-[11px] tracking-[0.15em] uppercase text-gold-300/70 border border-gold-300/20 px-2 py-1">
-                          {s.menus.upgradeOnRequest}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="font-display text-2xl text-cream-50">
-                            {formatMoney(upgrade.priceCents, lang)}
-                          </div>
-                          <div className="text-[11px] tracking-[0.2em] uppercase text-gold-300/60 mt-1">
-                            {s.menus.upgradePerGuest}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      update(
-                        "menuUpgrades",
-                        chosen
-                          ? chosenUpgrades.filter((id) => id !== upgrade.id)
-                          : [...chosenUpgrades, upgrade.id]
-                      )
-                    }
-                    aria-pressed={chosen}
-                    className={`mt-4 px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2 ${
-                      chosen ? "btn-ghost" : "btn-gold"
-                    }`}
-                  >
-                    {chosen ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                    {chosen ? s.extras.remove : s.extras.add}
-                  </button>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* What the package already covers, priced at 0.00 € and ticked: these
           come with the per-person rate, so they are shown rather than offered
           — nothing here can be added or taken away. */}
@@ -211,11 +209,11 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
           {included.map((item) => (
             <li
               key={item.id}
-              className="flex items-start gap-3 border border-gold-300/20 bg-ink-900/50 px-4 py-3"
+              className="flex items-center gap-3 border border-gold-300/20 bg-ink-900/50 px-4 py-3"
             >
               <span
                 aria-hidden="true"
-                className="mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center bg-gold-300/90 text-ink-950"
+                className="w-4 h-4 flex-shrink-0 flex items-center justify-center bg-gold-300/90 text-ink-950"
               >
                 <Check className="w-3 h-3" strokeWidth={3} />
               </span>

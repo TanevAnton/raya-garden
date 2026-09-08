@@ -50,8 +50,9 @@ export function resolveRate(offer, standardGuests, children) {
   };
 }
 
-function extraById(offer, id) {
-  return offer.extras.find((e) => e.id === id) || null;
+/** The upgrades belonging to the chosen variant, indexed by id. */
+export function upgradesForMenu(offer, menuId) {
+  return offer.menus.find((m) => m.id === menuId)?.upgrades || [];
 }
 
 /**
@@ -94,6 +95,29 @@ export function buildQuote(offer, config) {
     });
   }
 
+  // Menu upgrades, priced per standard-menu guest. An upgrade the hotel has
+  // not priced yet (priceCents null) is carried as a request instead — it is
+  // never guessed at and never reaches the total.
+  const upgrades = upgradesForMenu(offer, config.menus?.primary);
+  const chosenUpgrades = (config.menuUpgrades || []).filter((id) =>
+    upgrades.some((u) => u.id === id)
+  );
+  const quotedUpgrades = [];
+  for (const upgrade of upgrades) {
+    if (!chosenUpgrades.includes(upgrade.id)) continue;
+    if (upgrade.priceCents == null) {
+      quotedUpgrades.push(upgrade.id);
+      continue;
+    }
+    lines.push({
+      id: upgrade.id,
+      quantity: standardGuests,
+      unit: "per_person",
+      unitPriceCents: upgrade.priceCents,
+      totalCents: standardGuests * upgrade.priceCents,
+    });
+  }
+
   // Priced extras, in the offer's own order.
   for (const extra of offer.extras) {
     const selection = config.extras?.[extra.id];
@@ -123,6 +147,7 @@ export function buildQuote(offer, config) {
     totalGuests: standardGuests + children,
     rate,
     lines,
+    quotedUpgrades,
     isRange: minTotalCents !== maxTotalCents,
     minTotalCents,
     maxTotalCents,

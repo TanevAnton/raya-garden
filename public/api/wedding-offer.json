@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-08.2",
+  "version": "2026-09-09.1",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -83,6 +83,29 @@
           "title": "Пиле „Моцарела“",
           "text": "Пилешко филе, моцарела, сметанов бейби спанак и жълт ориз със сушени доматки."
         }
+      ],
+      "upgrades": [
+        {
+          "id": "m1-burrata",
+          "name": "Салата с бурата",
+          "text": "Бурата, чери домати, рукола и песто от босилек — вместо салата „Елада“.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m1-caviar",
+          "name": "Хайвер с блини",
+          "text": "Хайвер, блини и заквасена сметана — допълнителна степен преди основното.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m1-duck",
+          "name": "Патешко магре",
+          "text": "Патешко магре с портокалов сос и картофено пюре — вместо пиле „Моцарела“.",
+          "unit": "per_person",
+          "priceCents": null
+        }
       ]
     },
     {
@@ -96,6 +119,29 @@
         {
           "title": "Бавно печено свинско месо с розмарин",
           "text": "Гарнирано с бейби моркови и пюре от кореноплодни."
+        }
+      ],
+      "upgrades": [
+        {
+          "id": "m2-burrata",
+          "name": "Салата с бурата",
+          "text": "Бурата, чери домати, рукола и песто от босилек — вместо градинската салата.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m2-prawns",
+          "name": "Скариди на градил",
+          "text": "Скариди с чесън, лимон и зехтин — допълнителна степен преди основното.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m2-beef",
+          "name": "Телешко филе с трюфелов сос",
+          "text": "Телешко филе, трюфелов сос и пюре от целина — вместо свинското месо.",
+          "unit": "per_person",
+          "priceCents": null
         }
       ]
     },
@@ -111,6 +157,29 @@
           "title": "Телешко Осо Буко",
           "text": "Гарнирано с картофено пюре, запечени зеленчуци и сос Жу."
         }
+      ],
+      "upgrades": [
+        {
+          "id": "m3-burrata",
+          "name": "Салата с бурата",
+          "text": "Бурата, чери домати, рукола и песто от босилек — вместо салата „Капризна“.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m3-caviar",
+          "name": "Хайвер с блини",
+          "text": "Хайвер, блини и заквасена сметана — допълнителна степен преди основното.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m3-fillet",
+          "name": "Филе миньон",
+          "text": "Филе миньон с гъбен сос и грилован аспержи — вместо Осо Буко.",
+          "unit": "per_person",
+          "priceCents": null
+        }
       ]
     },
     {
@@ -124,6 +193,29 @@
         {
           "title": "Обезкостено пуешко бутче Су-Вид",
           "text": "Гарнирано с императорски ориз, гриловани аспержи и „Демиглас“ с горски гъби."
+        }
+      ],
+      "upgrades": [
+        {
+          "id": "m4-burrata",
+          "name": "Салата с бурата",
+          "text": "Бурата, чери домати, рукола и песто от босилек — вместо салата „Прованс“.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m4-seafood",
+          "name": "Плато морски деликатеси",
+          "text": "Скариди, миди и лаврак — допълнителна степен за споделяне.",
+          "unit": "per_person",
+          "priceCents": null
+        },
+        {
+          "id": "m4-salmon",
+          "name": "Сьомга на скара",
+          "text": "Сьомга с аспержи и сос холандез — вместо пуешкото бутче.",
+          "unit": "per_person",
+          "priceCents": null
         }
       ]
     }
@@ -252,38 +344,44 @@
       "id": "decoration",
       "label": "Декорация на салона",
       "labelEn": "Decoration of the hall",
-      "labelRo": "Decorarea sălii"
+      "labelRo": "Decorarea sălii",
+      "viaPartner": true
     },
     {
       "id": "cake",
       "label": "Сватбена торта",
       "labelEn": "Wedding cake",
-      "labelRo": "Tort de nuntă"
+      "labelRo": "Tort de nuntă",
+      "viaPartner": true
     },
     {
       "id": "photo",
       "label": "Избор на локации за фотосесии на територията на комплекса",
       "labelEn": "Photo-session locations within the complex",
-      "labelRo": "Locații pentru ședințe foto în complex"
+      "labelRo": "Locații pentru ședințe foto în complex",
+      "viaPartner": false
     },
     {
       "id": "stag",
       "label": "Ергенско парти",
       "labelEn": "Stag party",
-      "labelRo": "Petrecerea burlacilor"
+      "labelRo": "Petrecerea burlacilor",
+      "viaPartner": true
     },
     {
       "id": "hen",
       "label": "Моминско парти",
       "labelEn": "Hen party",
-      "labelRo": "Petrecerea burlăcițelor"
+      "labelRo": "Petrecerea burlăcițelor",
+      "viaPartner": true
     },
     {
       "id": "accommodation",
       "label": "Хотелско настаняване за гостите",
       "labelEn": "Accommodation for guests",
       "labelRo": "Cazare pentru invitați",
-      "collectRooms": true
+      "collectRooms": true,
+      "viaPartner": false
     }
   ],
   "conditions": [

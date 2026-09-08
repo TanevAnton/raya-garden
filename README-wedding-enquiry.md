@@ -123,6 +123,19 @@ did not accept.**
 - **Logging** records only the enquiry reference and the failure reason —
   never names, phones, emails or addresses.
 
+### Menu upgrades — prices still needed
+
+Each variant in `wedding-offer.json` carries an `upgrades` array. The dish
+names and descriptions are **proposals awaiting the hotel's approval**, and
+every `priceCents` is `null`, which renders as "Цена по запитване" and keeps
+the item out of the estimate entirely — an invented price on a live page is a
+commercial claim nobody authorised.
+
+To publish a price, set `priceCents` in cents (e.g. `900` for 9.00 €). It is
+then charged per standard-menu guest and appears in the estimate and the email
+like any other line. Changing a variant clears upgrades belonging to another
+one, on both sides.
+
 ### What the enquiry collects
 
 Date (or a period, when the couple hasn't picked one), guest counts, one
@@ -158,6 +171,11 @@ hotel's confirmation:
 3. **Mixed menus across guests** are not offered: one variant is chosen for the
    event. A couple who wants a split says so in the notes, and the team
    confirms it — the offer does not describe mixed menus.
+4. **Which services come through a partner.** `viaPartner` in
+   `quotationRequests` currently marks decoration, the cake and the stag/hen
+   parties as partner-arranged, and leaves the photo locations and the guest
+   accommodation as the hotel's own — a hotel does not source its own rooms
+   through a partner. Correct the flags if the split is different.
 
 ## Testing locally
 

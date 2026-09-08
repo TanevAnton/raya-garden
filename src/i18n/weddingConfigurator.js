@@ -62,6 +62,11 @@ const bg = {
     childTitle: "Детско меню",
     childLead: "Разпределете {n} детски менюта по варианти.",
     childSumError: "Сборът трябва да е равен на броя детски менюта ({n}).",
+    upgradesTitle: "Надградете менюто",
+    upgradesHint:
+      "По избор — добавете или заменете степен в избрания вариант. Промяната се потвърждава от хотела.",
+    upgradeOnRequest: "Цена по запитване",
+    upgradePerGuest: "на човек",
     dietaryLabel: "Специални хранителни изисквания (по избор)",
     dietaryHint:
       "Алергии, вегетариански или други адаптации — възможността за промяна се потвърждава от хотела.",
@@ -71,7 +76,9 @@ const bg = {
     pricedLegend: "Допълнителни услуги с цена",
     quotationLegend: "Услуги по индивидуална оферта",
     quotationNote:
-      "За тези услуги офертата не посочва цена. Те не участват в ориентировъчната стойност — екипът ще Ви изпрати индивидуално предложение.",
+      "Тези услуги не са част от пакета и офертата не посочва цена за тях. Част от тях се организират с наши доверени партньори, а други — от екипа на хотела. Не участват в ориентировъчната стойност — ще получите индивидуално предложение.",
+    partnerBadge: "Чрез наш партньор",
+    hotelBadge: "От хотела",
     quotationBadge: "По индивидуална оферта",
     add: "Добави",
     added: "Добавено",
@@ -203,6 +210,11 @@ const en = {
     childTitle: "Children's menu",
     childLead: "Allocate {n} children's menus across the variants.",
     childSumError: "The total must equal the number of children's menus ({n}).",
+    upgradesTitle: "Upgrade the menu",
+    upgradesHint:
+      "Optional — add or replace a course in the chosen variant. Any change is confirmed by the hotel.",
+    upgradeOnRequest: "Price on request",
+    upgradePerGuest: "per person",
     dietaryLabel: "Special dietary requirements (optional)",
     dietaryHint:
       "Allergies, vegetarian or other adaptations — any change is confirmed by the hotel.",
@@ -212,7 +224,9 @@ const en = {
     pricedLegend: "Priced extra services",
     quotationLegend: "Services quoted individually",
     quotationNote:
-      "The offer lists no price for these. They are not part of the indicative estimate — the team will send you an individual proposal.",
+      "These are not part of the package and the offer lists no price for them. Some are arranged through our trusted partners, others by the hotel's own team. They are not part of the indicative estimate — you'll receive an individual proposal.",
+    partnerBadge: "Through a partner",
+    hotelBadge: "By the hotel",
     quotationBadge: "Individual quotation",
     add: "Add",
     added: "Added",
@@ -343,6 +357,11 @@ const ro = {
     childTitle: "Meniu pentru copii",
     childLead: "Repartizați {n} meniuri pentru copii pe variante.",
     childSumError: "Suma trebuie să fie egală cu numărul meniurilor pentru copii ({n}).",
+    upgradesTitle: "Îmbunătățiți meniul",
+    upgradesHint:
+      "Opțional — adăugați sau înlocuiți un fel din varianta aleasă. Orice modificare se confirmă de hotel.",
+    upgradeOnRequest: "Preț la cerere",
+    upgradePerGuest: "pe persoană",
     dietaryLabel: "Cerințe alimentare speciale (opțional)",
     dietaryHint: "Alergii, vegetarian sau alte adaptări — orice modificare se confirmă de hotel.",
   },
@@ -351,7 +370,9 @@ const ro = {
     pricedLegend: "Servicii suplimentare cu preț",
     quotationLegend: "Servicii cu ofertă individuală",
     quotationNote:
-      "Oferta nu indică un preț pentru acestea. Nu intră în valoarea orientativă — echipa vă va trimite o propunere individuală.",
+      "Acestea nu fac parte din pachet și oferta nu indică un preț pentru ele. Unele se organizează prin partenerii noștri de încredere, altele de echipa hotelului. Nu intră în valoarea orientativă — veți primi o propunere individuală.",
+    partnerBadge: "Prin partener",
+    hotelBadge: "De la hotel",
     quotationBadge: "Ofertă individuală",
     add: "Adaugă",
     added: "Adăugat",

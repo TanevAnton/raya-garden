@@ -154,6 +154,28 @@ function raya_validate(array $in, array $offer): array
         $d['primaryMenu'] = $primary;
     }
 
+    // Upgrades belong to the chosen variant; an id from another menu (or one
+    // that does not exist) is rejected rather than silently dropped.
+    $d['menuUpgrades'] = [];
+    $available = [];
+    foreach ($offer['menus'] as $menu) {
+        if ($menu['id'] === $d['primaryMenu']) {
+            $available = $menu['upgrades'] ?? [];
+        }
+    }
+    $availableIds = raya_ids($available);
+    $submittedUpgrades = is_array($in['menuUpgrades'] ?? null) ? $in['menuUpgrades'] : [];
+    foreach ($submittedUpgrades as $id) {
+        $id = raya_str((string) $id, 40);
+        if (!in_array($id, $availableIds, true)) {
+            $errors['menuUpgrades'] = 'unknown-option';
+            continue;
+        }
+        if (!in_array($id, $d['menuUpgrades'], true)) {
+            $d['menuUpgrades'][] = $id;
+        }
+    }
+
     // ── Children's menus ─────────────────────────────────────────────
     $childIds = raya_ids($offer['childMenus']);
     $d['childAllocation'] = [];
@@ -374,6 +396,32 @@ function raya_build_quote(array $d, array $offer): array
         ];
     }
 
+    // Menu upgrades: per standard-menu guest. One the hotel has not priced is
+    // carried as a request — never guessed at, never added to the estimate.
+    $quotedUpgrades = [];
+    foreach ($offer['menus'] as $menu) {
+        if ($menu['id'] !== $d['primaryMenu']) {
+            continue;
+        }
+        foreach ($menu['upgrades'] ?? [] as $upgrade) {
+            if (!in_array($upgrade['id'], $d['menuUpgrades'], true)) {
+                continue;
+            }
+            if (!isset($upgrade['priceCents'])) {
+                $quotedUpgrades[] = $upgrade['name'];
+                continue;
+            }
+            $lines[] = [
+                'id' => $upgrade['id'],
+                'label' => $upgrade['name'],
+                'quantity' => $standard,
+                'unit' => 'per_person',
+                'unitPriceCents' => (int) $upgrade['priceCents'],
+                'totalCents' => $standard * (int) $upgrade['priceCents'],
+            ];
+        }
+    }
+
     foreach ($offer['extras'] as $extra) {
         if (!isset($d['extras'][$extra['id']])) {
             continue;
@@ -406,6 +454,7 @@ function raya_build_quote(array $d, array $offer): array
 
     return [
         'lines' => $lines,
+        'quotedUpgrades' => $quotedUpgrades,
         'rate' => $rate,
         'isRange' => $min !== $max,
         'minTotalCents' => $min,
@@ -473,6 +522,9 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
     foreach ($d['childAllocation'] as $id => $qty) {
         $rows[] = [raya_label($offer, 'childMenus', $id), $qty . ' бр.'];
     }
+    foreach ($quote['quotedUpgrades'] as $name) {
+        $rows[] = ['Надграждане (цена по запитване)', $name];
+    }
     if ($d['dietary'] !== '') {
         $rows[] = ['Хранителни изисквания', $d['dietary']];
     }
@@ -531,7 +583,13 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
     if ($d['requests']) {
         $rows = [];
         foreach ($d['requests'] as $id => $entry) {
-            $value = 'заявено';
+            $viaPartner = false;
+            foreach ($offer['quotationRequests'] as $r) {
+                if ($r['id'] === $id) {
+                    $viaPartner = !empty($r['viaPartner']);
+                }
+            }
+            $value = $viaPartner ? 'заявено (чрез партньор)' : 'заявено (от хотела)';
             if (isset($entry['rooms'])) {
                 $value .= sprintf(
                     ' — стаи: %d, гости: %d, нощувки: %d',

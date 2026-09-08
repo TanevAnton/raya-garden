@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus, X } from "lucide-react";
 import { StepHeading, NumberField, TextArea } from "./fields.jsx";
-import { formatMoney } from "../../lib/weddingPricing.js";
+import { formatMoney, upgradesForMenu } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
 function MenuCard({ menu, offer, s, selected, onSelect }) {
@@ -100,6 +100,8 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
   const { menus, childMenus } = config;
   const children = Number.parseInt(config.guests.children, 10) || 0;
   const included = offer.inclusions.filter((item) => item.asOption);
+  const upgrades = upgradesForMenu(offer, menus.primary);
+  const chosenUpgrades = config.menuUpgrades || [];
 
   const childAllocated = Object.values(childMenus).reduce(
     (sum, n) => sum + (Number.parseInt(n, 10) || 0),
@@ -131,6 +133,74 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
           </p>
         )}
       </section>
+
+      {/* Upgrades belong to a variant, so they only appear once one is chosen.
+          An upgrade the hotel has not priced is offered as a request: shown
+          as "price on request" and kept out of the estimate. */}
+      {menus.primary && upgrades.length > 0 && (
+        <section>
+          <StepHeading hint={s.menus.upgradesHint}>{s.menus.upgradesTitle}</StepHeading>
+          <div className="space-y-4">
+            {upgrades.map((upgrade) => {
+              const chosen = chosenUpgrades.includes(upgrade.id);
+              return (
+                <article
+                  key={upgrade.id}
+                  className={`border p-5 transition-all duration-500 ${
+                    chosen ? "border-gold-300/50 bg-ink-900" : "border-gold-300/15 bg-ink-900/50"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-xl text-cream-50 leading-snug">
+                        {upgrade.name}
+                      </h3>
+                      <p className="text-xs text-cream-100/60 leading-relaxed mt-2 max-w-prose">
+                        {upgrade.text}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {upgrade.priceCents == null ? (
+                        <div className="text-[11px] tracking-[0.15em] uppercase text-gold-300/70 border border-gold-300/20 px-2 py-1">
+                          {s.menus.upgradeOnRequest}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="font-display text-2xl text-cream-50">
+                            {formatMoney(upgrade.priceCents, lang)}
+                          </div>
+                          <div className="text-[11px] tracking-[0.2em] uppercase text-gold-300/60 mt-1">
+                            {s.menus.upgradePerGuest}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      update(
+                        "menuUpgrades",
+                        chosen
+                          ? chosenUpgrades.filter((id) => id !== upgrade.id)
+                          : [...chosenUpgrades, upgrade.id]
+                      )
+                    }
+                    aria-pressed={chosen}
+                    className={`mt-4 px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2 ${
+                      chosen ? "btn-ghost" : "btn-gold"
+                    }`}
+                  >
+                    {chosen ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                    {chosen ? s.extras.remove : s.extras.add}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* What the package already covers, priced at 0.00 € and ticked: these
           come with the per-person rate, so they are shown rather than offered

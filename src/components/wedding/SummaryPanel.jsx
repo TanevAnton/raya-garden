@@ -1,5 +1,5 @@
 import { Pencil, Info } from "lucide-react";
-import { formatMoney, offerExpired } from "../../lib/weddingPricing.js";
+import { formatMoney, offerExpired, upgradesForMenu } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
 function label(offer, group, id, lang) {
@@ -45,9 +45,17 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
   const selectedRequests = Object.entries(config.requests).filter(([, r]) => r?.selected);
   const hasNumbers = standard > 0;
 
+  const menuUpgrades = upgradesForMenu(offer, config.menus.primary);
+  const upgradeName = (id) => menuUpgrades.find((u) => u.id === id)?.name || id;
+  // Upgrades the hotel has not priced yet sit with the other requests rather
+  // than in the numbers.
+  const onRequestUpgrades = (quote.quotedUpgrades || []).map(upgradeName);
+
   const lineLabel = (line) => {
     if (line.id === "standard-menus") return s.summary.standardSubtotal;
     if (line.id === "child-menus") return s.summary.childSubtotal;
+    const upgrade = menuUpgrades.find((u) => u.id === line.id);
+    if (upgrade) return upgrade.name;
     return label(offer, "extras", line.id, lang);
   };
 
@@ -156,7 +164,7 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
       )}
 
       {/* Requests that carry no price never touch the numbers above. */}
-      {selectedRequests.length > 0 && (
+      {(selectedRequests.length > 0 || onRequestUpgrades.length > 0) && (
         <div className="mt-5 pt-4 border-t border-gold-300/10">
           <div className="text-xs tracking-[0.2em] uppercase text-gold-300/60 flex items-center justify-between gap-3">
             {s.summary.quotation}
@@ -172,6 +180,11 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
             )}
           </div>
           <ul className="mt-2 space-y-1">
+            {onRequestUpgrades.map((name) => (
+              <li key={name} className="text-xs text-cream-100/70">
+                · {name}
+              </li>
+            ))}
             {selectedRequests.map(([id]) => (
               <li key={id} className="text-xs text-cream-100/70">
                 · {label(offer, "quotationRequests", id, lang)}

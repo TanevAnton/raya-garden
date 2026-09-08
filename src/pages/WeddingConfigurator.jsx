@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, ChevronUp } from "lucide-react";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { weddingStrings, fill } from "../i18n/weddingConfigurator.js";
-import { buildQuote, formatMoney, toCount } from "../lib/weddingPricing.js";
+import { buildQuote, formatMoney, toCount, upgradesForMenu } from "../lib/weddingPricing.js";
 import offer from "../../public/api/wedding-offer.json";
 import StepDateGuests from "../components/wedding/StepDateGuests.jsx";
 import StepMenus from "../components/wedding/StepMenus.jsx";
@@ -25,6 +25,7 @@ const emptyConfig = () => ({
   date: { mode: "date", date: "", period: "" },
   guests: { standard: "", children: "0" },
   menus: { primary: "" },
+  menuUpgrades: [],
   childMenus: {},
   dietary: "",
   extras: {},
@@ -94,6 +95,16 @@ export default function WeddingConfigurator() {
 
   const standard = toCount(config.guests.standard);
   const children = toCount(config.guests.children);
+
+  // Upgrades belong to a variant: switching variant drops the ones that no
+  // longer exist rather than quietly charging for a dish off another menu.
+  useEffect(() => {
+    const valid = upgradesForMenu(offer, config.menus.primary).map((u) => u.id);
+    const kept = (config.menuUpgrades || []).filter((id) => valid.includes(id));
+    if (kept.length !== (config.menuUpgrades || []).length) {
+      setConfig((prev) => ({ ...prev, menuUpgrades: kept }));
+    }
+  }, [config.menus.primary, config.menuUpgrades]);
 
   // Children dropping to zero must not leave their menus (and their charges)
   // behind.
@@ -228,6 +239,7 @@ export default function WeddingConfigurator() {
       },
       guests: { standard, children },
       menus: { primary: config.menus.primary },
+      menuUpgrades: config.menuUpgrades || [],
       childMenus: Object.fromEntries(
         Object.entries(config.childMenus)
           .map(([id, n]) => [id, toCount(n)])
@@ -335,6 +347,7 @@ export default function WeddingConfigurator() {
       update={update}
       errors={errors}
       overlap={overlap}
+      defaultCovers={standard + children}
     />,
     <StepReview
       key="3"

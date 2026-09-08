@@ -10,7 +10,7 @@ function unitLabel(s, unit) {
 }
 
 /** Priced addition — collapsed to a price row until it is added. */
-function ExtraCard({ extra, s, lang, selection, onChange, errors }) {
+function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers }) {
   const selected = Boolean(selection?.selected);
   const label =
     lang === "en" ? extra.labelEn || extra.label : lang === "ro" ? extra.labelRo || extra.label : extra.label;
@@ -20,7 +20,16 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors }) {
     onChange(
       selected
         ? { selected: false, covers: "", hours: "", catering: [], notes: "" }
-        : { ...selection, selected: true }
+        : {
+            ...selection,
+            selected: true,
+            // Start from the guest count already entered on step 1 — the
+            // couple can lower it if not everyone joins the welcome drink.
+            covers:
+              extra.unit === "per_person" && !selection.covers
+                ? String(defaultCovers || "")
+                : selection.covers,
+          }
     );
 
   const toggleCatering = (id) => {
@@ -196,6 +205,11 @@ function RequestCard({ request, s, lang, selection, onChange }) {
           {s.extras.quotationBadge}
         </span>
       </div>
+      {/* Who actually arranges it: the hotel's own rooms and grounds, or a
+          partner the hotel works with. */}
+      <p className="text-[10px] tracking-[0.15em] uppercase text-cream-100/40 mt-2">
+        {request.viaPartner ? s.extras.partnerBadge : s.extras.hotelBadge}
+      </p>
 
       <button
         type="button"
@@ -248,7 +262,7 @@ function RequestCard({ request, s, lang, selection, onChange }) {
 }
 
 /** Step 3 — priced additions, then everything quoted individually. */
-export default function StepExtras({ s, offer, lang, config, update, errors, overlap }) {
+export default function StepExtras({ s, offer, lang, config, update, errors, overlap, defaultCovers }) {
   return (
     <div className="space-y-10">
       <section>
@@ -261,6 +275,7 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
               s={s}
               lang={lang}
               errors={errors}
+              defaultCovers={defaultCovers}
               selection={config.extras[extra.id] || {}}
               onChange={(next) =>
                 update("extras", { ...config.extras, [extra.id]: next })

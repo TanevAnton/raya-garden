@@ -26,19 +26,42 @@ runtime, so the estimate on screen and the estimate in the email cannot drift
 apart. Bump `version` when you change it — the email records which version an
 enquiry was priced with.
 
-## Email delivery — what must be configured
+## Email delivery
 
-Nothing in the repository holds credentials, so **until an SMTP account is
-configured the endpoint answers `503 mailer-not-configured` and the page tells
-the guest the enquiry could not be sent.** It never reports success for a
-message that was not accepted by the relay.
+The enquiry is sent **from the server**, so the figures in the email are the
+ones the endpoint computed — not whatever a browser posted. Two transports are
+tried in order.
 
-Provide the settings in either of two ways.
+### 1. Formspree (what the site uses today)
 
-**1. A config file outside the web root** (recommended on SuperHosting). The
-deploy mirrors `dist/` with `--delete`, so anything inside the site folder that
-isn't in the build is removed on the next deploy — the file must live one level
-above it, e.g. `/home/<account>/raya-mailer-config.php`:
+`RAYA_FORMSPREE_ENDPOINT` in `public/api/wedding-enquiry.php` holds the wedding
+form's endpoint (`https://formspree.io/f/xvkovrvg`), the same service the
+contact form uses. Nothing else to configure; an env var of the same name
+overrides it.
+
+**The delivery address lives on that form in the Formspree dashboard, not in
+this code.** The endpoint cannot set or verify it — Formspree removed
+browser-supplied recipients years ago, for good reasons. So "only
+hotel@svetagora.bg" has to be true *on the form*: check that it is the sole
+recipient there, and that no notification forwards are configured.
+
+Formspree composes the email from the fields it is sent: `reference`, `name`,
+`phone`, `email`, `address`, `date`, `guests`, `estimate`, `offer_version`, and
+`summary` — the complete itemised enquiry, including any threshold or venue-fee
+caveats. The `email` field becomes the Reply-To, so replying reaches the guest.
+Mind the plan's monthly submission limit.
+
+### 2. Authenticated SMTP (optional, unused while Formspree is set)
+
+Clear `RAYA_FORMSPREE_ENDPOINT` (set it to an empty env var) and configure SMTP
+instead. This transport renders the branded HTML + plain-text mail itself and
+delivers to `RAYA_RECIPIENT`, which is a constant in the endpoint — with SMTP
+the recipient really is enforced in code.
+
+Provide the settings either in a config file outside the web root — the deploy
+mirrors `dist/` with `--delete`, so anything inside the site folder that isn't
+in the build is removed on the next deploy, e.g.
+`/home/<account>/raya-mailer-config.php`:
 
 ```php
 <?php
@@ -53,32 +76,26 @@ return [
 ];
 ```
 
-**2. Environment variables** (`SetEnv` in the host's panel, or the vhost):
+…or as environment variables: `RAYA_SMTP_HOST`, `RAYA_SMTP_PORT`,
+`RAYA_SMTP_SECURE`, `RAYA_SMTP_USER`, `RAYA_SMTP_PASS`, `RAYA_MAIL_FROM`,
+`RAYA_MAIL_FROM_NAME`, or `RAYA_MAILER_CONFIG` to point at the file.
 
-| Variable | Meaning |
-| --- | --- |
-| `RAYA_SMTP_HOST` | SMTP server |
-| `RAYA_SMTP_PORT` | 587 (STARTTLS) or 465 (implicit TLS); default 587 |
-| `RAYA_SMTP_SECURE` | `tls`, `ssl` or `none`; default `tls` |
-| `RAYA_SMTP_USER` | SMTP username |
-| `RAYA_SMTP_PASS` | SMTP password |
-| `RAYA_MAIL_FROM` | Sender address the relay is authorised to send as |
-| `RAYA_MAIL_FROM_NAME` | Display name; default `RAYA Garden` |
-| `RAYA_MAILER_CONFIG` | Optional explicit path to the config file above |
+The guest's own address is only ever the `Reply-To`, never the `From` — sending
+as the guest's domain would fail SPF/DKIM and land the enquiry in spam.
 
-Use a mailbox on a domain the relay is allowed to send for. The guest's own
-address is set as `Reply-To`, never as `From` — sending as the guest's domain
-would fail SPF/DKIM and land the enquiry in spam.
-
-The recipient is **not** configurable: `RAYA_RECIPIENT` is a constant in
-`public/api/wedding-enquiry.php`. Nothing the browser sends can redirect the
-mail.
+With neither transport configured the endpoint answers `503
+mailer-not-configured`. **It never reports success for a message a transport
+did not accept.**
 
 ## Requirements on the host
 
-- PHP 8.0+ with `openssl` (for STARTTLS) — no Composer, no extensions beyond
-  the defaults.
-- Outbound access to the SMTP port from the web host.
+- PHP 8.0+ — no Composer, no extensions beyond the defaults.
+- **Outbound HTTPS from PHP** (cURL, or `allow_url_fopen`) so the server can
+  reach Formspree. If the host blocks it the endpoint answers `502
+  send-failed` and logs `formspree send failed at connect: …`; that is the
+  signal to switch to the SMTP transport instead.
+- `openssl` for the SMTP transport's STARTTLS, and outbound access to the SMTP
+  port, if you use that route.
 - `public/api/_lib/.htaccess` denies direct access to the library files; the
   files also refuse to run unless included by the endpoint.
 
@@ -160,8 +177,8 @@ Expected answers:
 | Response | Meaning |
 | --- | --- |
 | `{"ok":true,"reference":"RG-WD-…"}` | The relay **accepted** the message. Check hotel@svetagora.bg for arrival — acceptance is not the same as inbox delivery (spam filters, forwarding rules). |
-| `{"ok":false,"error":"mailer-not-configured"}` (503) | The SMTP settings aren't being found. Check the config file path or the env vars. |
-| `{"ok":false,"error":"send-failed"}` (502) | The relay refused or was unreachable. The server log line `[wedding-enquiry] RG-WD-… send failed at <stage>: <reply>` names the stage (connect, auth, mail-from, rcpt-to, body). |
+| `{"ok":false,"error":"mailer-not-configured"}` (503) | No transport is set. Check `RAYA_FORMSPREE_ENDPOINT`, or the SMTP settings. |
+| `{"ok":false,"error":"send-failed"}` (502) | The transport refused or was unreachable. The log line `[wedding-enquiry] RG-WD-… formspree send failed at <stage>: <reason>` names it — `connect` means the host cannot reach Formspree, `rejected` means Formspree refused (wrong form id, plan limit). For SMTP the stages are connect, auth, mail-from, rcpt-to, body. |
 | `{"ok":false,"error":"validation",…}` | The payload was rejected; the `fields` object names what. |
 
 Repeating the identical command within 10 minutes returns the first reference

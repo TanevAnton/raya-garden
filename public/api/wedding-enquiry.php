@@ -3,11 +3,17 @@
 //
 // Accepts the configuration as JSON, validates every field and option id
 // against public/api/wedding-offer.json, recalculates the estimate here
-// (browser amounts are ignored), renders an HTML + plain-text email and
-// hands it to an authenticated SMTP relay. It answers "ok" only after the
-// relay has accepted the message — a queued or refused message is reported
-// as a failure so the page can keep the guest's selections and let them
-// retry.
+// (browser amounts are ignored) and hands the finished summary to a mail
+// transport. It answers "ok" only once that transport has accepted the
+// message — a refused or unreachable one is reported as a failure so the
+// page can keep the guest's selections and let them retry.
+//
+// Two transports, tried in this order:
+//   1. Formspree, the service the site already uses for its contact form.
+//      The submission is made from here, server-side, so the figures in the
+//      email are the ones this file computed — not whatever a browser posted.
+//   2. Authenticated SMTP, if RAYA_SMTP_* / raya-mailer-config.php is set up.
+//      This one renders the branded HTML + plain-text mail itself.
 //
 // The recipient is fixed in this file. Nothing the browser sends can change
 // where the enquiry is delivered.
@@ -21,6 +27,10 @@ declare(strict_types=1);
 define('RAYA_ENQUIRY', true);
 
 const RAYA_RECIPIENT = 'hotel@svetagora.bg';
+// The wedding form in the site's Formspree account. Not a secret — Formspree
+// endpoints are public by design — and the delivery address is set on the form
+// itself, in the Formspree dashboard, not here.
+const RAYA_FORMSPREE_ENDPOINT = 'https://formspree.io/f/xvkovrvg';
 const RAYA_MAX_BODY_BYTES = 64 * 1024;
 const RAYA_RATE_LIMIT_PER_HOUR = 5;
 const RAYA_DUPLICATE_WINDOW = 600;      // seconds an identical resubmit is folded into the first
@@ -175,14 +185,7 @@ function raya_mailer_config(): array
     return $fromEnv;
 }
 
-$cfg = raya_mailer_config();
-if (empty($cfg['host']) || empty($cfg['from_email'])) {
-    // Not configured: say so plainly instead of pretending the mail was sent.
-    raya_log($reference, 'mailer not configured — nothing sent');
-    raya_respond(503, ['ok' => false, 'error' => 'mailer-not-configured']);
-}
-
-// ── Message ──────────────────────────────────────────────────────────
+// ── Header helpers (used by the SMTP transport) ──────────────────────
 /** RFC 2047 for a header that may hold Cyrillic. */
 function raya_encode_header(string $value): string
 {
@@ -211,51 +214,149 @@ function raya_address(string $email, string $name = ''): string
     return str_replace(["\r", "\n"], ' ', $quoted) . ' <' . $email . '>';
 }
 
+/**
+ * Posts the enquiry to Formspree from the server.
+ *
+ * The fields become the body of the email Formspree sends; `summary` carries
+ * the complete itemised enquiry exactly as this file computed it. Returns
+ * [ok, stage, error] so a failure can be logged with the reason.
+ */
+function raya_send_via_formspree(string $endpoint, array $fields): array
+{
+    $body = json_encode($fields, JSON_UNESCAPED_UNICODE);
+    $headers = ['Content-Type: application/json', 'Accept: application/json'];
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+        $response = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+        if ($response === false) {
+            return ['ok' => false, 'stage' => 'connect', 'error' => $curlError ?: 'request failed'];
+        }
+    } else {
+        // No cURL on the host — the stream wrapper does the same job.
+        $context = stream_context_create(['http' => [
+            'method' => 'POST',
+            'header' => implode("\r\n", $headers),
+            'content' => $body,
+            'timeout' => 20,
+            'ignore_errors' => true,
+        ]]);
+        $response = @file_get_contents($endpoint, false, $context);
+        $status = 0;
+        foreach ($http_response_header ?? [] as $line) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m)) {
+                $status = (int) $m[1];
+            }
+        }
+        if ($response === false) {
+            return ['ok' => false, 'stage' => 'connect', 'error' => 'request failed'];
+        }
+    }
+
+    $decoded = json_decode((string) $response, true);
+    // Formspree answers 200 {"ok":true}; anything else means it did not accept
+    // the submission, and must never be reported to the guest as sent.
+    if ($status === 200 && is_array($decoded) && !empty($decoded['ok'])) {
+        return ['ok' => true, 'stage' => 'sent', 'error' => ''];
+    }
+    $reason = is_array($decoded)
+        ? json_encode($decoded['errors'] ?? $decoded, JSON_UNESCAPED_UNICODE)
+        : substr((string) $response, 0, 200);
+    return ['ok' => false, 'stage' => 'rejected', 'error' => 'HTTP ' . $status . ' ' . $reason];
+}
+
 $subjectDate = $data['dateMode'] === 'date'
     ? $data['date']
     : ($data['period'] !== '' ? $data['period'] : 'без избрана дата');
 $subject = 'Ново сватбено запитване | ' . $subjectDate . ' | ' . $data['name'];
 
-$boundary = 'rg-' . bin2hex(random_bytes(12));
-$fromEmail = (string) $cfg['from_email'];
-$headers = [
-    'Date: ' . $nowLocal->format(DateTime::RFC2822),
-    'Message-ID: <' . $reference . '.' . bin2hex(random_bytes(6)) . '@rayagarden.bg>',
-    'From: ' . raya_address($fromEmail, (string) ($cfg['from_name'] ?? 'RAYA Garden')),
-    'To: ' . RAYA_RECIPIENT,
-    // The guest's validated address is the reply target only — never the
-    // From, which must stay an address the relay is authorised to send as.
-    'Reply-To: ' . raya_address($data['email'], $data['name']),
-    'Subject: ' . raya_encode_header($subject),
-    'MIME-Version: 1.0',
-    'X-Enquiry-Reference: ' . $reference,
-    'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
-];
+$formspree = getenv('RAYA_FORMSPREE_ENDPOINT');
+if (!is_string($formspree) || $formspree === '') {
+    $formspree = RAYA_FORMSPREE_ENDPOINT;
+}
+$cfg = raya_mailer_config();
 
-$body = "--{$boundary}\r\n"
-    . "Content-Type: text/plain; charset=UTF-8\r\n"
-    . "Content-Transfer-Encoding: base64\r\n\r\n"
-    . chunk_split(base64_encode($text), 76, "\r\n")
-    . "--{$boundary}\r\n"
-    . "Content-Type: text/html; charset=UTF-8\r\n"
-    . "Content-Transfer-Encoding: base64\r\n\r\n"
-    . chunk_split(base64_encode($html), 76, "\r\n")
-    . "--{$boundary}--\r\n";
+if ($formspree !== '') {
+    $estimate = $quote['isRange']
+        ? raya_money($quote['minTotalCents']) . ' – ' . raya_money($quote['maxTotalCents'])
+        : raya_money($quote['maxTotalCents']);
 
-$message = implode("\r\n", $headers) . "\r\n\r\n" . $body;
+    $result = raya_send_via_formspree($formspree, [
+        '_subject' => $subject,
+        // Formspree turns this into the Reply-To, so a reply reaches the guest.
+        'email' => $data['email'],
+        'reference' => $reference,
+        'sent_at' => $sentAt . ' (Europe/Sofia)',
+        'name' => $data['name'],
+        'phone' => $data['phone'],
+        'address' => $data['address'],
+        'date' => $subjectDate . ($data['time'] !== '' ? ' · ' . $data['time'] : ''),
+        'guests' => $data['standardGuests'] . ' стандартно меню + ' . $data['children'] . ' детски',
+        'estimate' => $estimate,
+        'offer_version' => $offer['version'],
+        // The whole enquiry, computed server-side.
+        'summary' => $text,
+    ]);
+    if (!$result['ok']) {
+        raya_log($reference, 'formspree send failed at ' . $result['stage'] . ': ' . $result['error']);
+        raya_respond(502, ['ok' => false, 'error' => 'send-failed']);
+    }
+} elseif (!empty($cfg['host']) && !empty($cfg['from_email'])) {
+    $boundary = 'rg-' . bin2hex(random_bytes(12));
+    $fromEmail = (string) $cfg['from_email'];
+    $headers = [
+        'Date: ' . $nowLocal->format(DateTime::RFC2822),
+        'Message-ID: <' . $reference . '.' . bin2hex(random_bytes(6)) . '@rayagarden.bg>',
+        'From: ' . raya_address($fromEmail, (string) ($cfg['from_name'] ?? 'RAYA Garden')),
+        'To: ' . RAYA_RECIPIENT,
+        // The guest's validated address is the reply target only — never the
+        // From, which must stay an address the relay is authorised to send as.
+        'Reply-To: ' . raya_address($data['email'], $data['name']),
+        'Subject: ' . raya_encode_header($subject),
+        'MIME-Version: 1.0',
+        'X-Enquiry-Reference: ' . $reference,
+        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
+    ];
 
-$smtp = new Smtp($cfg + ['ehlo' => $_SERVER['SERVER_NAME'] ?? 'rayagarden.bg']);
-$result = $smtp->send($fromEmail, [RAYA_RECIPIENT], $message);
+    $body = "--{$boundary}\r\n"
+        . "Content-Type: text/plain; charset=UTF-8\r\n"
+        . "Content-Transfer-Encoding: base64\r\n\r\n"
+        . chunk_split(base64_encode($text), 76, "\r\n")
+        . "--{$boundary}\r\n"
+        . "Content-Type: text/html; charset=UTF-8\r\n"
+        . "Content-Transfer-Encoding: base64\r\n\r\n"
+        . chunk_split(base64_encode($html), 76, "\r\n")
+        . "--{$boundary}--\r\n";
 
-if (!$result->ok) {
-    raya_log($reference, 'send failed at ' . $result->stage . ': ' . $result->error);
-    raya_respond(502, ['ok' => false, 'error' => 'send-failed']);
+    $message = implode("\r\n", $headers) . "\r\n\r\n" . $body;
+
+    $smtp = new Smtp($cfg + ['ehlo' => $_SERVER['SERVER_NAME'] ?? 'rayagarden.bg']);
+    $sent = $smtp->send($fromEmail, [RAYA_RECIPIENT], $message);
+    if (!$sent->ok) {
+        raya_log($reference, 'smtp send failed at ' . $sent->stage . ': ' . $sent->error);
+        raya_respond(502, ['ok' => false, 'error' => 'send-failed']);
+    }
+} else {
+    // No transport at all: say so plainly instead of pretending it was sent.
+    raya_log($reference, 'no mail transport configured — nothing sent');
+    raya_respond(503, ['ok' => false, 'error' => 'mailer-not-configured']);
 }
 
-// Only now — the relay accepted the message.
+// Only now — the transport accepted the message.
 $hits[] = $now;
 @file_put_contents($rateFile, json_encode($hits), LOCK_EX);
 @file_put_contents($dupFile, json_encode(['at' => $now, 'reference' => $reference]), LOCK_EX);
-raya_log($reference, 'accepted by relay');
+raya_log($reference, 'accepted by transport');
 
 raya_respond(200, ['ok' => true, 'reference' => $reference]);

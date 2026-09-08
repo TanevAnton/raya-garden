@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import { Heart, Briefcase, Phone, ExternalLink } from "lucide-react";
+import { Link, useOutletContext } from "react-router-dom";
+import { Heart, Briefcase, Phone, ExternalLink, Sparkles } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import { IMG } from "../data.js";
@@ -39,7 +39,7 @@ function findBlock(blocks, key) {
   return blocks?.find((b) => b.key === key);
 }
 
-function EventCard({ Icon, heading, description, phone, pdfUrl, cover, t }) {
+function EventCard({ Icon, heading, description, phone, pdfUrl, cover, ctaTo, ctaLabel, t }) {
   // The brochure link carries its own cover — the same treatment the offer
   // PDFs get on /event/<slug>. Without a PDF uploaded there is no link at all,
   // and a cover that fails to load falls back to the plain button rather than
@@ -102,10 +102,22 @@ function EventCard({ Icon, heading, description, phone, pdfUrl, cover, t }) {
           </a>
         )}
 
+        {ctaTo && (
+          <Link
+            to={ctaTo}
+            className="btn-gold w-full sm:w-auto px-8 py-4 mb-4 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center justify-center gap-3"
+          >
+            <Sparkles className="w-4 h-4" />
+            {ctaLabel}
+          </Link>
+        )}
+
         <div className="flex flex-wrap gap-4 justify-center">
           <a
             href={`tel:${(phone || "+359896100100").replace(/\s/g, "")}`}
-            className="btn-gold px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3"
+            className={`${
+              ctaTo ? "btn-ghost" : "btn-gold"
+            } px-7 py-3.5 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-3`}
           >
             <Phone className="w-4 h-4" />
             {t.pages.events.callUs}
@@ -275,7 +287,9 @@ export default function Events() {
           <EventCard
             Icon={Heart}
             heading={tp.weddings}
-            description={tp.weddingsDescription}
+            description={`${tp.weddingsDescription} ${tp.configuratorIntro}`}
+            ctaTo="/svatben-konfigurator"
+            ctaLabel={tp.configuratorCta}
             phone={brochures?.phone}
             pdfUrl={brochures?.weddingsPdf}
             cover={weddingsCover}

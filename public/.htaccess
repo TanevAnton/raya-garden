@@ -79,7 +79,7 @@ RewriteCond %{DOCUMENT_ROOT}/__snapshots__/event-%1.html -f
 RewriteRule ^ /__snapshots__/event-%1.html [L]
 
 RewriteCond %{ENV:IS_BOT} =1
-RewriteCond %{REQUEST_URI} ^/(hotel|restaurant|winery|park|events|book|contact)/?$
+RewriteCond %{REQUEST_URI} ^/(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator)/?$
 RewriteCond %{DOCUMENT_ROOT}/__snapshots__/%1.html -f
 RewriteRule ^ /__snapshots__/%1.html [L]
 

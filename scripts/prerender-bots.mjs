@@ -40,6 +40,7 @@ const STATIC_ROUTES = [
   { path: "/winery", file: "winery" },
   { path: "/park", file: "park" },
   { path: "/events", file: "events" },
+  { path: "/svatben-konfigurator", file: "svatben-konfigurator" },
   { path: "/book", file: "book" },
   { path: "/contact", file: "contact" },
 ];

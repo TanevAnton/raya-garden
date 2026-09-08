@@ -164,10 +164,13 @@ hotel's confirmation:
    answer. Once the hotel decides, set `confirmed: true` and `value` to either
    `standard_menu_guests` or `combined_guests`; the range disappears
    everywhere.
-2. **Do the ceremony spaces combine?** The €12/person outdoor-ceremony
-   arrangement and the separately priced lawn (€400) and terrace (€250) are
-   selected independently and summed as listed. When more than one is chosen
-   the page and the email both say the combination needs confirmation.
+2. **Do the ceremony spaces combine?** Partly settled. The hotel has confirmed
+   that the €12/person welcome cocktail is held on the open terrace and that
+   the €250 terrace fee is **always** charged with it: `requires: ["terrace"]`
+   on the ceremony extra adds it automatically, locked, and the endpoint adds
+   it server-side too, so a request that omits it cannot buy a cheaper quote.
+   The lawn (€400) is still an open combination — selecting it alongside the
+   ceremony flags for confirmation as before.
 3. **Mixed menus across guests** are not offered: one variant is chosen for the
    event. A couple who wants a split says so in the notes, and the team
    confirms it — the offer does not describe mixed menus.

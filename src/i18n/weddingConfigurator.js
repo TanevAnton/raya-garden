@@ -93,6 +93,9 @@ const bg = {
     cateringCounter: "Избрани: {n} от {max}",
     cateringError: "Моля, изберете точно {max} вида хапки.",
     notesLabel: "Бележка (по избор)",
+    requiredBadge: "Задължително при изнесен ритуал",
+    requiredNote:
+      "Наемът на откритата тераса се начислява автоматично, когато е избран изнесен ритуал — коктейлът се провежда на нея.",
     overlapWarning:
       "Избрали сте няколко пространства/услуги за ритуала. Офертата не уточнява дали те се комбинират — стойността събира избраните позиции поотделно и комбинацията подлежи на потвърждение.",
     roomsLabel: "Приблизителен брой стаи",
@@ -241,6 +244,9 @@ const en = {
     cateringCounter: "Selected: {n} of {max}",
     cateringError: "Please select exactly {max} kinds.",
     notesLabel: "Note (optional)",
+    requiredBadge: "Required with the outdoor ceremony",
+    requiredNote:
+      "The open-terrace fee is added automatically when the outdoor ceremony is selected — that is where the cocktail is held.",
     overlapWarning:
       "You've selected several ceremony spaces/services. The offer doesn't say whether they combine — the estimate adds the selected items separately and the combination is subject to confirmation.",
     roomsLabel: "Approximate number of rooms",
@@ -387,6 +393,9 @@ const ro = {
     cateringCounter: "Alese: {n} din {max}",
     cateringError: "Vă rugăm să alegeți exact {max} tipuri.",
     notesLabel: "Notă (opțional)",
+    requiredBadge: "Obligatoriu cu ceremonia în aer liber",
+    requiredNote:
+      "Taxa pentru terasa deschisă se adaugă automat când este aleasă ceremonia în aer liber — acolo are loc cocktailul.",
     overlapWarning:
       "Ați ales mai multe spații/servicii pentru ceremonie. Oferta nu precizează dacă se combină — valoarea adună pozițiile separat, iar combinația se confirmă de hotel.",
     roomsLabel: "Număr aproximativ de camere",

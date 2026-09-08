@@ -106,6 +106,37 @@ export default function WeddingConfigurator() {
     }
   }, [config.menus.primary, config.menuUpgrades]);
 
+  // Some extras carry another one with them: the welcome cocktail is held on
+  // the open terrace, and the hotel always charges that space with it. The
+  // required extra is added automatically and marked `auto`, so it can be
+  // taken away again if the extra that pulled it in is removed — but a
+  // terrace the couple chose themselves is left alone.
+  useEffect(() => {
+    const required = new Set();
+    for (const extra of offer.extras) {
+      if (config.extras[extra.id]?.selected) {
+        for (const id of extra.requires || []) required.add(id);
+      }
+    }
+    setConfig((prev) => {
+      let next = prev.extras;
+      let changed = false;
+      for (const id of required) {
+        if (!next[id]?.selected) {
+          next = { ...next, [id]: { ...next[id], selected: true, auto: true } };
+          changed = true;
+        }
+      }
+      for (const [id, selection] of Object.entries(next)) {
+        if (selection?.auto && !required.has(id)) {
+          next = { ...next, [id]: { ...selection, selected: false, auto: false } };
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, extras: next } : prev;
+    });
+  }, [config.extras]);
+
   // Children dropping to zero must not leave their menus (and their charges)
   // behind.
   useEffect(() => {
@@ -120,10 +151,16 @@ export default function WeddingConfigurator() {
     children,
   ]);
 
-  const overlap = useMemo(
-    () => offer.venueOverlapIds.filter((id) => config.extras[id]?.selected),
-    [config.extras]
-  );
+  const overlap = useMemo(() => {
+    const explained = new Set(
+      offer.extras
+        .filter((e) => config.extras[e.id]?.selected)
+        .flatMap((e) => e.requires || [])
+    );
+    return offer.venueOverlapIds.filter(
+      (id) => config.extras[id]?.selected && !explained.has(id)
+    );
+  }, [config.extras]);
 
   // ── Per-step validation ────────────────────────────────────────────
   const validateStep = useCallback(

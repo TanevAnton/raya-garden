@@ -271,6 +271,37 @@ function raya_validate(array $in, array $offer): array
         $d['extras'][$id] = $entry;
     }
 
+    // An extra that requires another one always carries it, whatever the
+    // browser sent: the welcome cocktail is held on the open terrace and the
+    // hotel charges that space with it. Enforced here so a request that
+    // simply omits the terrace cannot buy a cheaper quote.
+    foreach ($offer['extras'] as $extra) {
+        if (!isset($d['extras'][$extra['id']])) {
+            continue;
+        }
+        foreach ($extra['requires'] ?? [] as $requiredId) {
+            if (isset($d['extras'][$requiredId])) {
+                continue;
+            }
+            $required = null;
+            foreach ($offer['extras'] as $candidate) {
+                if ($candidate['id'] === $requiredId) {
+                    $required = $candidate;
+                }
+            }
+            if ($required === null || $required['unit'] !== 'fixed') {
+                // Only a fixed fee can be added without asking for a quantity.
+                continue;
+            }
+            $d['extras'][$requiredId] = [
+                'id' => $requiredId,
+                'quantity' => 1,
+                'notes' => '',
+                'auto' => true,
+            ];
+        }
+    }
+
     // ── Requests without a published price ───────────────────────────
     $d['requests'] = [];
     $submitted = is_array($in['requests'] ?? null) ? $in['requests'] : [];
@@ -450,7 +481,16 @@ function raya_build_quote(array $d, array $offer): array
     // Several ceremony spaces at once: the offer never says whether they
     // combine into one arrangement, so the estimate adds them separately and
     // says so rather than inventing a bundle.
-    $overlap = array_values(array_intersect($offer['venueOverlapIds'], array_keys($d['extras'])));
+    $explained = [];
+    foreach ($offer['extras'] as $extra) {
+        if (isset($d['extras'][$extra['id']])) {
+            $explained = array_merge($explained, $extra['requires'] ?? []);
+        }
+    }
+    $overlap = array_values(array_diff(
+        array_intersect($offer['venueOverlapIds'], array_keys($d['extras'])),
+        $explained
+    ));
 
     return [
         'lines' => $lines,
@@ -540,6 +580,9 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
             $label = 'Детски менюта';
         } else {
             $label = $line['label'] ?? $line['id'];
+            if (!empty($d['extras'][$line['id']]['auto'])) {
+                $label .= ' (задължителен при изнесен ритуал)';
+            }
         }
         if (isset($line['minTotalCents'])) {
             $value = $line['quantity'] . ' × ' . raya_money($line['minUnitPriceCents'])

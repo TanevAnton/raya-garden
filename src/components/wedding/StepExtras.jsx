@@ -10,7 +10,7 @@ function unitLabel(s, unit) {
 }
 
 /** Priced addition — collapsed to a price row until it is added. */
-function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers }) {
+function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers, required }) {
   const selected = Boolean(selection?.selected);
   const label =
     lang === "en" ? extra.labelEn || extra.label : lang === "ro" ? extra.labelRo || extra.label : extra.label;
@@ -82,17 +82,29 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers 
       </div>
 
       <div className="px-5 pb-5">
-        <button
-          type="button"
-          onClick={toggle}
-          aria-pressed={selected}
-          className={`px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2 ${
-            selected ? "btn-ghost" : "btn-gold"
-          }`}
-        >
-          {selected ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          {selected ? s.extras.remove : s.extras.add}
-        </button>
+        {required ? (
+          <div className="border border-gold-300/30 bg-gold-300/[0.06] px-4 py-3">
+            <div className="flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase text-gold-200">
+              <Check className="w-3.5 h-3.5" />
+              {s.extras.requiredBadge}
+            </div>
+            <p className="text-xs text-cream-100/65 leading-relaxed mt-2">
+              {s.extras.requiredNote}
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-pressed={selected}
+            className={`px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm inline-flex items-center gap-2 ${
+              selected ? "btn-ghost" : "btn-gold"
+            }`}
+          >
+            {selected ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            {selected ? s.extras.remove : s.extras.add}
+          </button>
+        )}
 
         {selected && (
           <div className="mt-5 space-y-5 border-t border-gold-300/10 pt-5">
@@ -263,6 +275,14 @@ function RequestCard({ request, s, lang, selection, onChange }) {
 
 /** Step 3 — priced additions, then everything quoted individually. */
 export default function StepExtras({ s, offer, lang, config, update, errors, overlap, defaultCovers }) {
+  // Extras pulled in by another selected extra — shown as required, not
+  // offered as a choice.
+  const requiredIds = new Set(
+    offer.extras
+      .filter((extra) => config.extras[extra.id]?.selected)
+      .flatMap((extra) => extra.requires || [])
+  );
+
   return (
     <div className="space-y-10">
       <section>
@@ -276,6 +296,7 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
               lang={lang}
               errors={errors}
               defaultCovers={defaultCovers}
+              required={requiredIds.has(extra.id)}
               selection={config.extras[extra.id] || {}}
               onChange={(next) =>
                 update("extras", { ...config.extras, [extra.id]: next })

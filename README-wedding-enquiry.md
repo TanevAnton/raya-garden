@@ -123,6 +123,22 @@ did not accept.**
 - **Logging** records only the enquiry reference and the failure reason —
   never names, phones, emails or addresses.
 
+### What the enquiry collects
+
+Date (or a period, when the couple hasn't picked one), guest counts, one
+standard-menu variant, the children's menus, the priced extras, the requests
+without a published price, and — at the last step — name, phone and email.
+
+No postal address and no start time: both were dropped at the hotel's request
+as things they ask about when they call back. Nothing collects them any more,
+on either side, so neither appears in the email.
+
+In `wedding-offer.json`, each entry in `inclusions` carries `asOption`. The
+seven marked `true` are the ones that read as a discrete service, and they are
+shown on the menu step as ticked, 0.00 € items — visible proof of what the
+per-person price already covers. The other three describe the package itself
+or a discount, and would read oddly with a price beside them.
+
 ## Unresolved business rules
 
 These are marked in the JSON and carried into every email; they need the
@@ -139,8 +155,9 @@ hotel's confirmation:
    arrangement and the separately priced lawn (€400) and terrace (€250) are
    selected independently and summed as listed. When more than one is chosen
    the page and the email both say the combination needs confirmation.
-3. **Mixed menus across guests** are offered as a request, not a policy — the
-   offer does not describe them.
+3. **Mixed menus across guests** are not offered: one variant is chosen for the
+   event. A couple who wants a split says so in the notes, and the team
+   confirms it — the offer does not describe mixed menus.
 
 ## Testing locally
 

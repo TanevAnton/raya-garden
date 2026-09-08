@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { StepHeading, NumberField, TextArea, CheckBox, Notice } from "./fields.jsx";
+import { StepHeading, NumberField, TextArea } from "./fields.jsx";
+import { formatMoney } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
-function MenuCard({ menu, offer, s, selected, onSelect, mixed, quantity, onQuantity }) {
+function MenuCard({ menu, offer, s, selected, onSelect }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -17,7 +18,7 @@ function MenuCard({ menu, offer, s, selected, onSelect, mixed, quantity, onQuant
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <h3 className="font-display text-2xl text-cream-50">{menu.name}</h3>
-          {selected && !mixed && (
+          {selected && (
             <span className="flex items-center gap-1.5 text-[11px] tracking-[0.2em] uppercase text-gold-300">
               <Check className="w-3.5 h-3.5" />
               {s.menus.selected}
@@ -76,40 +77,30 @@ function MenuCard({ menu, offer, s, selected, onSelect, mixed, quantity, onQuant
       </div>
 
       <div className="px-5 pb-5">
-        {mixed ? (
-          <NumberField
-            label={s.summary.guests}
-            value={quantity}
-            min={0}
-            onChange={onQuantity}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={onSelect}
-            aria-pressed={selected}
-            className={`w-full px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm transition ${
-              selected ? "btn-gold" : "btn-ghost"
-            }`}
-          >
-            {selected ? s.menus.selected : s.menus.select}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          className={`w-full px-6 py-3 text-xs tracking-[0.3em] uppercase rounded-sm transition ${
+            selected ? "btn-gold" : "btn-ghost"
+          }`}
+        >
+          {selected ? s.menus.selected : s.menus.select}
+        </button>
       </div>
     </article>
   );
 }
 
-/** Step 2 — the four standard menus, plus children's menus when relevant. */
-export default function StepMenus({ s, offer, config, update, errors }) {
+/**
+ * Step 2 — the standard menu, what the package already includes, and the
+ * children's menus when there are children.
+ */
+export default function StepMenus({ s, offer, lang, config, update, errors }) {
   const { menus, childMenus } = config;
-  const standard = Number.parseInt(config.guests.standard, 10) || 0;
   const children = Number.parseInt(config.guests.children, 10) || 0;
+  const included = offer.inclusions.filter((item) => item.asOption);
 
-  const allocated = Object.values(menus.allocation).reduce(
-    (sum, n) => sum + (Number.parseInt(n, 10) || 0),
-    0
-  );
   const childAllocated = Object.values(childMenus).reduce(
     (sum, n) => sum + (Number.parseInt(n, 10) || 0),
     0
@@ -128,16 +119,8 @@ export default function StepMenus({ s, offer, config, update, errors }) {
               menu={menu}
               offer={offer}
               s={s}
-              mixed={menus.mixed}
               selected={menus.primary === menu.id}
-              quantity={menus.allocation[menu.id] ?? ""}
               onSelect={() => update("menus", { ...menus, primary: menu.id })}
-              onQuantity={(v) =>
-                update("menus", {
-                  ...menus,
-                  allocation: { ...menus.allocation, [menu.id]: v },
-                })
-              }
             />
           ))}
         </div>
@@ -147,48 +130,38 @@ export default function StepMenus({ s, offer, config, update, errors }) {
             {errors.primaryMenu}
           </p>
         )}
-
-        <div className="mt-6 space-y-4">
-          <CheckBox
-            checked={menus.mixed}
-            onChange={(checked) =>
-              update("menus", {
-                ...menus,
-                mixed: checked,
-                allocation: checked ? menus.allocation : {},
-              })
-            }
-          >
-            {s.menus.mixedToggle}
-          </CheckBox>
-
-          {menus.mixed && (
-            <>
-              <Notice tone="warn">{s.menus.mixedHint}</Notice>
-              <div className="flex items-center justify-between border border-gold-300/15 bg-ink-900/60 px-4 py-3">
-                <span className="text-xs tracking-[0.2em] uppercase text-gold-300/70">
-                  {s.menus.mixedSumLabel}
-                </span>
-                <span
-                  className={`font-display text-xl ${
-                    allocated === standard ? "text-cream-50" : "text-red-300"
-                  }`}
-                >
-                  {allocated} / {standard}
-                </span>
-              </div>
-              {errors.menuAllocation && (
-                <p role="alert" className="text-xs text-red-300/90">
-                  {errors.menuAllocation}
-                </p>
-              )}
-            </>
-          )}
-        </div>
       </section>
 
-      {/* Children's menus appear only once children have been counted, and the
-          allocation is cleared when that count returns to zero. */}
+      {/* What the package already covers, priced at 0.00 € and ticked: these
+          come with the per-person rate, so they are shown rather than offered
+          — nothing here can be added or taken away. */}
+      <section>
+        <StepHeading hint={s.included.note}>{s.included.title}</StepHeading>
+        <ul className="grid sm:grid-cols-2 gap-3">
+          {included.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-start gap-3 border border-gold-300/20 bg-ink-900/50 px-4 py-3"
+            >
+              <span
+                aria-hidden="true"
+                className="mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center bg-gold-300/90 text-ink-950"
+              >
+                <Check className="w-3 h-3" strokeWidth={3} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-cream-100/85 leading-relaxed">
+                  {item.label}
+                </span>
+                <span className="block mt-1 text-[11px] tracking-[0.15em] uppercase text-gold-300/70">
+                  {s.included.badge} · {formatMoney(0, lang)}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       {children > 0 && (
         <section>
           <StepHeading hint={fill(s.menus.childLead, { n: children })}>
@@ -218,7 +191,7 @@ export default function StepMenus({ s, offer, config, update, errors }) {
 
           <div className="mt-5 flex items-center justify-between border border-gold-300/15 bg-ink-900/60 px-4 py-3">
             <span className="text-xs tracking-[0.2em] uppercase text-gold-300/70">
-              {s.menus.mixedSumLabel}
+              {s.menus.allocated}
             </span>
             <span
               className={`font-display text-xl ${

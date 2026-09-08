@@ -97,15 +97,6 @@ export default function StepReview({
               error={errors.email}
               required
             />
-            <TextField
-              label={s.contact.address}
-              hint={s.contact.addressHint}
-              value={contact.address}
-              onChange={set("address")}
-              autoComplete="street-address"
-              error={errors.address}
-              required
-            />
           </div>
 
           <TextArea

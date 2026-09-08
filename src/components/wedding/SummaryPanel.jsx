@@ -73,7 +73,6 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
             {config.date.mode === "period"
               ? config.date.period || s.summary.noDateYet
               : config.date.date || "—"}
-            {config.date.time ? ` · ${config.date.time}` : ""}
           </div>
         </Row>
 
@@ -86,23 +85,13 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
           </div>
         </Row>
 
-        {(config.menus.primary || config.menus.mixed) && (
+        {config.menus.primary && (
           <Row onEdit={onEdit && (() => onEdit(1))} editLabel={s.nav.edit}>
             <div className="text-xs tracking-[0.2em] uppercase text-gold-300/60">
               {s.summary.menu}
             </div>
             <div className="text-cream-50 mt-1 space-y-0.5">
-              {config.menus.mixed ? (
-                Object.entries(config.menus.allocation)
-                  .filter(([, n]) => Number.parseInt(n, 10) > 0)
-                  .map(([id, n]) => (
-                    <div key={id}>
-                      {label(offer, "menus", id, lang)} × {n}
-                    </div>
-                  ))
-              ) : (
-                <div>{label(offer, "menus", config.menus.primary, lang)}</div>
-              )}
+              <div>{label(offer, "menus", config.menus.primary, lang)}</div>
               {Object.entries(config.childMenus)
                 .filter(([, n]) => Number.parseInt(n, 10) > 0)
                 .map(([id, n]) => (

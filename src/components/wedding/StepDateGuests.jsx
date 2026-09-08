@@ -1,8 +1,8 @@
-import { CalendarDays, Users, Check, ChevronDown } from "lucide-react";
+import { CalendarDays, Users } from "lucide-react";
 import { StepHeading, Field, NumberField, TextField, CheckBox, Notice, inputClass, labelClass } from "./fields.jsx";
 
 /** Step 1 — when, and how many people eat what. */
-export default function StepDateGuests({ s, offer, config, update, errors, includedOpen, setIncludedOpen }) {
+export default function StepDateGuests({ s, config, update, errors }) {
   const { date, guests } = config;
   const standard = Number.parseInt(guests.standard, 10) || 0;
   const children = Number.parseInt(guests.children, 10) || 0;
@@ -13,7 +13,7 @@ export default function StepDateGuests({ s, offer, config, update, errors, inclu
       <section>
         <StepHeading>{s.date.legend}</StepHeading>
 
-        <div className="grid sm:grid-cols-2 gap-5">
+        <div className="sm:max-w-sm">
           <Field label={s.date.dateLabel} error={errors.date}>
             {(props) => (
               <input
@@ -25,18 +25,6 @@ export default function StepDateGuests({ s, offer, config, update, errors, inclu
                 className={`${inputClass} [color-scheme:dark] cursor-pointer ${
                   noDate ? "opacity-40 cursor-not-allowed" : ""
                 } ${errors.date ? "border-red-400/50" : ""}`}
-              />
-            )}
-          </Field>
-
-          <Field label={s.date.timeLabel}>
-            {(props) => (
-              <input
-                {...props}
-                type="time"
-                value={date.time}
-                onChange={(e) => update("date", { ...date, time: e.target.value })}
-                className={`${inputClass} [color-scheme:dark]`}
               />
             )}
           </Field>
@@ -108,39 +96,6 @@ export default function StepDateGuests({ s, offer, config, update, errors, inclu
         </div>
       </section>
 
-      {/* What the package already includes — collapsed by default so the step
-          stays short, but present before any money is discussed. */}
-      <section className="border border-gold-300/15 bg-ink-900/40">
-        <button
-          type="button"
-          onClick={() => setIncludedOpen(!includedOpen)}
-          aria-expanded={includedOpen}
-          className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left group"
-        >
-          <span className="font-display text-xl text-cream-50">{s.included.title}</span>
-          <span className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-gold-300/80">
-            {includedOpen ? s.included.toggleClose : s.included.toggleOpen}
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-300 ${
-                includedOpen ? "rotate-180" : ""
-              }`}
-            />
-          </span>
-        </button>
-        {includedOpen && (
-          <div className="px-5 pb-5">
-            <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
-              {offer.inclusions.map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-sm text-cream-100/80">
-                  <Check className="w-4 h-4 text-gold-300 flex-shrink-0 mt-0.5" />
-                  <span className="leading-relaxed">{item}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-cream-100/45 mt-5">{s.included.note}</p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

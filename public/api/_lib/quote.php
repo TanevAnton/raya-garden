@@ -113,7 +113,6 @@ function raya_validate(array $in, array $offer): array
     $d['dateMode'] = $mode;
     $d['date'] = '';
     $d['period'] = raya_str($in['date']['period'] ?? '', 120);
-    $d['time'] = '';
 
     if ($mode === 'date') {
         $raw = raya_str($in['date']['date'] ?? '', 10);
@@ -131,15 +130,6 @@ function raya_validate(array $in, array $offer): array
         }
     }
 
-    $time = raya_str($in['date']['time'] ?? '', 5);
-    if ($time !== '') {
-        if (preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $time)) {
-            $d['time'] = $time;
-        } else {
-            $errors['time'] = 'invalid';
-        }
-    }
-
     // ── Guests ───────────────────────────────────────────────────────
     $standard = raya_int($in['guests']['standard'] ?? null, 1, RAYA_MAX_GUESTS);
     if ($standard === null) {
@@ -154,42 +144,14 @@ function raya_validate(array $in, array $offer): array
     $d['standardGuests'] = $standard;
     $d['children'] = $children;
 
-    // ── Standard menus ───────────────────────────────────────────────
+    // ── Standard menu ────────────────────────────────────────────────
     $menuIds = raya_ids($offer['menus']);
     $primary = raya_str($in['menus']['primary'] ?? '', 40);
-    $mixed = !empty($in['menus']['mixed']);
-    $d['mixedMenus'] = $mixed;
-    $d['menuAllocation'] = [];
     $d['primaryMenu'] = '';
-
-    if ($mixed) {
-        $sum = 0;
-        $allocation = is_array($in['menus']['allocation'] ?? null) ? $in['menus']['allocation'] : [];
-        foreach ($allocation as $id => $qty) {
-            $id = raya_str((string) $id, 40);
-            if (!in_array($id, $menuIds, true)) {
-                $errors['menuAllocation'] = 'unknown-option';
-                continue;
-            }
-            $n = raya_int($qty, 0, RAYA_MAX_GUESTS);
-            if ($n === null) {
-                $errors['menuAllocation'] = 'invalid';
-                continue;
-            }
-            if ($n > 0) {
-                $d['menuAllocation'][$id] = $n;
-                $sum += $n;
-            }
-        }
-        if (!isset($errors['menuAllocation']) && $sum !== $standard) {
-            $errors['menuAllocation'] = 'sum-mismatch';
-        }
+    if (!in_array($primary, $menuIds, true)) {
+        $errors['primaryMenu'] = 'required';
     } else {
-        if (!in_array($primary, $menuIds, true)) {
-            $errors['primaryMenu'] = 'required';
-        } else {
-            $d['primaryMenu'] = $primary;
-        }
+        $d['primaryMenu'] = $primary;
     }
 
     // ── Children's menus ─────────────────────────────────────────────
@@ -338,12 +300,6 @@ function raya_validate(array $in, array $offer): array
         $errors['email'] = 'invalid';
     }
     $d['email'] = $email;
-
-    $address = raya_str($in['contact']['address'] ?? '', 300);
-    if (mb_strlen($address, 'UTF-8') < 5) {
-        $errors['address'] = 'required';
-    }
-    $d['address'] = $address;
 
     $d['message'] = raya_str($in['contact']['message'] ?? '', 2000);
 
@@ -505,21 +461,13 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
     if ($d['dateMode'] === 'date' && $d['period'] !== '') {
         $rows[] = ['Бележка за периода', $d['period']];
     }
-    if ($d['time'] !== '') {
-        $rows[] = ['Приблизителен начален час', $d['time']];
-    }
     $rows[] = ['Гости със стандартно меню', (string) $d['standardGuests']];
     $rows[] = ['Детски менюта (до 12 г.)', (string) $d['children']];
     $rows[] = ['Общо гости', (string) ($d['standardGuests'] + $d['children'])];
     $blocks[] = ['Дата и гости', $rows];
 
     $rows = [];
-    if ($d['mixedMenus']) {
-        $rows[] = ['Заявка', 'Различни варианти за различни гости (подлежи на потвърждение)'];
-        foreach ($d['menuAllocation'] as $id => $qty) {
-            $rows[] = [raya_label($offer, 'menus', $id), $qty . ' бр.'];
-        }
-    } elseif ($d['primaryMenu'] !== '') {
+    if ($d['primaryMenu'] !== '') {
         $rows[] = ['Избрано меню', raya_label($offer, 'menus', $d['primaryMenu'])];
     }
     foreach ($d['childAllocation'] as $id => $qty) {
@@ -637,7 +585,6 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
         ['Име', $d['name']],
         ['Телефон', $d['phone']],
         ['Имейл', $d['email']],
-        ['Адрес', $d['address']],
     ];
     if ($d['message'] !== '') {
         $rows[] = ['Съобщение', $d['message']];

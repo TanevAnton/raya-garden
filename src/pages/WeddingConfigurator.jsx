@@ -22,24 +22,24 @@ const PHONE_QUERY = `*[_type == "siteSettings"][0].phone`;
 const FALLBACK_PHONE = "+359 896 100 100";
 
 const emptyConfig = () => ({
-  date: { mode: "date", date: "", period: "", time: "" },
+  date: { mode: "date", date: "", period: "" },
   guests: { standard: "", children: "0" },
-  menus: { primary: "", mixed: false, allocation: {} },
+  menus: { primary: "" },
   childMenus: {},
   dietary: "",
   extras: {},
   requests: {},
   otherWishes: "",
-  contact: { name: "", phone: "", email: "", address: "", message: "" },
+  contact: { name: "", phone: "", email: "", message: "" },
   consent: false,
   website: "",
 });
 
 /**
  * Everything except the contact details survives a reload or a trip through
- * the browser's back button. Names, phones, emails and addresses are held in
- * React state only — keeping a menu choice is no reason to leave someone's
- * personal data in the browser.
+ * the browser's back button. Names, phones and emails are held in React state
+ * only — keeping a menu choice is no reason to leave someone's personal data
+ * in the browser.
  */
 function loadStoredConfig() {
   try {
@@ -68,7 +68,6 @@ export default function WeddingConfigurator() {
   // it names the failing stage without a trip through the server log.
   const [errorDetail, setErrorDetail] = useState("");
   const [reference, setReference] = useState("");
-  const [includedOpen, setIncludedOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const startedAt = useRef(Date.now());
   const topRef = useRef(null);
@@ -97,7 +96,7 @@ export default function WeddingConfigurator() {
   const children = toCount(config.guests.children);
 
   // Children dropping to zero must not leave their menus (and their charges)
-  // behind — the same for menu allocations when the mixed option is off.
+  // behind.
   useEffect(() => {
     if (children === 0 && Object.keys(config.childMenus).length > 0) {
       setConfig((prev) => ({ ...prev, childMenus: {} }));
@@ -127,15 +126,7 @@ export default function WeddingConfigurator() {
         if (config.date.mode === "date" && !config.date.date) next.date = s.date.errDate;
       }
       if (index === 1) {
-        if (config.menus.mixed) {
-          const sum = Object.values(config.menus.allocation).reduce(
-            (acc, n) => acc + toCount(n),
-            0
-          );
-          if (sum !== standard) {
-            next.menuAllocation = fill(s.menus.mixedSumError, { n: standard });
-          }
-        } else if (!config.menus.primary) {
+        if (!config.menus.primary) {
           next.primaryMenu = s.menus.errNoMenu;
         }
         if (children > 0) {
@@ -168,7 +159,6 @@ export default function WeddingConfigurator() {
         const digits = c.phone.replace(/\D+/g, "");
         if (digits.length < 6 || digits.length > 15) next.phone = s.contact.errPhone;
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email.trim())) next.email = s.contact.errEmail;
-        if (c.address.trim().length < 5) next.address = s.contact.errRequired;
         if (!config.consent) next.consent = s.contact.errConsent;
       }
       return next;
@@ -195,8 +185,8 @@ export default function WeddingConfigurator() {
 
   // ── Submission ─────────────────────────────────────────────────────
   const stepOfField = (field) => {
-    if (["date", "time", "standardGuests", "children"].includes(field)) return 0;
-    if (["primaryMenu", "menuAllocation", "childMenus"].includes(field)) return 1;
+    if (["date", "standardGuests", "children"].includes(field)) return 0;
+    if (["primaryMenu", "childMenus"].includes(field)) return 1;
     if (field.startsWith("extra.") || field === "extras" || field === "requests") return 2;
     return 3;
   };
@@ -204,9 +194,8 @@ export default function WeddingConfigurator() {
   const serverFieldMessage = (field, code) => {
     if (field === "standardGuests") return s.date.errStandard;
     if (field === "children") return s.date.errChildren;
-    if (field === "date" || field === "time") return s.date.errDate;
+    if (field === "date") return s.date.errDate;
     if (field === "primaryMenu") return s.menus.errNoMenu;
-    if (field === "menuAllocation") return fill(s.menus.mixedSumError, { n: standard });
     if (field === "childMenus") return fill(s.menus.childSumError, { n: children });
     if (field.endsWith(".catering")) return fill(s.extras.cateringError, { max: 3 });
     if (field === "phone") return s.contact.errPhone;
@@ -236,18 +225,9 @@ export default function WeddingConfigurator() {
         mode: config.date.mode,
         date: config.date.date,
         period: config.date.period,
-        time: config.date.time,
       },
       guests: { standard, children },
-      menus: {
-        primary: config.menus.mixed ? "" : config.menus.primary,
-        mixed: config.menus.mixed,
-        allocation: Object.fromEntries(
-          Object.entries(config.menus.allocation)
-            .map(([id, n]) => [id, toCount(n)])
-            .filter(([, n]) => n > 0)
-        ),
-      },
+      menus: { primary: config.menus.primary },
       childMenus: Object.fromEntries(
         Object.entries(config.childMenus)
           .map(([id, n]) => [id, toCount(n)])
@@ -336,17 +316,16 @@ export default function WeddingConfigurator() {
   };
 
   const steps = [
-    <StepDateGuests
-      key="0"
+    <StepDateGuests key="0" s={s} config={config} update={update} errors={errors} />,
+    <StepMenus
+      key="1"
       s={s}
       offer={offer}
+      lang={lang}
       config={config}
       update={update}
       errors={errors}
-      includedOpen={includedOpen}
-      setIncludedOpen={setIncludedOpen}
     />,
-    <StepMenus key="1" s={s} offer={offer} config={config} update={update} errors={errors} />,
     <StepExtras
       key="2"
       s={s}

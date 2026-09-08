@@ -82,6 +82,10 @@ jobs:
       # die mid-file (the same file twice, while 1.8 MB PNGs went through in
       # the same run), which leaves mirror having deleted the old copy and
       # failed to replace it.
+      #
+      # error_log is excluded from the mirror: PHP writes it into api/ when a
+      # request fatals, and it is the only record of what went wrong. Deleting
+      # it on every deploy threw away the evidence exactly when it was needed.
       - name: Deploy to SuperHosting via FTPS (lftp)
         if: ${{ env.HAS_FTP == 'true' }}
         env:
@@ -91,4 +95,4 @@ jobs:
           FTP_DIR: ${{ vars.FTP_SERVER_DIR || 'rayagarden.bg/' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 40; set net:max-retries 6; set net:reconnect-interval-base 5; set net:persist-retries 3; open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; mirror -R --delete --verbose --exclude-glob .git* ./dist/ \"$FTP_DIR\""
+          lftp -c "set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate no; set net:timeout 40; set net:max-retries 6; set net:reconnect-interval-base 5; set net:persist-retries 3; open -u \"$FTP_USERNAME\",\"$FTP_PASSWORD\" \"$FTP_SERVER\"; mirror -R --delete --verbose --exclude-glob .git* --exclude-glob error_log ./dist/ \"$FTP_DIR\""

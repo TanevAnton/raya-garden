@@ -89,9 +89,17 @@ did not accept.**
 
 ## Requirements on the host
 
-- PHP 7.0+ — no Composer required. `mbstring` is used when present and
-  stood in for when it isn't; `curl` or `allow_url_fopen` is needed to reach
-  Formspree; `openssl` only for the SMTP transport.
+- **The production host runs PHP 7.3.33 (FPM).** Keep the endpoint parseable
+  there: no typed properties, no arrow functions, no `never`/`mixed` types, no
+  `?->`, no `str_contains()`. A 7.4+ construct is a parse error, and it reaches
+  the guest as a bare 500 with the generic "could not be sent" apology — it
+  cost three deploys to find the first time. `/api/php-check.php` re-parses the
+  endpoint's files on the host's own PHP and names the error if there is one.
+- No Composer required. `mbstring` is used when present and stood in for when
+  it isn't; `curl` or `allow_url_fopen` is needed to reach Formspree; `openssl`
+  only for the SMTP transport.
+- If a request does fatal, PHP writes `api/error_log` on the host — readable in
+  cPanel's File Manager. The deploy no longer deletes it.
 - **Outbound HTTPS from PHP** (cURL, or `allow_url_fopen`) so the server can
   reach Formspree. If the host blocks it the endpoint answers `502
   send-failed` and logs `formspree send failed at connect: …`; that is the

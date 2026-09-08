@@ -6,6 +6,14 @@
 // terms. Amounts submitted by the browser are ignored entirely: the estimate
 // in the email is recomputed here from the guest counts and the option ids.
 
+//
+// ⚠ The production host runs PHP 7.3 (FPM). Keep this file parseable there:
+//   no typed properties, no arrow functions (fn() =>), no `never`/`mixed`
+//   types, no `?->`, no str_contains(). A 7.4+ construct here is a parse
+//   error, which reaches the guest as a bare 500 and an apology with no
+//   detail. /api/php-check.php reports the host's version and re-parses
+//   these files on it.
+
 if (!defined('RAYA_ENQUIRY')) {
     http_response_code(404);
     exit;

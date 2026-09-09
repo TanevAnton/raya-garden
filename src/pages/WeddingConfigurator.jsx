@@ -76,6 +76,9 @@ export default function WeddingConfigurator() {
   useSeo({
     title: s.meta.title,
     description: s.meta.description,
+    // The link preview shows the room the enquiry is about, not the hotel's
+    // default photo.
+    image: "https://rayagarden.bg/img/wedding-head-table.jpg",
     path: "/svatben-konfigurator",
     lang,
   });
@@ -196,6 +199,9 @@ export default function WeddingConfigurator() {
       const next = {};
       if (index === 0) {
         if (standard < 1) next.standardGuests = s.date.errStandard;
+        else if (standard + children > offer.package.maxGuests) {
+          next.standardGuests = fill(s.date.errMaxGuests, { max: offer.package.maxGuests });
+        }
         if (config.guests.children !== "" && toCount(config.guests.children) < 0) {
           next.children = s.date.errChildren;
         }
@@ -271,6 +277,8 @@ export default function WeddingConfigurator() {
   };
 
   const serverFieldMessage = (field, code) => {
+    if (code === "max") return fill(s.date.errMaxGuests, { max: offer.package.maxGuests });
+    if (code === "one-only") return s.extras.glassUpgradeOne;
     if (field === "standardGuests") return s.date.errStandard;
     if (field === "children") return s.date.errChildren;
     if (field === "date") return s.date.errDate;
@@ -400,7 +408,7 @@ export default function WeddingConfigurator() {
   };
 
   const steps = [
-    <StepDateGuests key="0" s={s} config={config} update={update} errors={errors} />,
+    <StepDateGuests key="0" s={s} offer={offer} config={config} update={update} errors={errors} />,
     <StepMenus
       key="1"
       s={s}
@@ -420,6 +428,7 @@ export default function WeddingConfigurator() {
       errors={errors}
       overlap={overlap}
       defaultCovers={standard + children}
+      totalGuests={standard + children}
     />,
     <StepReview
       key="3"
@@ -459,6 +468,18 @@ export default function WeddingConfigurator() {
             {s.intro.lead}
           </p>
           <div className="divider-gold mt-8 w-32 mx-auto" />
+        </div>
+
+        {/* One photograph of the room this enquiry is about — the same
+            picture the brochure opens with. */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-10 mt-10">
+          <img
+            src="/img/wedding-head-table.jpg"
+            alt={s.intro.heroAlt}
+            width="1201"
+            height="560"
+            className="w-full h-auto object-cover"
+          />
         </div>
       </section>
 

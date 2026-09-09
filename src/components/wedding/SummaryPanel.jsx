@@ -42,7 +42,12 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
     lang === "en" ? "en-GB" : lang === "ro" ? "ro-RO" : "bg-BG"
   );
 
-  const selectedRequests = Object.entries(config.requests).filter(([, r]) => r?.selected);
+  // Only the services the hotel has not priced belong under "individual
+  // quotation" — the priced ones are lines in the estimate above.
+  const selectedRequests = Object.entries(config.requests).filter(
+    ([id, r]) =>
+      r?.selected && offer.quotationRequests.find((q) => q.id === id)?.priceCents == null
+  );
   const hasNumbers = standard > 0;
 
   const menuUpgrades = upgradesForMenu(offer, config.menus.primary);
@@ -57,6 +62,9 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
     if (line.label) return line.label;
     const upgrade = menuUpgrades.find((u) => u.id === line.id);
     if (upgrade) return upgrade.name;
+    if (offer.quotationRequests.some((r) => r.id === line.id)) {
+      return label(offer, "quotationRequests", line.id, lang);
+    }
     return label(offer, "extras", line.id, lang);
   };
 
@@ -65,6 +73,8 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
       ? s.extras.perHour
       : unit === "fixed"
       ? s.extras.fixed
+      : unit === "per_room"
+      ? s.extras.perRoom
       : unit === "per_child"
       ? ""
       : s.extras.perPerson;

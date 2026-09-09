@@ -1,9 +1,11 @@
 import { CalendarDays, Users } from "lucide-react";
-import { StepHeading, Field, NumberField, TextField, CheckBox, Notice, inputClass, labelClass } from "./fields.jsx";
+import { StepHeading, Field, SliderNumberField, TextField, CheckBox, Notice, inputClass, labelClass } from "./fields.jsx";
+import { fill } from "../../i18n/weddingConfigurator.js";
 
 /** Step 1 — when, and how many people eat what. */
-export default function StepDateGuests({ s, config, update, errors }) {
+export default function StepDateGuests({ s, offer, config, update, errors }) {
   const { date, guests } = config;
+  const maxGuests = offer.package.maxGuests;
   const standard = Number.parseInt(guests.standard, 10) || 0;
   const children = Number.parseInt(guests.children, 10) || 0;
   const noDate = date.mode === "period";
@@ -69,20 +71,22 @@ export default function StepDateGuests({ s, config, update, errors }) {
         <StepHeading>{s.date.guestsLegend}</StepHeading>
 
         <div className="grid sm:grid-cols-2 gap-5">
-          <NumberField
+          <SliderNumberField
             label={s.date.standardLabel}
             hint={s.date.standardHint}
             error={errors.standardGuests}
             value={guests.standard}
             min={1}
+            max={maxGuests}
             onChange={(v) => update("guests", { ...guests, standard: v })}
           />
-          <NumberField
+          <SliderNumberField
             label={s.date.childrenLabel}
             hint={s.date.childrenHint}
             error={errors.children}
             value={guests.children}
             min={0}
+            max={maxGuests}
             onChange={(v) => update("guests", { ...guests, children: v })}
           />
         </div>
@@ -94,6 +98,10 @@ export default function StepDateGuests({ s, config, update, errors }) {
           </span>
           <span className="font-display text-2xl text-cream-50">{standard + children}</span>
         </div>
+
+        <p className="text-xs text-cream-100/45 mt-3">
+          {fill(s.date.capacityHint, { max: maxGuests })}
+        </p>
       </section>
 
     </div>

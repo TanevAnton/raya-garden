@@ -156,6 +156,23 @@ export function buildQuote(offer, config) {
     }
   }
 
+  // Additional services the hotel prices itself — the decoration and the
+  // cake. They follow the wedding's own guest count, so nothing is entered
+  // twice; the server repeats the same arithmetic before sending.
+  for (const request of offer.quotationRequests || []) {
+    if (request.priceCents == null) continue;
+    if (!config.requests?.[request.id]?.selected) continue;
+    const quantity = request.unit === "per_person" ? standardGuests + children : 1;
+    if (quantity <= 0) continue;
+    lines.push({
+      id: request.id,
+      quantity,
+      unit: request.unit || "fixed",
+      unitPriceCents: request.priceCents,
+      totalCents: quantity * request.priceCents,
+    });
+  }
+
   const sum = (pick) => lines.reduce((acc, l) => acc + pick(l), 0);
   const minTotalCents = sum((l) => l.minTotalCents ?? l.totalCents ?? 0);
   const maxTotalCents = sum((l) => l.maxTotalCents ?? l.totalCents ?? 0);

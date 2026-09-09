@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-09.7",
+  "version": "2026-09-09.9",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -7,6 +7,7 @@
   "package": {
     "vatIncluded": true,
     "thresholdGuests": 60,
+    "maxGuests": 150,
     "atOrAboveThresholdCents": 10500,
     "belowThresholdCents": 11500,
     "childMenuCents": 3500,
@@ -307,7 +308,8 @@
           "labelRo": "Terasa panoramică a lobby-ului",
           "requires": [
             "terrace"
-          ]
+          ],
+          "image": "/img/wedding-terrace.jpg"
         },
         {
           "id": "garden",
@@ -317,18 +319,36 @@
           "requires": [
             "tent",
             "lawn"
-          ]
+          ],
+          "image": "/img/wedding-lawn.jpg"
         }
       ],
       "upgrades": [
         {
           "id": "moet",
           "name": "Чаша шампанско Moët & Chandon",
-          "text": "Надграждане на включената чаша пенливо розе до чаша шампанско Moët & Chandon.",
           "unit": "per_person",
-          "priceCents": 500
+          "priceCents": 1000
+        },
+        {
+          "id": "dom-perignon",
+          "name": "Чаша шампанско Dom Pérignon",
+          "unit": "per_person",
+          "priceCents": 2500
+        },
+        {
+          "id": "cristal",
+          "name": "Чаша шампанско Cristal Brut",
+          "unit": "per_person",
+          "priceCents": 5000
         }
-      ]
+      ],
+      "cateringIncluded": true,
+      "upgradesAfterBullet": 1,
+      "upgradesExclusive": true,
+      "upgradesNote": "Вместо включената чаша пенливо розе „Pet Nat“.",
+      "upgradesNoteEn": "In place of the included glass of „Pet Nat“ sparkling rosé.",
+      "upgradesNoteRo": "În locul paharului inclus de roze spumant „Pet Nat”."
     },
     {
       "id": "tent",
@@ -375,35 +395,19 @@
       "label": "Декорация на салона",
       "labelEn": "Decoration of the hall",
       "labelRo": "Decorarea sălii",
-      "viaPartner": true
+      "viaPartner": true,
+      "fromPriceCents": 500000,
+      "fromUnit": "fixed"
     },
     {
       "id": "cake",
       "label": "Сватбена торта",
       "labelEn": "Wedding cake",
       "labelRo": "Tort de nuntă",
-      "viaPartner": true
-    },
-    {
-      "id": "photo",
-      "label": "Избор на локации за фотосесии на територията на комплекса",
-      "labelEn": "Photo-session locations within the complex",
-      "labelRo": "Locații pentru ședințe foto în complex",
-      "viaPartner": false
-    },
-    {
-      "id": "stag",
-      "label": "Ергенско парти",
-      "labelEn": "Stag party",
-      "labelRo": "Petrecerea burlacilor",
-      "viaPartner": true
-    },
-    {
-      "id": "hen",
-      "label": "Моминско парти",
-      "labelEn": "Hen party",
-      "labelRo": "Petrecerea burlăcițelor",
-      "viaPartner": true
+      "viaPartner": true,
+      "unit": "per_person",
+      "priceCents": 1000,
+      "quantityBasis": "total_guests"
     },
     {
       "id": "accommodation",
@@ -411,7 +415,9 @@
       "labelEn": "Accommodation for guests",
       "labelRo": "Cazare pentru invitați",
       "collectRooms": true,
-      "viaPartner": false
+      "viaPartner": false,
+      "fromPriceCents": 8900,
+      "fromUnit": "per_room"
     }
   ],
   "conditions": [

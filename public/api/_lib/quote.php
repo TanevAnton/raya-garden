@@ -144,6 +144,13 @@ function raya_validate(array $in, array $offer): array
     $d['standardGuests'] = $standard;
     $d['children'] = $children;
 
+    // The restaurant seats a fixed number; a larger party is a conversation
+    // with the hotel, not a configuration.
+    $maxGuests = isset($offer['package']['maxGuests']) ? (int) $offer['package']['maxGuests'] : 0;
+    if ($maxGuests > 0 && ($standard + $children) > $maxGuests) {
+        $errors['standardGuests'] = 'max';
+    }
+
     // ── Standard menu ────────────────────────────────────────────────
     $menuIds = raya_ids($offer['menus']);
     $primary = raya_str($in['menus']['primary'] ?? '', 40);
@@ -260,6 +267,12 @@ function raya_validate(array $in, array $offer): array
                 if (!in_array($upgradeId, $entry['upgrades'], true)) {
                     $entry['upgrades'][] = $upgradeId;
                 }
+            }
+            // The champagne upgrades replace one and the same glass, so only
+            // one of them can stand.
+            if (!empty($extra['upgradesExclusive']) && count($entry['upgrades']) > 1) {
+                $errors['extra.' . $id . '.upgrades'] = 'one-only';
+                $entry['upgrades'] = array_slice($entry['upgrades'], 0, 1);
             }
         }
 
@@ -550,6 +563,28 @@ function raya_build_quote(array $d, array $offer): array
         }
     }
 
+    // Additional services the hotel prices itself — the decoration and the
+    // cake. They follow the wedding's own guest count, so there is no second
+    // number to type and none to trust from the browser.
+    foreach ($offer['quotationRequests'] as $request) {
+        if (!isset($request['priceCents']) || !isset($d['requests'][$request['id']])) {
+            continue;
+        }
+        $unit = isset($request['unit']) ? $request['unit'] : 'fixed';
+        $qty = $unit === 'per_person' ? ($standard + $children) : 1;
+        if ($qty <= 0) {
+            continue;
+        }
+        $lines[] = [
+            'id' => $request['id'],
+            'label' => $request['label'],
+            'quantity' => $qty,
+            'unit' => $unit,
+            'unitPriceCents' => (int) $request['priceCents'],
+            'totalCents' => $qty * (int) $request['priceCents'],
+        ];
+    }
+
     $min = 0;
     $max = 0;
     foreach ($lines as $l) {
@@ -723,13 +758,19 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
     if ($d['requests']) {
         $rows = [];
         foreach ($d['requests'] as $id => $entry) {
-            $viaPartner = false;
+            $request = null;
             foreach ($offer['quotationRequests'] as $r) {
                 if ($r['id'] === $id) {
-                    $viaPartner = !empty($r['viaPartner']);
+                    $request = $r;
                 }
             }
+            $viaPartner = $request !== null && !empty($request['viaPartner']);
             $value = $viaPartner ? 'заявено (чрез партньор)' : 'заявено (от хотела)';
+            // Priced ones are already a line in the table above; saying so
+            // here keeps the two lists from reading as two charges.
+            $value .= isset($request['priceCents'])
+                ? ' — включено в стойността по-горе'
+                : ' — по индивидуална оферта';
             if (isset($entry['rooms'])) {
                 $value .= sprintf(
                     ' — стаи: %d, гости: %d, нощувки: %d',
@@ -743,7 +784,7 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
             }
             $rows[] = [raya_label($offer, 'quotationRequests', $id), $value];
         }
-        $blocks[] = ['По индивидуална оферта (извън изчислената стойност)', $rows];
+        $blocks[] = ['Допълнителни услуги', $rows];
     }
 
     $rows = [];

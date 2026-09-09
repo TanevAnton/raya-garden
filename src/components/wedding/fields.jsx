@@ -86,6 +86,50 @@ export function NumberField({ label, hint, error, value, onChange, min = 0, max 
   );
 }
 
+/**
+ * A guest count with a slider beside it. The slider is the quick way to a
+ * number; the field above it stays typable, so an exact count is never more
+ * than a keystroke away. Both write the same value.
+ */
+export function SliderNumberField({ label, hint, error, value, onChange, min = 0, max = 150 }) {
+  const typed = Number.parseInt(String(value ?? ""), 10);
+  const current = Number.isFinite(typed) ? Math.min(Math.max(typed, min), max) : min;
+
+  return (
+    <Field label={label} hint={hint} error={error}>
+      {(props) => (
+        <div>
+          <input
+            {...props}
+            type="number"
+            inputMode="numeric"
+            step="1"
+            min={min}
+            max={max}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={`${inputClass} ${error ? "border-red-400/50" : ""}`}
+          />
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step="1"
+            value={current}
+            aria-label={label}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full mt-3 accent-[#d7b85f] cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] tracking-[0.2em] text-cream-100/35 mt-1">
+            <span>{min}</span>
+            <span>{max}</span>
+          </div>
+        </div>
+      )}
+    </Field>
+  );
+}
+
 export function TextField({
   label,
   hint,

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { StepHeading, NumberField, TextArea, Notice, labelClass } from "./fields.jsx";
 import { formatMoney } from "../../lib/weddingPricing.js";
@@ -6,7 +7,88 @@ import { fill } from "../../i18n/weddingConfigurator.js";
 function unitLabel(s, unit) {
   if (unit === "per_person") return s.extras.perPerson;
   if (unit === "per_hour") return s.extras.perHour;
+  if (unit === "per_room") return s.extras.perRoom;
   return s.extras.fixed;
+}
+
+function pick(item, lang, key) {
+  if (lang === "en") return item[`${key}En`] || item[key];
+  if (lang === "ro") return item[`${key}Ro`] || item[key];
+  return item[key];
+}
+
+/**
+ * The glass upgrades that sit with the drink they replace. One glass is
+ * poured, so `exclusive` makes them a choice rather than a checklist —
+ * picking a second one puts the first back.
+ */
+function UpgradeChoices({ extra, s, lang, chosen, onChange }) {
+  const exclusive = Boolean(extra.upgradesExclusive);
+  const note = pick(extra, lang, "upgradesNote");
+
+  return (
+    <fieldset className="mt-2">
+      <legend className="text-[11px] tracking-[0.2em] uppercase text-gold-300/70">
+        {s.extras.glassUpgradeTitle}
+      </legend>
+      {note && (
+        <p className="text-[11px] text-cream-100/45 leading-relaxed mt-1 mb-2">{note}</p>
+      )}
+      <ul className="space-y-1.5">
+        {extra.upgrades.map((upgrade) => {
+          const picked = chosen.includes(upgrade.id);
+          return (
+            <li key={upgrade.id}>
+              <button
+                type="button"
+                aria-pressed={picked}
+                onClick={() =>
+                  onChange(
+                    picked
+                      ? chosen.filter((u) => u !== upgrade.id)
+                      : exclusive
+                      ? [upgrade.id]
+                      : [...chosen, upgrade.id]
+                  )
+                }
+                className={`w-full text-left border px-3 py-2 flex items-center gap-3 transition ${
+                  picked
+                    ? "border-gold-300/50 bg-gold-300/[0.07]"
+                    : "border-gold-300/15 hover:border-gold-300/35"
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`w-4 h-4 flex-shrink-0 flex items-center justify-center border transition ${
+                    exclusive ? "rounded-full" : ""
+                  } ${
+                    picked
+                      ? "bg-gold-300/90 border-gold-300 text-ink-950"
+                      : "border-gold-300/40 text-transparent"
+                  }`}
+                >
+                  <Check className="w-3 h-3" strokeWidth={3} />
+                </span>
+                <span className="min-w-0 flex-1 flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span className="text-xs text-cream-50">{upgrade.name}</span>
+                  <span className="text-[10px] tracking-[0.15em] uppercase text-gold-300/70">
+                    {upgrade.priceCents == null
+                      ? s.menus.upgradeOnRequest
+                      : `+ ${formatMoney(upgrade.priceCents, lang)} ${unitLabel(s, upgrade.unit)}`}
+                  </span>
+                </span>
+              </button>
+              {upgrade.text && (
+                <p className="text-[11px] text-cream-100/50 leading-relaxed mt-1 px-3">
+                  {upgrade.text}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </fieldset>
+  );
 }
 
 /** Priced addition — collapsed to a price row until it is added. */
@@ -57,12 +139,27 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
             </p>
           )}
           {extra.bullets && (
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-3 space-y-1 max-w-prose">
               {extra.bullets.map((b, i) => (
-                <li key={i} className="flex items-start gap-2 text-xs text-cream-100/70">
-                  <Check className="w-3.5 h-3.5 text-gold-300/80 flex-shrink-0 mt-px" />
-                  {b}
-                </li>
+                <Fragment key={i}>
+                  <li className="flex items-start gap-2 text-xs text-cream-100/70">
+                    <Check className="w-3.5 h-3.5 text-gold-300/80 flex-shrink-0 mt-px" />
+                    {b}
+                  </li>
+                  {/* The champagne upgrades stand next to the glass they
+                      replace, and only once the ritual itself is added. */}
+                  {selected && extra.upgrades?.length > 0 && extra.upgradesAfterBullet === i && (
+                    <li className="pl-5">
+                      <UpgradeChoices
+                        extra={extra}
+                        s={s}
+                        lang={lang}
+                        chosen={selection.upgrades || []}
+                        onChange={(upgrades) => onChange({ ...selection, upgrades })}
+                      />
+                    </li>
+                  )}
+                </Fragment>
               ))}
             </ul>
           )}
@@ -171,6 +268,17 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                             : "border-gold-300/15 hover:border-gold-300/40"
                         }`}
                       >
+                        {location.image && (
+                          <img
+                            src={location.image}
+                            alt=""
+                            loading="lazy"
+                            className="w-full h-28 object-cover mb-3"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        )}
                         <span className="flex items-start gap-2">
                           <Check
                             className={`w-3.5 h-3.5 flex-shrink-0 mt-0.5 ${
@@ -221,6 +329,9 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                     n: cateringPicked,
                     max: extra.cateringChoices,
                   })}
+                  {extra.cateringIncluded && (
+                    <span className="text-cream-100/45"> · {s.extras.cateringIncluded}</span>
+                  )}
                 </p>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {extra.catering.map((item) => {
@@ -241,13 +352,18 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                             : "border-gold-300/15 text-cream-100/75 hover:border-gold-300/40"
                         }`}
                       >
-                        <span className="inline-flex items-start gap-2">
+                        <span className="flex items-center gap-2">
                           <Check
-                            className={`w-3.5 h-3.5 flex-shrink-0 mt-px ${
+                            className={`w-3.5 h-3.5 flex-shrink-0 ${
                               picked ? "text-gold-300" : "text-transparent"
                             }`}
                           />
-                          {item.name}
+                          <span className="min-w-0 flex-1">{item.name}</span>
+                          {extra.cateringIncluded && (
+                            <span className="shrink-0 text-[10px] tracking-[0.15em] uppercase text-gold-300/60">
+                              {formatMoney(0, lang)}
+                            </span>
+                          )}
                         </span>
                       </button>
                     );
@@ -261,60 +377,15 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
               </fieldset>
             )}
 
-            {extra.upgrades?.length > 0 && (
-              <fieldset>
-                <legend className={labelClass}>{s.menus.upgradesTitle}</legend>
-                <ul className="space-y-2">
-                  {extra.upgrades.map((upgrade) => {
-                    const picked = (selection.upgrades || []).includes(upgrade.id);
-                    return (
-                      <li key={upgrade.id}>
-                        <button
-                          type="button"
-                          aria-pressed={picked}
-                          onClick={() =>
-                            onChange({
-                              ...selection,
-                              upgrades: picked
-                                ? (selection.upgrades || []).filter((u) => u !== upgrade.id)
-                                : [...(selection.upgrades || []), upgrade.id],
-                            })
-                          }
-                          className={`w-full text-left border px-3 py-2.5 flex items-start gap-3 transition ${
-                            picked
-                              ? "border-gold-300/50 bg-gold-300/[0.07]"
-                              : "border-gold-300/15 hover:border-gold-300/35"
-                          }`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={`mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center border transition ${
-                              picked
-                                ? "bg-gold-300/90 border-gold-300 text-ink-950"
-                                : "border-gold-300/40 text-transparent"
-                            }`}
-                          >
-                            <Check className="w-3 h-3" strokeWidth={3} />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-                              <span className="text-sm text-cream-50">{upgrade.name}</span>
-                              <span className="text-[10px] tracking-[0.15em] uppercase text-gold-300/70">
-                                {upgrade.priceCents == null
-                                  ? s.menus.upgradeOnRequest
-                                  : `${formatMoney(upgrade.priceCents, lang)} ${unitLabel(s, upgrade.unit)}`}
-                              </span>
-                            </span>
-                            <span className="block text-[11px] text-cream-100/55 leading-relaxed mt-1">
-                              {upgrade.text}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </fieldset>
+            {/* Anything not anchored to a bullet still gets a home here. */}
+            {extra.upgrades?.length > 0 && extra.upgradesAfterBullet == null && (
+              <UpgradeChoices
+                extra={extra}
+                s={s}
+                lang={lang}
+                chosen={selection.upgrades || []}
+                onChange={(upgrades) => onChange({ ...selection, upgrades })}
+              />
             )}
 
             <TextArea
@@ -330,15 +401,24 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
   );
 }
 
-/** Request with no published price — never priced, never added to the total. */
-function RequestCard({ request, s, lang, selection, onChange }) {
+/**
+ * An additional service. Some carry the hotel's own price and are counted in
+ * the estimate; the rest are quoted individually and never touch the numbers.
+ */
+function RequestCard({ request, s, lang, selection, onChange, totalGuests }) {
   const selected = Boolean(selection?.selected);
-  const label =
-    lang === "en"
-      ? request.labelEn || request.label
-      : lang === "ro"
-      ? request.labelRo || request.label
-      : request.label;
+  const label = pick(request, lang, "label");
+  const priced = request.priceCents != null;
+  const quantity = request.unit === "per_person" ? totalGuests : 1;
+
+  const badge = priced
+    ? `${formatMoney(request.priceCents, lang)} ${unitLabel(s, request.unit)}`
+    : request.fromPriceCents != null
+    ? fill(s.extras.fromPrice, {
+        price: formatMoney(request.fromPriceCents, lang),
+        unit: unitLabel(s, request.fromUnit),
+      })
+    : s.extras.quotationBadge;
 
   return (
     <article
@@ -348,8 +428,12 @@ function RequestCard({ request, s, lang, selection, onChange }) {
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm text-cream-50 leading-snug">{label}</h3>
-        <span className="text-[10px] tracking-[0.15em] uppercase text-gold-300/60 shrink-0 border border-gold-300/20 px-2 py-1">
-          {s.extras.quotationBadge}
+        <span
+          className={`text-[10px] tracking-[0.15em] uppercase shrink-0 border px-2 py-1 ${
+            priced ? "text-gold-200 border-gold-300/40" : "text-gold-300/60 border-gold-300/20"
+          }`}
+        >
+          {badge}
         </span>
       </div>
       {/* Who actually arranges it: the hotel's own rooms and grounds, or a
@@ -374,6 +458,16 @@ function RequestCard({ request, s, lang, selection, onChange }) {
 
       {selected && (
         <div className="mt-5 space-y-4">
+          {/* What that price comes to for this wedding — the same arithmetic
+              the server repeats before the enquiry is sent. */}
+          {priced && quantity > 0 && (
+            <p className="text-xs text-cream-100/70 border border-gold-300/15 px-3 py-2">
+              {quantity} × {formatMoney(request.priceCents, lang)} ={" "}
+              <span className="text-cream-50">
+                {formatMoney(quantity * request.priceCents, lang)}
+              </span>
+            </p>
+          )}
           {request.collectRooms && (
             <div className="grid grid-cols-3 gap-3">
               <NumberField
@@ -409,7 +503,7 @@ function RequestCard({ request, s, lang, selection, onChange }) {
 }
 
 /** Step 3 — priced additions, then everything quoted individually. */
-export default function StepExtras({ s, offer, lang, config, update, errors, overlap, defaultCovers }) {
+export default function StepExtras({ s, offer, lang, config, update, errors, overlap, defaultCovers, totalGuests }) {
   // Extras pulled in by another selected extra — shown as required, not
   // offered as a choice.
   const requiredIds = new Set();
@@ -469,6 +563,7 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
               request={request}
               s={s}
               lang={lang}
+              totalGuests={totalGuests}
               selection={config.requests[request.id] || {}}
               onChange={(next) =>
                 update("requests", { ...config.requests, [request.id]: next })

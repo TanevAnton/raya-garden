@@ -136,6 +136,44 @@ then charged per standard-menu guest and appears in the estimate and the email
 like any other line. Changing a variant clears upgrades belonging to another
 one, on both sides.
 
+### Additional services — three ways to price one
+
+`quotationRequests` in `wedding-offer.json` now carries three shapes, and the
+page, the estimate and the email all follow from which fields an entry has:
+
+| Fields | Renders as | In the estimate? |
+| --- | --- | --- |
+| `priceCents` + `unit` | "10,00 € на човек" | **Yes** — a line, quantity from the guest count |
+| `fromPriceCents` + `fromUnit` | "от 5 000,00 € еднократно" | No — indicative only |
+| neither | "По индивидуална оферта" | No |
+
+A priced one is charged per *total* guest (standard + children) — the couple
+never types a second number for it, and the endpoint recomputes the same
+quantity rather than trusting the browser. Today the cake is priced, the
+decoration and the accommodation are indicative ("от"), and the photo
+locations and the stag/hen parties have been removed at the hotel's request.
+
+### The welcome glass
+
+The ceremony extra's `upgrades` are three champagnes (Moët & Chandon 10.00 €,
+Dom Pérignon 25.00 €, Cristal Brut 50.00 € — all per cocktail cover). Two
+flags shape them:
+
+- `upgradesAfterBullet: 1` renders the group directly under the bullet naming
+  the included Pet Nat glass, rather than at the foot of the card.
+- `upgradesExclusive: true` makes them a choice, not a checklist — one glass
+  is poured, so picking a second replaces the first, and the endpoint answers
+  `one-only` if a submission carries two.
+
+`upgradesNote` (with `…En`/`…Ro`) says in one place that the upgrade replaces
+the included glass rather than adding to it.
+
+### Capacity
+
+`package.maxGuests` (150) caps both guest sliders on step 1 and is enforced at
+the endpoint (`standardGuests: max`). The number fields stay typable — the
+slider is the quick way to a number, not the only way.
+
 ### What the enquiry collects
 
 Date (or a period, when the couple hasn't picked one), guest counts, one
@@ -187,10 +225,10 @@ hotel's confirmation:
    event. A couple who wants a split says so in the notes, and the team
    confirms it — the offer does not describe mixed menus.
 4. **Which services come through a partner.** `viaPartner` in
-   `quotationRequests` currently marks decoration, the cake and the stag/hen
-   parties as partner-arranged, and leaves the photo locations and the guest
-   accommodation as the hotel's own — a hotel does not source its own rooms
-   through a partner. Correct the flags if the split is different.
+   `quotationRequests` marks the decoration and the cake as partner-arranged
+   and leaves the guest accommodation as the hotel's own — a hotel does not
+   source its own rooms through a partner. Correct the flags if the split is
+   different.
 
 ## Testing locally
 

@@ -19,6 +19,7 @@ const bg = {
     eyebrow: "RAYA GARDEN",
     title: "Конфигурирайте своята сватбена оферта",
     lead: "Изберете меню, допълнителни услуги и детайли за Вашия ден. В края ще получите ориентировъчна стойност и ще можете да изпратите запитването си директно към нашия екип.",
+    heroAlt: "Сватбена маса в ресторанта на RAYA Garden",
   },
   steps: ["Дата и гости", "Избор на меню", "Допълнителни услуги", "Преглед и изпращане"],
   nav: { back: "Назад", next: "Напред", edit: "Редактирай", step: "Стъпка" },
@@ -40,6 +41,8 @@ const bg = {
     errStandard: "Моля, въведете поне 1 гост със стандартно меню.",
     errChildren: "Моля, въведете цяло число (0 или повече).",
     errDate: "Моля, изберете дата или отбележете, че още нямате избрана дата.",
+    errMaxGuests: "Общият брой гости не може да надвишава {max}.",
+    capacityHint: "Ресторантът побира до {max} гости.",
   },
 
   included: {
@@ -74,12 +77,17 @@ const bg = {
 
   extras: {
     pricedLegend: "Допълнителни услуги с цена",
-    quotationLegend: "Услуги по индивидуална оферта",
+    quotationLegend: "Допълнителни услуги за деня",
     quotationNote:
-      "Тези услуги не са част от пакета и офертата не посочва цена за тях. Част от тях се организират с наши доверени партньори, а други — от екипа на хотела. Не участват в ориентировъчната стойност — ще получите индивидуално предложение.",
+      "Част от тях се организират с наши доверени партньори, а други — от екипа на хотела. Услугите с посочена цена влизат в ориентировъчната стойност; за останалите ще получите индивидуално предложение.",
     partnerBadge: "Чрез наш партньор",
     hotelBadge: "От хотела",
     quotationBadge: "По индивидуална оферта",
+    fromPrice: "от {price} {unit}",
+    perRoom: "на стая",
+    cateringIncluded: "включено в цената",
+    glassUpgradeTitle: "Надградете чашата",
+    glassUpgradeOne: "Изберете само едно надграждане на чашата.",
     add: "Добави",
     added: "Добавено",
     remove: "Премахни",
@@ -176,6 +184,7 @@ const en = {
     eyebrow: "RAYA GARDEN",
     title: "Configure your wedding offer",
     lead: "Choose your menu, extra services and the details of your day. At the end you'll see an indicative estimate and can send your enquiry straight to our team.",
+    heroAlt: "The top table at a RAYA Garden wedding",
   },
   steps: ["Date & guests", "Menu", "Extra services", "Review & send"],
   nav: { back: "Back", next: "Next", edit: "Edit", step: "Step" },
@@ -197,6 +206,8 @@ const en = {
     errStandard: "Please enter at least 1 guest on the standard menu.",
     errChildren: "Please enter a whole number (0 or more).",
     errDate: "Please pick a date, or tick that you haven't chosen one yet.",
+    errMaxGuests: "The total number of guests cannot be more than {max}.",
+    capacityHint: "The restaurant seats up to {max} guests.",
   },
 
   included: {
@@ -231,12 +242,17 @@ const en = {
 
   extras: {
     pricedLegend: "Priced extra services",
-    quotationLegend: "Services quoted individually",
+    quotationLegend: "Extra services for the day",
     quotationNote:
-      "These are not part of the package and the offer lists no price for them. Some are arranged through our trusted partners, others by the hotel's own team. They are not part of the indicative estimate — you'll receive an individual proposal.",
+      "Some are arranged through our trusted partners, others by the hotel's own team. Services with a price shown are part of the indicative estimate; for the rest you'll receive an individual proposal.",
     partnerBadge: "Through a partner",
     hotelBadge: "By the hotel",
     quotationBadge: "Individual quotation",
+    fromPrice: "from {price} {unit}",
+    perRoom: "per room",
+    cateringIncluded: "included in the price",
+    glassUpgradeTitle: "Upgrade the glass",
+    glassUpgradeOne: "Choose only one glass upgrade.",
     add: "Add",
     added: "Added",
     remove: "Remove",
@@ -332,6 +348,7 @@ const ro = {
     eyebrow: "RAYA GARDEN",
     title: "Configurați-vă oferta de nuntă",
     lead: "Alegeți meniul, serviciile suplimentare și detaliile zilei dumneavoastră. La final veți vedea o valoare orientativă și veți putea trimite solicitarea direct echipei noastre.",
+    heroAlt: "Masa mirilor la o nuntă la RAYA Garden",
   },
   steps: ["Data și invitații", "Meniu", "Servicii suplimentare", "Verificare și trimitere"],
   nav: { back: "Înapoi", next: "Înainte", edit: "Modifică", step: "Pasul" },
@@ -353,6 +370,8 @@ const ro = {
     errStandard: "Vă rugăm să introduceți cel puțin 1 invitat cu meniu standard.",
     errChildren: "Vă rugăm să introduceți un număr întreg (0 sau mai mare).",
     errDate: "Alegeți o dată sau bifați că nu ați ales încă una.",
+    errMaxGuests: "Numărul total de invitați nu poate depăși {max}.",
+    capacityHint: "Restaurantul găzduiește până la {max} de invitați.",
   },
 
   included: {
@@ -386,12 +405,17 @@ const ro = {
 
   extras: {
     pricedLegend: "Servicii suplimentare cu preț",
-    quotationLegend: "Servicii cu ofertă individuală",
+    quotationLegend: "Servicii suplimentare pentru ziua dumneavoastră",
     quotationNote:
-      "Acestea nu fac parte din pachet și oferta nu indică un preț pentru ele. Unele se organizează prin partenerii noștri de încredere, altele de echipa hotelului. Nu intră în valoarea orientativă — veți primi o propunere individuală.",
+      "Unele se organizează prin partenerii noștri de încredere, altele de echipa hotelului. Serviciile cu preț afișat intră în valoarea orientativă; pentru celelalte veți primi o propunere individuală.",
     partnerBadge: "Prin partener",
     hotelBadge: "De la hotel",
     quotationBadge: "Ofertă individuală",
+    fromPrice: "de la {price} {unit}",
+    perRoom: "pe cameră",
+    cateringIncluded: "inclus în preț",
+    glassUpgradeTitle: "Îmbunătățiți paharul",
+    glassUpgradeOne: "Alegeți o singură îmbunătățire a paharului.",
     add: "Adaugă",
     added: "Adăugat",
     remove: "Elimină",

@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-09.6",
+  "version": "2026-09-09.7",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -326,7 +326,7 @@
           "name": "Чаша шампанско Moët & Chandon",
           "text": "Надграждане на включената чаша пенливо розе до чаша шампанско Moët & Chandon.",
           "unit": "per_person",
-          "priceCents": null
+          "priceCents": 500
         }
       ]
     },

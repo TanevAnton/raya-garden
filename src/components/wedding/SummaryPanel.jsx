@@ -49,11 +49,12 @@ export default function SummaryPanel({ s, offer, lang, config, quote, overlap, o
   const upgradeName = (id) => menuUpgrades.find((u) => u.id === id)?.name || id;
   // Upgrades the hotel has not priced yet sit with the other requests rather
   // than in the numbers.
-  const onRequestUpgrades = (quote.quotedUpgrades || []).map(upgradeName);
+  const onRequestUpgrades = (quote.quotedUpgrades || []).map((u) => u.name);
 
   const lineLabel = (line) => {
     if (line.id === "standard-menus") return s.summary.standardSubtotal;
     if (line.id === "child-menus") return s.summary.childSubtotal;
+    if (line.label) return line.label;
     const upgrade = menuUpgrades.find((u) => u.id === line.id);
     if (upgrade) return upgrade.name;
     return label(offer, "extras", line.id, lang);

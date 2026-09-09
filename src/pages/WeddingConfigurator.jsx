@@ -327,6 +327,7 @@ export default function WeddingConfigurator() {
               hours: toCount(sel.hours) || undefined,
               catering: sel.catering || undefined,
               location: sel.location || undefined,
+              upgrades: sel.upgrades || undefined,
               notes: sel.notes || "",
             },
           ])

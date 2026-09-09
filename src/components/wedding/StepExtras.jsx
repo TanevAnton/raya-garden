@@ -19,7 +19,7 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
   const toggle = () =>
     onChange(
       selected
-        ? { selected: false, covers: "", hours: "", catering: [], location: "", notes: "" }
+        ? { selected: false, covers: "", hours: "", catering: [], location: "", upgrades: [], notes: "" }
         : {
             ...selection,
             selected: true,
@@ -258,6 +258,62 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                     {errors[`extra.${extra.id}.catering`]}
                   </p>
                 )}
+              </fieldset>
+            )}
+
+            {extra.upgrades?.length > 0 && (
+              <fieldset>
+                <legend className={labelClass}>{s.menus.upgradesTitle}</legend>
+                <ul className="space-y-2">
+                  {extra.upgrades.map((upgrade) => {
+                    const picked = (selection.upgrades || []).includes(upgrade.id);
+                    return (
+                      <li key={upgrade.id}>
+                        <button
+                          type="button"
+                          aria-pressed={picked}
+                          onClick={() =>
+                            onChange({
+                              ...selection,
+                              upgrades: picked
+                                ? (selection.upgrades || []).filter((u) => u !== upgrade.id)
+                                : [...(selection.upgrades || []), upgrade.id],
+                            })
+                          }
+                          className={`w-full text-left border px-3 py-2.5 flex items-start gap-3 transition ${
+                            picked
+                              ? "border-gold-300/50 bg-gold-300/[0.07]"
+                              : "border-gold-300/15 hover:border-gold-300/35"
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`mt-0.5 w-4 h-4 flex-shrink-0 flex items-center justify-center border transition ${
+                              picked
+                                ? "bg-gold-300/90 border-gold-300 text-ink-950"
+                                : "border-gold-300/40 text-transparent"
+                            }`}
+                          >
+                            <Check className="w-3 h-3" strokeWidth={3} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                              <span className="text-sm text-cream-50">{upgrade.name}</span>
+                              <span className="text-[10px] tracking-[0.15em] uppercase text-gold-300/70">
+                                {upgrade.priceCents == null
+                                  ? s.menus.upgradeOnRequest
+                                  : `${formatMoney(upgrade.priceCents, lang)} ${unitLabel(s, upgrade.unit)}`}
+                              </span>
+                            </span>
+                            <span className="block text-[11px] text-cream-100/55 leading-relaxed mt-1">
+                              {upgrade.text}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </fieldset>
             )}
 

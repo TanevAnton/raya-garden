@@ -106,7 +106,7 @@ export function buildQuote(offer, config) {
   for (const upgrade of upgrades) {
     if (!chosenUpgrades.includes(upgrade.id)) continue;
     if (upgrade.priceCents == null) {
-      quotedUpgrades.push(upgrade.id);
+      quotedUpgrades.push({ id: upgrade.id, name: upgrade.name });
       continue;
     }
     lines.push({
@@ -135,6 +135,25 @@ export function buildQuote(offer, config) {
       unitPriceCents: extra.priceCents,
       totalCents: quantity * extra.priceCents,
     });
+
+    // An extra can be upgraded too — the Moët glass at the welcome cocktail.
+    // It follows the extra's own quantity, so it is priced per cocktail cover
+    // rather than per wedding guest.
+    for (const upgrade of extra.upgrades || []) {
+      if (!(selection.upgrades || []).includes(upgrade.id)) continue;
+      if (upgrade.priceCents == null) {
+        quotedUpgrades.push({ id: upgrade.id, name: upgrade.name });
+        continue;
+      }
+      lines.push({
+        id: upgrade.id,
+        label: upgrade.name,
+        quantity,
+        unit: extra.unit,
+        unitPriceCents: upgrade.priceCents,
+        totalCents: quantity * upgrade.priceCents,
+      });
+    }
   }
 
   const sum = (pick) => lines.reduce((acc, l) => acc + pick(l), 0);

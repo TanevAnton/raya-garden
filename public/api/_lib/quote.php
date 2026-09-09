@@ -245,6 +245,24 @@ function raya_validate(array $in, array $offer): array
             $entry['quantity'] = 1;
         }
 
+        // Upgrades offered by this extra — an id from anywhere else is
+        // rejected rather than quietly priced.
+        if (!empty($extra['upgrades'])) {
+            $upgradeIds = raya_ids($extra['upgrades']);
+            $entry['upgrades'] = [];
+            $picked = is_array($sel['upgrades'] ?? null) ? $sel['upgrades'] : [];
+            foreach ($picked as $upgradeId) {
+                $upgradeId = raya_str((string) $upgradeId, 40);
+                if (!in_array($upgradeId, $upgradeIds, true)) {
+                    $errors['extra.' . $id . '.upgrades'] = 'unknown-option';
+                    continue 2;
+                }
+                if (!in_array($upgradeId, $entry['upgrades'], true)) {
+                    $entry['upgrades'][] = $upgradeId;
+                }
+            }
+        }
+
         // Where the cocktail is held decides whether a space is charged, so
         // the choice is required and must be one the offer lists.
         if (!empty($extra['locations'])) {
@@ -509,6 +527,27 @@ function raya_build_quote(array $d, array $offer): array
             'unitPriceCents' => (int) $extra['priceCents'],
             'totalCents' => $qty * (int) $extra['priceCents'],
         ];
+
+        // An upgrade to this extra follows its quantity — the champagne glass
+        // is per cocktail cover, not per wedding guest.
+        $chosenUpgrades = $d['extras'][$extra['id']]['upgrades'] ?? [];
+        foreach ($extra['upgrades'] ?? [] as $upgrade) {
+            if (!in_array($upgrade['id'], $chosenUpgrades, true)) {
+                continue;
+            }
+            if (!isset($upgrade['priceCents'])) {
+                $quotedUpgrades[] = $upgrade['name'];
+                continue;
+            }
+            $lines[] = [
+                'id' => $upgrade['id'],
+                'label' => $upgrade['name'],
+                'quantity' => $qty,
+                'unit' => $extra['unit'],
+                'unitPriceCents' => (int) $upgrade['priceCents'],
+                'totalCents' => $qty * (int) $upgrade['priceCents'],
+            ];
+        }
     }
 
     $min = 0;

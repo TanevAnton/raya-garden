@@ -97,6 +97,8 @@ const bg = {
     locationHint: "Изборът на място определя дали се начислява наем.",
     locationIncluded: "Без допълнителен наем",
     locationRequired: "Моля, изберете място за уелкъм коктейла.",
+    unavailableWithLocation:
+      "Не е налично при избраното място за ритуала. Сменете мястото по-горе, за да го добавите.",
     requiredBadge: "Задължително при избраното място",
     requiredNote:
       "Наемът се начислява автоматично заради избраното място за уелкъм коктейла.",
@@ -252,6 +254,8 @@ const en = {
     locationHint: "The place you choose decides whether a hire fee applies.",
     locationIncluded: "No extra hire fee",
     locationRequired: "Please choose where the welcome cocktail is held.",
+    unavailableWithLocation:
+      "Not available with the place chosen for the ceremony. Change the place above to add it.",
     requiredBadge: "Required by the place you chose",
     requiredNote:
       "This hire fee is added automatically because of the place chosen for the welcome cocktail.",
@@ -405,6 +409,8 @@ const ro = {
     locationHint: "Locul ales stabilește dacă se percepe o taxă de închiriere.",
     locationIncluded: "Fără taxă suplimentară",
     locationRequired: "Vă rugăm să alegeți locul cocktailului de bun venit.",
+    unavailableWithLocation:
+      "Indisponibil pentru locul ales pentru ceremonie. Schimbați locul de mai sus pentru a-l adăuga.",
     requiredBadge: "Obligatoriu pentru locul ales",
     requiredNote:
       "Taxa se adaugă automat din cauza locului ales pentru cocktailul de bun venit.",

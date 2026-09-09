@@ -113,14 +113,24 @@ export default function WeddingConfigurator() {
   // terrace the couple chose themselves is left alone.
   useEffect(() => {
     const required = new Set();
+    const blockedSpaces = new Set();
     for (const extra of offer.extras) {
       const selection = config.extras[extra.id];
       if (!selection?.selected) continue;
       for (const id of extra.requires || []) required.add(id);
-      // A place can carry a hire fee of its own: the terrace is rented, the
-      // restaurant is already covered by the package.
+      // A place carries its own hire: the terrace is rented on its own, the
+      // summer garden takes the marquee and the lawns together.
       const location = (extra.locations || []).find((l) => l.id === selection.location);
       for (const id of location?.requires || []) required.add(id);
+      // Every space this extra could use, minus the ones the chosen place
+      // uses, is unavailable while that place stands.
+      if (extra.locations && location) {
+        for (const other of extra.locations) {
+          for (const id of other.requires || []) {
+            if (!(location.requires || []).includes(id)) blockedSpaces.add(id);
+          }
+        }
+      }
     }
     setConfig((prev) => {
       let next = prev.extras;
@@ -128,6 +138,15 @@ export default function WeddingConfigurator() {
       for (const id of required) {
         if (!next[id]?.selected) {
           next = { ...next, [id]: { ...next[id], selected: true, auto: true } };
+          changed = true;
+        }
+      }
+      // While a ritual place is chosen, the spaces it does not use are not
+      // available alongside it — the hotel offers one arrangement or the
+      // other, not both.
+      for (const id of blockedSpaces) {
+        if (next[id]?.selected) {
+          next = { ...next, [id]: { ...next[id], selected: false, auto: false } };
           changed = true;
         }
       }
@@ -259,6 +278,7 @@ export default function WeddingConfigurator() {
     if (field === "childMenus") return fill(s.menus.childSumError, { n: children });
     if (field.endsWith(".catering")) return fill(s.extras.cateringError, { max: 3 });
     if (field.endsWith(".location")) return s.extras.locationRequired;
+    if (field.endsWith(".blocked")) return s.extras.unavailableWithLocation;
     if (field === "phone") return s.contact.errPhone;
     if (field === "email") return s.contact.errEmail;
     if (field === "consent") return s.contact.errConsent;

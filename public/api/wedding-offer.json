@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-09.4",
+  "version": "2026-09-09.5",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -310,14 +310,14 @@
           ]
         },
         {
-          "id": "restaurant",
-          "label": "Закритият ресторант",
-          "labelEn": "The indoor restaurant",
-          "labelRo": "Restaurantul interior",
-          "requires": [],
-          "note": "Включено в наема на ресторанта.",
-          "noteEn": "Covered by the restaurant hire.",
-          "noteRo": "Inclus în închirierea restaurantului."
+          "id": "garden",
+          "label": "Лятната градина — шатра и тревни площи",
+          "labelEn": "The summer garden — marquee and lawns",
+          "labelRo": "Grădina de vară — cort și peluze",
+          "requires": [
+            "tent",
+            "lawn"
+          ]
         }
       ]
     },

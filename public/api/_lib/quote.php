@@ -283,40 +283,62 @@ function raya_validate(array $in, array $offer): array
         $d['extras'][$id] = $entry;
     }
 
-    // An extra that requires another one always carries it, whatever the
-    // browser sent: the welcome cocktail is held on the open terrace and the
-    // hotel charges that space with it. Enforced here so a request that
-    // simply omits the terrace cannot buy a cheaper quote.
+    // A place carries its own hire. A fixed fee can simply be added here; an
+    // hourly one cannot — nobody can compute it without knowing how long, so
+    // the request has to carry the hours. And the spaces the chosen place
+    // does not use are not available beside it: the hotel offers one
+    // arrangement or the other.
     foreach ($offer['extras'] as $extra) {
         if (!isset($d['extras'][$extra['id']])) {
             continue;
         }
+        $chosen = $d['extras'][$extra['id']]['location'] ?? '';
         $requires = $extra['requires'] ?? [];
+        $blocked = [];
         foreach ($extra['locations'] ?? [] as $location) {
-            if ($location['id'] === ($d['extras'][$extra['id']]['location'] ?? '')) {
+            if ($location['id'] === $chosen) {
                 $requires = array_merge($requires, $location['requires'] ?? []);
             }
         }
-        foreach ($requires as $requiredId) {
-            if (isset($d['extras'][$requiredId])) {
-                continue;
+        foreach ($extra['locations'] ?? [] as $location) {
+            foreach ($location['requires'] ?? [] as $id) {
+                if (!in_array($id, $requires, true)) {
+                    $blocked[] = $id;
+                }
             }
+        }
+
+        foreach ($blocked as $blockedId) {
+            if (isset($d['extras'][$blockedId])) {
+                $errors['extra.' . $blockedId . '.blocked'] = 'unavailable-with-location';
+            }
+        }
+
+        foreach ($requires as $requiredId) {
             $required = null;
             foreach ($offer['extras'] as $candidate) {
                 if ($candidate['id'] === $requiredId) {
                     $required = $candidate;
                 }
             }
-            if ($required === null || $required['unit'] !== 'fixed') {
-                // Only a fixed fee can be added without asking for a quantity.
+            if ($required === null) {
                 continue;
             }
-            $d['extras'][$requiredId] = [
-                'id' => $requiredId,
-                'quantity' => 1,
-                'notes' => '',
-                'auto' => true,
-            ];
+            if (isset($d['extras'][$requiredId])) {
+                $d['extras'][$requiredId]['auto'] = true;
+                continue;
+            }
+            if ($required['unit'] === 'fixed') {
+                $d['extras'][$requiredId] = [
+                    'id' => $requiredId,
+                    'quantity' => 1,
+                    'notes' => '',
+                    'auto' => true,
+                ];
+                continue;
+            }
+            // Hourly, and no hours given: ask rather than invent a duration.
+            $errors['extra.' . $requiredId . '.hours'] = 'required';
         }
     }
 

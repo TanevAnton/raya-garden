@@ -164,23 +164,25 @@ hotel's confirmation:
    answer. Once the hotel decides, set `confirmed: true` and `value` to either
    `standard_menu_guests` or `combined_guests`; the range disappears
    everywhere.
-2. **Do the ceremony spaces combine?** Mostly settled. The welcome cocktail
-   can be held in more than one place, and the couple must choose which — the
-   fee follows the place, not the cocktail. `locations` on the ceremony extra
-   lists them, each with its own `requires`:
+2. **Do the ceremony spaces combine?** Settled. The welcome cocktail is held
+   in one of two places, and the couple picks which — the fee follows the
+   place. `locations` on the ceremony extra lists them, each naming the extras
+   it pulls in:
 
-   | Place | Charge |
+   | Place | Charges |
    | --- | --- |
-   | Панорамна тераса на лобито | `requires: ["terrace"]` → €250 |
-   | Закритият ресторант | none — already covered by the package's 6-hour restaurant hire |
+   | Панорамна тераса на лобито | terrace — €250 |
+   | Лятната градина — шатра и тревни площи | tent — €150/hour **and** lawn — €400 |
 
-   The choice is required on both sides, and the endpoint adds the place's fee
-   itself, so a request that omits it cannot buy a cheaper quote. To add
-   another place (the summer garden, the lawn), add an entry with the extras
-   it should pull in — no code change.
+   The two arrangements are exclusive while the ceremony is selected: the
+   spaces the chosen place does not use are barred, on the page and at the
+   endpoint. Without the ceremony, the marquee and the lawn are ordinary
+   extras a couple can select on their own.
 
-   The lawn (€400) as a *separate* selection is still an open combination:
-   choosing it alongside the ceremony flags for confirmation as before.
+   The marquee is hourly, so choosing the garden requires the hours before the
+   step will advance — and the endpoint refuses a submission without them
+   rather than inventing a duration.
+
 3. **Mixed menus across guests** are not offered: one variant is chosen for the
    event. A couple who wants a split says so in the notes, and the team
    confirms it — the offer does not describe mixed menus.

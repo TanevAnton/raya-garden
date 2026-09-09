@@ -10,7 +10,7 @@ function unitLabel(s, unit) {
 }
 
 /** Priced addition — collapsed to a price row until it is added. */
-function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers, required, offerExtras }) {
+function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers, required, blocked, offerExtras }) {
   const selected = Boolean(selection?.selected);
   const label =
     lang === "en" ? extra.labelEn || extra.label : lang === "ro" ? extra.labelRo || extra.label : extra.label;
@@ -82,7 +82,11 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
       </div>
 
       <div className="px-5 pb-5">
-        {required ? (
+        {blocked ? (
+          <p className="text-xs text-cream-100/45 leading-relaxed border border-gold-300/10 px-4 py-3">
+            {s.extras.unavailableWithLocation}
+          </p>
+        ) : required ? (
           <div className="border border-gold-300/30 bg-gold-300/[0.06] px-4 py-3">
             <div className="flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase text-gold-200">
               <Check className="w-3.5 h-3.5" />
@@ -352,16 +356,22 @@ function RequestCard({ request, s, lang, selection, onChange }) {
 export default function StepExtras({ s, offer, lang, config, update, errors, overlap, defaultCovers }) {
   // Extras pulled in by another selected extra — shown as required, not
   // offered as a choice.
-  const requiredIds = new Set(
-    offer.extras
-      .filter((extra) => config.extras[extra.id]?.selected)
-      .flatMap((extra) => {
-        const location = (extra.locations || []).find(
-          (l) => l.id === config.extras[extra.id]?.location
-        );
-        return [...(extra.requires || []), ...(location?.requires || [])];
-      })
-  );
+  const requiredIds = new Set();
+  const blockedIds = new Set();
+  for (const extra of offer.extras) {
+    const selection = config.extras[extra.id];
+    if (!selection?.selected) continue;
+    for (const id of extra.requires || []) requiredIds.add(id);
+    const location = (extra.locations || []).find((l) => l.id === selection.location);
+    for (const id of location?.requires || []) requiredIds.add(id);
+    if (extra.locations && location) {
+      for (const other of extra.locations) {
+        for (const id of other.requires || []) {
+          if (!(location.requires || []).includes(id)) blockedIds.add(id);
+        }
+      }
+    }
+  }
 
   return (
     <div className="space-y-10">
@@ -377,6 +387,7 @@ export default function StepExtras({ s, offer, lang, config, update, errors, ove
               errors={errors}
               defaultCovers={defaultCovers}
               required={requiredIds.has(extra.id)}
+              blocked={blockedIds.has(extra.id)}
               offerExtras={offer.extras}
               selection={config.extras[extra.id] || {}}
               onChange={(next) =>

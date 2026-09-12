@@ -273,7 +273,7 @@ function ExtraCard({ extra, s, lang, selection, onChange, errors, defaultCovers,
                             src={location.image}
                             alt=""
                             loading="lazy"
-                            className="w-full h-28 object-cover mb-3"
+                            className="brochure-photo--thumb w-full h-28 object-cover mb-3"
                             onError={(e) => {
                               e.currentTarget.style.display = "none";
                             }}

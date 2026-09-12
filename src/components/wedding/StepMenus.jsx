@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { StepHeading, NumberField, TextArea } from "./fields.jsx";
+import { StepHeading, SliderNumberField, TextArea } from "./fields.jsx";
 import { formatMoney } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
@@ -164,6 +164,29 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
     0
   );
 
+  /**
+   * There are only so many children. Raising one variant takes from the
+   * others rather than letting the allocation climb past the number of
+   * children actually coming.
+   */
+  const setChildMenu = (id, raw) => {
+    const parsed = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(parsed)) {
+      update("childMenus", { ...childMenus, [id]: raw });
+      return;
+    }
+    const value = Math.max(0, Math.min(parsed, children));
+    const next = { ...childMenus, [id]: String(value) };
+    let room = children - value;
+    for (const other of offer.childMenus) {
+      if (other.id === id) continue;
+      const keep = Math.min(Number.parseInt(next[other.id], 10) || 0, room);
+      room -= keep;
+      next[other.id] = String(keep);
+    }
+    update("childMenus", next);
+  };
+
   return (
     <div className="space-y-10">
       <section>
@@ -246,11 +269,12 @@ export default function StepMenus({ s, offer, lang, config, update, errors }) {
                 <p className="text-xs text-cream-100/60 leading-relaxed mt-2">{menu.text}</p>
                 <p className="text-xs text-cream-100/45 mt-2">{menu.drinks}</p>
                 <div className="mt-auto pt-5">
-                  <NumberField
+                  <SliderNumberField
                     label={s.summary.childMenu}
                     value={childMenus[menu.id] ?? ""}
                     min={0}
-                    onChange={(v) => update("childMenus", { ...childMenus, [menu.id]: v })}
+                    max={children}
+                    onChange={(v) => setChildMenu(menu.id, v)}
                   />
                 </div>
               </article>

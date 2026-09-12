@@ -478,7 +478,7 @@ export default function WeddingConfigurator() {
             alt={s.intro.heroAlt}
             width="1201"
             height="560"
-            className="w-full h-auto object-cover"
+            className="brochure-photo w-full h-auto object-cover"
           />
         </div>
       </section>

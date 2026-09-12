@@ -102,6 +102,16 @@
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(214, 184, 95, 0.15);
   }
+  /* The wedding photographs come out of the brochure with its rounded
+     corners drawn into the image itself, so the page's own frame has to
+     follow the same curve — a square edge leaves a pale arc in each corner.
+     Percentages keep the curve proportional at every width. */
+  .brochure-photo {
+    border-radius: 4.4% / 9.4%;
+  }
+  .brochure-photo--thumb {
+    border-radius: 16px;
+  }
   .divider-gold {
     height: 1px;
     background: linear-gradient(

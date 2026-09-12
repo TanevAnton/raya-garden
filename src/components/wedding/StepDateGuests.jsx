@@ -10,6 +10,27 @@ export default function StepDateGuests({ s, offer, config, update, errors }) {
   const children = Number.parseInt(guests.children, 10) || 0;
   const noDate = date.mode === "period";
 
+  /**
+   * The two counts share one room. Whichever the couple is moving wins, and
+   * the other gives way — so the pair can never quietly add up to more than
+   * the restaurant seats. One adult always stays behind.
+   */
+  const setGuests = (key, raw) => {
+    const parsed = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(parsed)) {
+      // Mid-edit (an emptied field): keep what was typed, couple nothing.
+      update("guests", { ...guests, [key]: raw });
+      return;
+    }
+    const otherKey = key === "standard" ? "children" : "standard";
+    const otherFloor = otherKey === "standard" ? 1 : 0;
+    const floor = key === "standard" ? 1 : 0;
+    const value = Math.max(floor, Math.min(parsed, maxGuests - otherFloor));
+    const other = otherKey === "standard" ? standard : children;
+    const nextOther = Math.max(otherFloor, Math.min(other, maxGuests - value));
+    update("guests", { ...guests, [key]: String(value), [otherKey]: String(nextOther) });
+  };
+
   return (
     <div className="space-y-10">
       <section>
@@ -78,7 +99,7 @@ export default function StepDateGuests({ s, offer, config, update, errors }) {
             value={guests.standard}
             min={1}
             max={maxGuests}
-            onChange={(v) => update("guests", { ...guests, standard: v })}
+            onChange={(v) => setGuests("standard", v)}
           />
           <SliderNumberField
             label={s.date.childrenLabel}
@@ -87,7 +108,7 @@ export default function StepDateGuests({ s, offer, config, update, errors }) {
             value={guests.children}
             min={0}
             max={maxGuests}
-            onChange={(v) => update("guests", { ...guests, children: v })}
+            onChange={(v) => setGuests("children", v)}
           />
         </div>
 

@@ -73,6 +73,32 @@ RewriteRule ^(.+)/$ /$1 [L,R=301]
 # never gets a broken response — worst case, today's behaviour.
 SetEnvIfNoCase User-Agent "GPTBot|ChatGPT-User|OAI-SearchBot|OAI-AdsBot|ClaudeBot|PerplexityBot|Googlebot|Bingbot|DuckDuckBot|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot" IS_BOT
 
+# The language the crawler asked for, stashed in an env var: %N only ever
+# holds the LAST matched RewriteCond, so the rules below cannot capture both
+# the path and the ?lang= in one pass.
+RewriteCond %{QUERY_STRING} (^|&)lang=(bg|en|ro)(&|$)
+RewriteRule ^ - [E=SNAP_LANG:%2]
+
+# Language-specific snapshots first. Without these, /hotel?lang=en would
+# serve the Bulgarian snapshot — the rules below match on path alone — and
+# the hreflang alternates in sitemap.xml would point at URLs that answer in
+# the wrong language. Each falls through to the default snapshot when that
+# language hasn't been rendered.
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{ENV:SNAP_LANG} ^(bg|en|ro)$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/event-$1.%1.html -f
+RewriteRule ^event/([^/]+)/?$ /__snapshots__/event-$1.%1.html [L]
+
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{ENV:SNAP_LANG} ^(bg|en|ro)$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/$1.%1.html -f
+RewriteRule ^(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator)/?$ /__snapshots__/$1.%1.html [L]
+
+RewriteCond %{ENV:IS_BOT} =1
+RewriteCond %{ENV:SNAP_LANG} ^(bg|en|ro)$
+RewriteCond %{DOCUMENT_ROOT}/__snapshots__/home.%1.html -f
+RewriteRule ^$ /__snapshots__/home.%1.html [L]
+
 RewriteCond %{ENV:IS_BOT} =1
 RewriteCond %{REQUEST_URI} ^/event/([^/]+)/?$
 RewriteCond %{DOCUMENT_ROOT}/__snapshots__/event-%1.html -f

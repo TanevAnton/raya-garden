@@ -5,6 +5,10 @@ const SITE_NAME = "Park Hotel RAYA Garden";
 // active language (Cyrillic for BG, Latin for EN/RO).
 const LOCATION = { bg: "Велико Търново", en: "Veliko Tarnovo", ro: "Veliko Tarnovo" };
 const DEFAULT_IMAGE = "https://rayagarden.bg/img/hotel-all-1.png";
+const SITE = "https://rayagarden.bg";
+// The languages App.jsx accepts in ?lang=, kept in step with
+// scripts/lib/public-routes.mjs, which lists the same set in sitemap.xml.
+const LANGS = ["bg", "en", "ro"];
 
 function setMeta(selector, attr, value) {
   if (!value) return;
@@ -17,6 +21,28 @@ function setMeta(selector, attr, value) {
     document.head.appendChild(el);
   }
   el.setAttribute(attr, value);
+}
+
+/**
+ * hreflang alternates for the three language versions of this page.
+ *
+ * There can be several of these tags, so they are replaced wholesale rather
+ * than looked up by rel. x-default is the bare URL — the address with no
+ * ?lang=, where App.jsx picks a language from the visitor's own country.
+ */
+function setAlternates(path) {
+  for (const el of document.head.querySelectorAll('link[rel="alternate"][hreflang]')) {
+    el.remove();
+  }
+  const add = (hreflang, href) => {
+    const el = document.createElement("link");
+    el.setAttribute("rel", "alternate");
+    el.setAttribute("hreflang", hreflang);
+    el.setAttribute("href", href);
+    document.head.appendChild(el);
+  };
+  for (const code of LANGS) add(code, `${SITE}${path}?lang=${code}`);
+  add("x-default", `${SITE}${path}`);
 }
 
 function setLink(rel, href) {
@@ -54,9 +80,15 @@ export function useSeo({ title, titleExact, description, image, path, lang }) {
     setMeta('meta[name="twitter:image"]', "content", image || DEFAULT_IMAGE);
 
     if (path) {
-      const canonical = `https://rayagarden.bg${path}`;
+      // Self-referential per language. Pointing all three at the bare URL —
+      // as this did — told Google the language versions were duplicates of
+      // one address, so only whichever language its crawler happened to be
+      // served could be indexed. Each language now canonicalises to itself
+      // and the alternates below tie the set together.
+      const canonical = `${SITE}${path}?lang=${lang}`;
       setLink("canonical", canonical);
       setMeta('meta[property="og:url"]', "content", canonical);
+      setAlternates(path);
     }
   }, [title, titleExact, description, image, path, lang]);
 }

@@ -26,48 +26,23 @@ import { preview } from "vite";
 import puppeteer from "puppeteer";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
-
-const SANITY_PROJECT_ID = process.env.VITE_SANITY_PROJECT_ID || "q2yxl7gs";
-const SANITY_DATASET = process.env.VITE_SANITY_DATASET || "production";
-const EVENT_SLUGS_QUERY = encodeURIComponent(
-  `*[_type == "eventPage" && active == true].slug.current`
-);
-
-const STATIC_ROUTES = [
-  { path: "/", file: "home" },
-  { path: "/hotel", file: "hotel" },
-  { path: "/restaurant", file: "restaurant" },
-  { path: "/winery", file: "winery" },
-  { path: "/park", file: "park" },
-  { path: "/events", file: "events" },
-  { path: "/svatben-konfigurator", file: "svatben-konfigurator" },
-  { path: "/book", file: "book" },
-  { path: "/contact", file: "contact" },
-];
-
-async function fetchActiveEventSlugs() {
-  const url = `https://${SANITY_PROJECT_ID}.api.sanity.io/v2021-10-21/data/query/${SANITY_DATASET}?query=${EVENT_SLUGS_QUERY}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return [];
-    const { result } = await res.json();
-    return (result || []).filter(Boolean);
-  } catch {
-    // Sanity unreachable at build time — ship without event snapshots
-    // rather than failing the whole deploy.
-    return [];
-  }
-}
+import {
+  LANGS,
+  DEFAULT_LANG,
+  STATIC_ROUTES,
+  fetchDynamicRoutes,
+} from "./lib/public-routes.mjs";
 
 async function main() {
-  const eventSlugs = await fetchActiveEventSlugs();
-  const routes = [
-    ...STATIC_ROUTES,
-    ...eventSlugs.map((slug) => ({
-      path: `/event/${slug}`,
-      file: `event-${slug}`,
-    })),
-  ];
+  let dynamicRoutes = [];
+  try {
+    dynamicRoutes = await fetchDynamicRoutes();
+  } catch (err) {
+    // Sanity unreachable at build time — ship without event snapshots
+    // rather than failing the whole deploy.
+    console.warn(`  could not list dynamic routes: ${err.message}`);
+  }
+  const routes = [...STATIC_ROUTES, ...dynamicRoutes];
 
   // Port 5173 (Vite's dev-server default) is already in the Sanity
   // project's CORS allowlist alongside the real dev server — reusing it
@@ -110,11 +85,20 @@ async function main() {
       else req.continue();
     });
 
-    for (const route of routes) {
-      // ?lang=bg pins the snapshot's language deterministically — without
-      // it the app's geo-IP lookup would pick a language per the build
+    // One snapshot per language. The .htaccess bot rules pick by the
+    // ?lang= on the request, so a crawler asking for the English URL gets
+    // English HTML — with the English canonical and the hreflang set that
+    // go with it. Serving one language for every ?lang= would make the
+    // alternates in the sitemap contradict the pages they point at.
+    const jobs = routes.flatMap((route) =>
+      LANGS.map((lang) => ({ ...route, lang }))
+    );
+
+    for (const route of jobs) {
+      // ?lang= pins the snapshot's language deterministically — without it
+      // the app's geo-IP lookup would pick a language per the build
       // runner's own network location, not a real visitor's.
-      const url = `${base}${route.path}?lang=bg`;
+      const url = `${base}${route.path}?lang=${route.lang}`;
       try {
         await page.goto(url, { waitUntil: "networkidle0", timeout: 30000 });
         // Sanity's response finishing (network-idle) and React committing
@@ -131,10 +115,17 @@ async function main() {
           )
           .catch(() => {});
         const html = await page.content();
-        await writeFile(path.join(outDir, `${route.file}.html`), html);
-        console.log(`  snapshot: ${route.path} -> __snapshots__/${route.file}.html`);
+        await writeFile(path.join(outDir, `${route.file}.${route.lang}.html`), html);
+        // The unsuffixed file stays the default for a bot that asks without
+        // a ?lang= at all, and keeps the pre-existing .htaccess rules working.
+        if (route.lang === DEFAULT_LANG) {
+          await writeFile(path.join(outDir, `${route.file}.html`), html);
+        }
+        console.log(
+          `  snapshot: ${route.path} [${route.lang}] -> __snapshots__/${route.file}.${route.lang}.html`
+        );
       } catch (err) {
-        console.warn(`  skipped ${route.path}: ${err.message}`);
+        console.warn(`  skipped ${route.path} [${route.lang}]: ${err.message}`);
       }
     }
   } finally {
@@ -142,7 +133,9 @@ async function main() {
     await new Promise((resolve) => server.httpServer.close(resolve));
   }
 
-  console.log(`Prerendered ${routes.length} route(s) for bot crawlers.`);
+  console.log(
+    `Prerendered ${routes.length} route(s) × ${LANGS.length} language(s) for bot crawlers.`
+  );
 }
 
 main().catch((err) => {

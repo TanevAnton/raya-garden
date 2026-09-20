@@ -8,6 +8,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch: {} # lets you trigger a deploy manually from the Actions tab
+  # Content-only refresh. sitemap.xml and the bot snapshots are generated at
+  # build time from Sanity, so publishing an event has to rebuild to reach
+  # them — a Sanity webhook posting repository_dispatch (type
+  # "sanity-content-published") makes that automatic. See
+  # README-sitemap.md for the webhook setup.
+  repository_dispatch:
+    types: [sanity-content-published]
 
 concurrency:
   group: deploy-superhosting
@@ -55,6 +62,19 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
           npm run covers:pdf
+
+      # sitemap.xml is generated, not hand-maintained: the static routes plus
+      # one URL per published Sanity document that owns a route (today:
+      # eventPage → /event/<slug>), in all three languages with hreflang
+      # alternates. continue-on-error keeps a Sanity outage from blocking a
+      # deploy — dist/ then keeps public/sitemap.xml, the static-only
+      # fallback Vite copied in, which is stale rather than missing.
+      - name: Generate sitemap.xml from Sanity
+        continue-on-error: true
+        env:
+          VITE_SANITY_PROJECT_ID: q2yxl7gs
+          VITE_SANITY_DATASET: production
+        run: npm run sitemap
 
       # Renders a static HTML snapshot of each page (via a headless
       # Chromium + Sanity fetch) into dist/__snapshots__/. public/.htaccess

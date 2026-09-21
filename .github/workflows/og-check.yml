@@ -1,0 +1,44 @@
+name: Check share cards
+
+# Fetches the live site as Facebook's scraper and checks each language gets
+# its own card. Nothing else can prove this: the snapshots and the .htaccess
+# rules that route to them only mean something as Apache runtime behaviour,
+# and a build cannot observe its own deployment.
+#
+# Read-only and credential-free — an ordinary public GET with a spoofed
+# User-Agent. Safe to run at any time; it deploys nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: "Comma-separated paths to check"
+        default: "/event/nova-godina-2027"
+        required: false
+  # After a deploy, so a change that breaks per-language routing shows up
+  # while it is still fresh rather than in an ad account.
+  workflow_run:
+    workflows: ["Build & deploy to SuperHosting"]
+    types: [completed]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # On the scheduled-after-deploy path, only when that deploy succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Interpolated through env, never into the shell command itself.
+      - name: Fetch as facebookexternalhit
+        env:
+          CHECK_PATHS: ${{ inputs.paths || '/event/nova-godina-2027' }}
+        run: node scripts/check-og-cards.mjs

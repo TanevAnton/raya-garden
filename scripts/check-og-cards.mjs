@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+/**
+ * Fetches live pages as Facebook's scraper and checks the share card is the
+ * page's own, in the language that was asked for.
+ *
+ * This is the one thing the build cannot prove about itself. The bot
+ * snapshots and the .htaccess rules that route to them are only meaningful
+ * as Apache runtime behaviour: whether `facebookexternalhit` asking for
+ * ?lang=ro actually receives the Romanian snapshot. Paid traffic points at
+ * these URLs, and a card that silently falls back to the site default — or
+ * to Bulgarian for a Romanian audience — is money spent on the wrong
+ * creative.
+ *
+ * Runs from CI, which can reach the site; this sandbox cannot. No
+ * credentials: it is an ordinary public GET with a spoofed User-Agent.
+ *
+ *   SITE=https://rayagarden.bg CHECK_PATHS=/event/nova-godina-2027 \
+ *     node scripts/check-og-cards.mjs
+ *
+ * Exits non-zero if any check fails, so it can gate a deploy.
+ */
+import { LANGS, SITE as DEFAULT_SITE } from "./lib/public-routes.mjs";
+
+const SITE = process.env.SITE || DEFAULT_SITE;
+const PATHS = (process.env.CHECK_PATHS || "/event/nova-godina-2027")
+  .split(",")
+  .map((p) => p.trim())
+  .filter(Boolean);
+
+// The real thing, verbatim — a check that lies about its User-Agent tests
+// nothing.
+const UA =
+  "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)";
+
+const EXPECTED_LOCALE = { bg: "bg_BG", en: "en_US", ro: "ro_RO" };
+
+const decode = (s) =>
+  s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+
+function attr(tag, name) {
+  const m = tag.match(new RegExp(`${name}=["']([^"']*)["']`, "i"));
+  return m ? decode(m[1]) : null;
+}
+
+function meta(html, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = html.match(
+    new RegExp(`<meta[^>]*(?:property|name)=["']${escaped}["'][^>]*>`, "i")
+  );
+  return m ? attr(m[0], "content") : null;
+}
+
+function canonical(html) {
+  const m = html.match(/<link[^>]*rel=["']canonical["'][^>]*>/i);
+  return m ? attr(m[0], "href") : null;
+}
+
+async function checkPath(path) {
+  console.log(`\n######## ${SITE}${path} ########`);
+  const failures = [];
+  const titles = [];
+
+  for (const lang of LANGS) {
+    const url = `${SITE}${path}?lang=${lang}`;
+    console.log(`\n=================== ?lang=${lang} ===================`);
+
+    let res;
+    try {
+      res = await fetch(url, {
+        headers: { "User-Agent": UA, Accept: "text/html" },
+        redirect: "follow",
+      });
+    } catch (err) {
+      failures.push(`${lang}: request failed — ${err.message}`);
+      console.log(`  request failed: ${err.message}`);
+      continue;
+    }
+
+    const html = await res.text();
+    const got = {
+      status: res.status,
+      "og:title": meta(html, "og:title"),
+      "og:description": meta(html, "og:description"),
+      "og:image": meta(html, "og:image"),
+      "og:image:width": meta(html, "og:image:width"),
+      "og:image:height": meta(html, "og:image:height"),
+      "og:url": meta(html, "og:url"),
+      "og:locale": meta(html, "og:locale"),
+      canonical: canonical(html),
+    };
+    for (const [k, v] of Object.entries(got)) {
+      console.log(`  ${k.padEnd(16)} ${v ?? "(absent)"}`);
+    }
+
+    if (res.status !== 200) failures.push(`${lang}: HTTP ${res.status}`);
+
+    // The snapshot must answer in the language that was asked for.
+    const wantLocale = EXPECTED_LOCALE[lang];
+    if (got["og:locale"] !== wantLocale) {
+      failures.push(
+        `${lang}: og:locale is ${got["og:locale"] ?? "absent"}, expected ${wantLocale}`
+      );
+    }
+
+    // Self-referential, not the homepage and not another language.
+    const wantCanonical = `${SITE}${path}?lang=${lang}`;
+    if (got.canonical !== wantCanonical) {
+      failures.push(
+        `${lang}: canonical is ${got.canonical ?? "absent"}, expected ${wantCanonical}`
+      );
+    }
+
+    // The SPA shell's defaults mean the crawler got the un-rendered page.
+    if (!got["og:title"]) {
+      failures.push(`${lang}: og:title absent`);
+    } else if (got["og:title"] === "Park Hotel RAYA Garden") {
+      failures.push(
+        `${lang}: og:title is the site default — the crawler was served the SPA shell, not a snapshot`
+      );
+    } else {
+      titles.push(got["og:title"]);
+    }
+
+    if (!got["og:description"]) failures.push(`${lang}: og:description absent`);
+    if (!got["og:image"]) failures.push(`${lang}: og:image absent`);
+  }
+
+  // Three identical titles means the language rules are not matching and
+  // every language is being served the same snapshot.
+  if (titles.length === LANGS.length && new Set(titles).size === 1) {
+    failures.push(
+      `all ${LANGS.length} languages returned the same og:title — ` +
+        `per-language snapshot routing is not working`
+    );
+  }
+
+  return failures;
+}
+
+const failures = [];
+for (const path of PATHS) failures.push(...(await checkPath(path)));
+
+console.log("\n=================== result ===================");
+if (failures.length === 0) {
+  console.log(`PASS — every language returned its own card.`);
+} else {
+  console.log(`FAIL — ${failures.length} problem(s):`);
+  for (const f of failures) console.log(`  · ${f}`);
+  process.exit(1);
+}

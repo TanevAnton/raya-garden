@@ -128,6 +128,14 @@ TCP from GitHub Actions runners on both 443 and 80, before any HTTP exchange
 — DNS resolves, the User-Agent is never sent. SuperHosting refuses datacenter
 ranges. `.github/workflows/og-check.yml` is therefore dispatch-only.
 
+**Verified live 2026-09-21** via the Sharing Debugger: `?lang=bg` returns
+„Нова Година в RAYA Garden", `?lang=ro` returns „Revelion la RAYA Garden",
+`?lang=en` returns "New Year at RAYA Garden" — three URLs, three languages,
+so Apache does hand `facebookexternalhit` the snapshot matching the `?lang=`
+on the request. A freshly scraped URL shows the self-referential canonical
+and no redirect path; a stale one still shows the bare URL as canonical,
+which is how you tell Facebook's cache from what is actually deployed.
+
 For what Facebook *actually* sees, the authority is Facebook's own
 [Sharing Debugger](https://developers.facebook.com/tools/debug/): it scrapes
 from Facebook's side, shows the card, and *Scrape Again* clears the cache —

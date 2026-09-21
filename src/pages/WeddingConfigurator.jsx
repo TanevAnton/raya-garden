@@ -5,6 +5,7 @@ import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { weddingStrings, fill } from "../i18n/weddingConfigurator.js";
 import { buildQuote, formatMoney, toCount, upgradesForMenu } from "../lib/weddingPricing.js";
+import { trackMeta } from "../lib/metaPixel.js";
 import offer from "../../public/api/wedding-offer.json";
 import StepDateGuests from "../components/wedding/StepDateGuests.jsx";
 import StepMenus from "../components/wedding/StepMenus.jsx";
@@ -370,6 +371,9 @@ export default function WeddingConfigurator() {
       if (res.ok && body.ok) {
         setReference(body.reference || "");
         setStatus("sent");
+        // The endpoint confirmed delivery — see README-wedding-enquiry.md;
+        // a 422 or a transport failure never reaches this branch.
+        trackMeta("Lead", { content_name: "Wedding configurator", lang });
         try {
           window.sessionStorage.removeItem(STORAGE_KEY);
         } catch {

@@ -141,35 +141,141 @@
       // guard each step of the funnel would report another ad conversion.
       var oaiqCheckoutStarted = false;
 
-      window.clockPmsWbePageViewCallback = function (params) {
-        // ChatGPT Ads conversion: the guest has entered the booking engine.
+      // ChatGPT Ads + GA4. Unchanged behaviour, lifted into its own function
+      // so the Meta block below cannot take it down — and vice versa.
+      function rayaClockReportGoogle(p) {
         if (!oaiqCheckoutStarted && typeof window.oaiq === 'function') {
           oaiqCheckoutStarted = true;
           window.oaiq('measure', 'checkout_started', { type: 'contents' });
         }
 
         gtag('event', 'page_view', {
-          page_title: ['BookDirect', params.hotelName, params.pageName].join(' / ')
+          page_title: ['BookDirect', p.hotelName, p.pageName].join(' / ')
         });
 
         // Start of Custom Tracking Script
-        if (params.pageName === 'completed') {
+        if (p.pageName === 'completed') {
           gtag('event', 'purchase', {
-            page_title: ['BookDirect', params.hotelName, params.pageName].join(' / '),
-            currency: params.totalPriceCurrency,
-            transaction_id: params.bookingNumbers.join('-'),
-            value: (params.totalPriceCents / 100).toString(),
+            page_title: ['BookDirect', p.hotelName, p.pageName].join(' / '),
+            currency: p.totalPriceCurrency,
+            transaction_id: p.bookingNumbers.join('-'),
+            value: (p.totalPriceCents / 100).toString(),
             items: [
               {
                 item_name: 'Accommodation',
-                item_category: params.stay,
-                item_category2: params.arrival,
-                item_category3: params.departure,
+                item_category: p.stay,
+                item_category2: p.arrival,
+                item_category3: p.departure,
               },
             ],
           });
         }
         // End of Custom Tracking Script
+      }
+
+      // Meta Pixel booking funnel.
+      //
+      // This has to live here rather than in the React bundle: Clock's
+      // integration script is deferred, and it only registers a callback
+      // that already exists when it runs. A classic inline script in the
+      // body runs during parsing, so it is defined first; /src/main.jsx is
+      // type="module" and therefore also deferred, which would race it.
+      //
+      // PageView is deliberately absent — Layout.jsx already fires one per
+      // route change, and the overlay does not change the route.
+      function rayaClockReportMeta(p) {
+        if (typeof window.fbq !== 'function') return;
+
+        // totalPriceCents is CENTS. 9900 is 99.00, and sending 9900 as the
+        // value would inflate reported revenue a hundredfold.
+        var amount = (typeof p.totalPriceCents === 'number')
+          ? p.totalPriceCents / 100
+          : null;
+        var currency = p.totalPriceCurrency || 'EUR';
+
+        // bookingNumbers is an ARRAY, and may be absent on every step but
+        // the last one.
+        var ids = [];
+        if (p.bookingNumbers && p.bookingNumbers.length) {
+          for (var i = 0; i < p.bookingNumbers.length; i++) {
+            ids.push(String(p.bookingNumbers[i]));
+          }
+        }
+
+        function send(event, extra, eventID) {
+          var payload = { content_type: 'hotel_room' };
+          if (p.arrival) payload.checkin_date = p.arrival;
+          if (p.departure) payload.checkout_date = p.departure;
+          var e = extra || {};
+          for (var k in e) {
+            if (!Object.prototype.hasOwnProperty.call(e, k)) continue;
+            // Meta renders null and "" as real values in Events Manager,
+            // which makes a healthy event look broken.
+            if (e[k] === null || e[k] === undefined || e[k] === '') continue;
+            payload[k] = e[k];
+          }
+          if (eventID) window.fbq('track', event, payload, { eventID: eventID });
+          else window.fbq('track', event, payload);
+        }
+
+        switch (p.pageName) {
+          case 'rooms':
+            send('Search');
+            break;
+          case 'rates':
+            send('ViewContent', {
+              content_name: p.roomTypeName,
+              content_ids: p.roomTypeName ? [p.roomTypeName] : null
+            });
+            break;
+          case 'extras':
+            send('AddToCart', {
+              content_name: p.roomTypeName,
+              content_ids: p.roomTypeName ? [p.roomTypeName] : null
+            });
+            break;
+          case 'checkout':
+            send('InitiateCheckout', {
+              value: amount,
+              currency: currency,
+              num_items: p.roomCount
+            });
+            break;
+          case 'completed':
+            // Deterministic eventID rather than a UUID: the same booking
+            // reported later by the Conversions API carries the same id and
+            // is deduplicated instead of counted twice.
+            send('Purchase', {
+              value: amount,
+              currency: currency,
+              content_ids: ids.length ? ids : null,
+              num_items: p.roomCount
+            }, ids.length ? 'clock-' + ids.join('-') : null);
+            break;
+          case 'offer':
+            send('Lead', {
+              content_name: 'Clock offer',
+              content_ids: p.offerNumber ? [String(p.offerNumber)] : null
+            });
+            break;
+        }
+      }
+
+      window.clockPmsWbePageViewCallback = function (params) {
+        var p = params || {};
+        // Isolated: a throw in one reporter must not stop the others. The
+        // Google block in particular reads params.bookingNumbers.join(),
+        // which would throw if Clock ever omitted it.
+        try {
+          rayaClockReportGoogle(p);
+        } catch (err) {
+          if (window.console) console.error('[clock->google]', err);
+        }
+        try {
+          rayaClockReportMeta(p);
+        } catch (err) {
+          if (window.console) console.error('[clock->meta]', err);
+        }
       }
     </script>
     <div id="root"></div>

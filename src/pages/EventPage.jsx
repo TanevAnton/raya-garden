@@ -5,6 +5,7 @@ import MediaGallery from "../components/MediaGallery.jsx";
 import NotFound from "./NotFound.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useMetaEvent } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
@@ -70,6 +71,20 @@ export default function EventPage() {
   const ogImage = data?.heroImage
     ? urlFor(data.heroImage).width(1200).height(630).fit("crop").quality(80).url()
     : `${IMG}/hotel-all-16.png`;
+
+  // Held back until the title has arrived from Sanity: a null key means
+  // "not ready", which beats reporting an empty content_name. An unknown
+  // slug never gets a title, so a 404 never counts as a view.
+  useMetaEvent(
+    "ViewContent",
+    {
+      content_name: hero.title,
+      content_type: "event",
+      content_ids: [slug],
+      lang,
+    },
+    hero.title ? `event:${slug}` : null
+  );
 
   useSeo({
     title: hero.title || null,

@@ -2,10 +2,12 @@ import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Nav from "./Nav.jsx";
 import Footer from "./Footer.jsx";
+import { trackMeta } from "../lib/metaPixel.js";
 
 export default function Layout({ lang, setLang, t }) {
   const { pathname } = useLocation();
   const progressRef = useRef(null);
+  const lastPixelPath = useRef(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -23,7 +25,19 @@ export default function Layout({ lang, setLang, t }) {
       page_location: window.location.href,
       page_title: document.title,
     });
-    window.fbq?.("track", "PageView");
+    // Through trackMeta so it carries a dedup eventID like every other
+    // event — PageView is the highest-volume one, so it is the one the
+    // Conversions API would most double-count later.
+    //
+    // Guarded on the path, unlike the two calls around it: StrictMode
+    // double-invokes this effect in development, and a pixel event that
+    // fires twice locally makes the Events Manager test flow unreadable.
+    // gtag and oaiq are deliberately left as they were — they have always
+    // double-fired in dev, and neither is this change's business.
+    if (lastPixelPath.current !== pathname) {
+      lastPixelPath.current = pathname;
+      trackMeta("PageView");
+    }
     // page_viewed needs contents[] to pass OpenAI's schema validation —
     // without it the event is accepted (202) and then silently dropped.
     window.oaiq?.("measure", "page_viewed", {
@@ -33,6 +47,18 @@ export default function Layout({ lang, setLang, t }) {
       ],
     });
   }, [pathname]);
+
+  // One delegated listener rather than a handler on each of the nine tel:
+  // links scattered across seven files — and it covers any added later.
+  // Capture phase, so it still counts if something stops propagation.
+  useEffect(() => {
+    const onClick = (event) => {
+      if (!event.target?.closest?.('a[href^="tel:"]')) return;
+      trackMeta("Contact", { lang });
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [lang]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

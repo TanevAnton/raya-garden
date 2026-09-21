@@ -14,6 +14,7 @@ import {
 import PageHero from "../components/PageHero.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { trackMeta } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
@@ -144,6 +145,10 @@ export default function Contact() {
         throw new Error(detail);
       }
       setStatus("sent");
+      // Here and nowhere earlier: Formspree answered ok. The mailto branch
+      // above only opens a mail client and cannot know whether anything was
+      // ever sent, so it reports no conversion.
+      trackMeta("Lead", { content_name: "Contact form", lang });
     } catch (err) {
       console.error("[Formspree] error:", err);
       setStatus("error");

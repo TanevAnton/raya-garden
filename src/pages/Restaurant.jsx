@@ -4,6 +4,7 @@ import PageHero from "../components/PageHero.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useMetaEvent } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 
@@ -56,6 +57,17 @@ export default function Restaurant() {
       text: pickLocale(item.text, lang),
     };
   });
+
+  useMetaEvent(
+    "ViewContent",
+    {
+      content_name: hero.title,
+      content_type: "restaurant",
+      content_ids: ["restaurant"],
+      lang,
+    },
+    "restaurant"
+  );
 
   useSeo({
     title: hero.title,

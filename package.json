@@ -10,6 +10,7 @@
     "preview": "vite preview --host",
     "prerender:bots": "node scripts/prerender-bots.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
+    "check:meta": "node scripts/check-meta-events.mjs",
     "covers:pdf": "node scripts/generate-pdf-covers.mjs",
     "migrate": "node scripts/migrate-to-sanity.mjs",
     "seed:restaurant-gallery": "node scripts/seed-restaurant-gallery.mjs",

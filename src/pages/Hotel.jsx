@@ -4,6 +4,7 @@ import PageHero from "../components/PageHero.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import { rooms as fallbackRooms, IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
+import { useMetaEvent } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale, SANITY_ENABLED } from "../lib/sanity.js";
 
@@ -75,6 +76,20 @@ export default function Hotel() {
         };
       })
     : fallbackRooms[lang].map((r) => ({ ...r, images: [r.image] }));
+
+  // The hotel as a single content item. Rooms are cards on this page, not
+  // routes of their own, so there is no room page to report — see
+  // README-tracking.md for what real /hotel/<slug> routes would change.
+  useMetaEvent(
+    "ViewContent",
+    {
+      content_name: hero.title,
+      content_type: "hotel_room",
+      content_ids: ["hotel"],
+      lang,
+    },
+    "hotel"
+  );
 
   useSeo({
     title: hero.title,

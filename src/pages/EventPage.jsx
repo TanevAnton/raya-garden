@@ -63,10 +63,22 @@ export default function EventPage() {
         : null,
     }));
 
+  // The hero photo again, cropped to the 1.91:1 card Facebook and LinkedIn
+  // actually render. The hero itself stays 2000px wide for the page; a share
+  // card does not need that, and an oversized image is a common reason a card
+  // comes back blank on the first scrape.
+  const ogImage = data?.heroImage
+    ? urlFor(data.heroImage).width(1200).height(630).fit("crop").quality(80).url()
+    : `${IMG}/hotel-all-16.png`;
+
   useSeo({
     title: hero.title || null,
-    description: hero.subtitle,
-    image: hero.image,
+    // Subtitle is the marketing line; intro is the fallback when a document
+    // has no subtitle, so the card is never left without a description.
+    description: hero.subtitle || intro,
+    image: ogImage,
+    imageWidth: data?.heroImage ? 1200 : undefined,
+    imageHeight: data?.heroImage ? 630 : undefined,
     path: `/event/${slug}`,
     lang,
   });

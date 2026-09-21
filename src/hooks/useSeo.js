@@ -59,7 +59,16 @@ function setLink(rel, href) {
 // `titleExact` sets the document title verbatim (no brand/location suffix)
 // — used where an exact <title> is dictated, e.g. the SEO-specified home
 // title. Otherwise the page title gets the "· Brand · Location" suffix.
-export function useSeo({ title, titleExact, description, image, path, lang }) {
+export function useSeo({
+  title,
+  titleExact,
+  description,
+  image,
+  imageWidth,
+  imageHeight,
+  path,
+  lang,
+}) {
   useEffect(() => {
     const brand = `${SITE_NAME} · ${LOCATION[lang] || LOCATION.bg}`;
     const fullTitle = titleExact || (title ? `${title} · ${brand}` : brand);
@@ -78,6 +87,13 @@ export function useSeo({ title, titleExact, description, image, path, lang }) {
     setMeta('meta[name="twitter:title"]', "content", fullTitle);
     setMeta('meta[name="twitter:description"]', "content", description);
     setMeta('meta[name="twitter:image"]', "content", image || DEFAULT_IMAGE);
+    // Only when the size is actually known. Declaring them lets a scraper lay
+    // the card out before it has fetched the image; declaring them wrongly is
+    // worse than leaving them off.
+    if (imageWidth && imageHeight) {
+      setMeta('meta[property="og:image:width"]', "content", String(imageWidth));
+      setMeta('meta[property="og:image:height"]', "content", String(imageHeight));
+    }
 
     if (path) {
       // Self-referential per language. Pointing all three at the bare URL —
@@ -90,5 +106,5 @@ export function useSeo({ title, titleExact, description, image, path, lang }) {
       setMeta('meta[property="og:url"]', "content", canonical);
       setAlternates(path);
     }
-  }, [title, titleExact, description, image, path, lang]);
+  }, [title, titleExact, description, image, imageWidth, imageHeight, path, lang]);
 }

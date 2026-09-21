@@ -8,6 +8,17 @@ name: Check share cards
 # Read-only and credential-free — an ordinary public GET with a spoofed
 # User-Agent. Safe to run at any time; it deploys nothing.
 
+# ⚠ THE HOST BLOCKS GITHUB'S RUNNERS. Measured 2026-09-21: TCP connections
+# from an Actions runner to 78.128.8.72 time out on both 443 and 80, before
+# any TLS or HTTP exchange — DNS resolves fine, and the User-Agent is never
+# sent, so it is the source address being dropped, not the caller's identity.
+# SuperHosting appears to refuse datacenter ranges.
+#
+# So this cannot run after a deploy: it would fail every time and teach
+# everyone to ignore a red X. It stays dispatch-only, for the day that
+# changes. Facebook's own scrapers come from Facebook's ranges and are not
+# affected by this — see README-sitemap.md for how to verify the cards
+# instead (the Sharing Debugger, which scrapes from Facebook's side).
 on:
   workflow_dispatch:
     inputs:
@@ -15,19 +26,10 @@ on:
         description: "Comma-separated paths to check"
         default: "/event/nova-godina-2027"
         required: false
-  # After a deploy, so a change that breaks per-language routing shows up
-  # while it is still fresh rather than in an ad account.
-  workflow_run:
-    workflows: ["Build & deploy to SuperHosting"]
-    types: [completed]
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    # On the scheduled-after-deploy path, only when that deploy succeeded.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

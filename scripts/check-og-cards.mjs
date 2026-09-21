@@ -11,8 +11,14 @@
  * to Bulgarian for a Romanian audience — is money spent on the wrong
  * creative.
  *
- * Runs from CI, which can reach the site; this sandbox cannot. No
- * credentials: it is an ordinary public GET with a spoofed User-Agent.
+ * Run it from a machine that can reach the site. NOT from GitHub Actions:
+ * measured 2026-09-21, the host drops TCP from Actions runners on both 443
+ * and 80 before any HTTP exchange, so every language reports
+ * UND_ERR_CONNECT_TIMEOUT regardless of what is deployed. That is the
+ * source address being refused, not the User-Agent — Facebook's own
+ * scrapers come from Facebook's ranges and reach the site normally.
+ *
+ * No credentials: an ordinary public GET with a spoofed User-Agent.
  *
  *   SITE=https://rayagarden.bg CHECK_PATHS=/event/nova-godina-2027 \
  *     node scripts/check-og-cards.mjs

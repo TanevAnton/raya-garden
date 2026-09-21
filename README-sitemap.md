@@ -110,6 +110,30 @@ sitemap in place until the next green build.
 The bot snapshots still degrade softly — a missing snapshot just falls back to
 the live SPA, which costs nothing.
 
+## Verifying the share cards
+
+`scripts/check-og-cards.mjs` fetches each language as `facebookexternalhit`
+and fails on a wrong `og:locale`, a canonical that isn't self-referential, a
+missing description or image, an `og:title` equal to the site default (the
+crawler got the SPA shell, not a snapshot), or all three languages returning
+the same title (the `?lang=` routing isn't matching).
+
+```bash
+SITE=https://rayagarden.bg CHECK_PATHS=/event/nova-godina-2027 \
+  node scripts/check-og-cards.mjs
+```
+
+**Run it from a normal machine, not CI.** Measured 2026-09-21: the host drops
+TCP from GitHub Actions runners on both 443 and 80, before any HTTP exchange
+— DNS resolves, the User-Agent is never sent. SuperHosting refuses datacenter
+ranges. `.github/workflows/og-check.yml` is therefore dispatch-only.
+
+For what Facebook *actually* sees, the authority is Facebook's own
+[Sharing Debugger](https://developers.facebook.com/tools/debug/): it scrapes
+from Facebook's side, shows the card, and *Scrape Again* clears the cache —
+which a URL needs anyway after its markup changes. Check each language URL
+separately; they are different addresses.
+
 ## Running it locally
 
 ```bash

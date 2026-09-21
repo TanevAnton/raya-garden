@@ -1,7 +1,8 @@
 # sitemap.xml — how it's built, and how it stays fresh
 
-`https://rayagarden.bg/sitemap.xml` is **generated at deploy time**, not
-hand-maintained. `robots.txt` points at it.
+`https://rayagarden.bg/sitemap.xml` is **generated at deploy time**. There is
+no checked-in copy: `public/sitemap.xml` was deleted, so the generator is the
+only source. `robots.txt` points at it.
 
 ```
 scripts/lib/public-routes.mjs   ← the one list of what URLs exist
@@ -98,15 +99,21 @@ runtime dependency on Sanity being reachable from the shared host. Not built.
 
 ## If Sanity is down at build time
 
-`npm run sitemap` exits non-zero and the deploy step is `continue-on-error`,
-so `dist/` keeps `public/sitemap.xml` — the static-only fallback Vite copied
-in. Stale beats missing. Same for the snapshots, which already degrade this
-way.
+`npm run sitemap` exits non-zero and **the deploy fails there on purpose** —
+it is the one step in the workflow without `continue-on-error`.
+
+That is deliberate: the deploy mirrors with `lftp mirror -R --delete`, so a
+`dist/` with no `sitemap.xml` would delete the live one and start serving 404s
+to crawlers. Failing before the mirror runs leaves the previously deployed
+sitemap in place until the next green build.
+
+The bot snapshots still degrade softly — a missing snapshot just falls back to
+the live SPA, which costs nothing.
 
 ## Running it locally
 
 ```bash
-npm run build
+npm run build            # no sitemap in dist/ yet — nothing is checked in
 npm run sitemap          # writes dist/sitemap.xml
 npx vite preview --port 5199
 curl -s localhost:5199/sitemap.xml

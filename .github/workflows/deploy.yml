@@ -66,11 +66,14 @@ jobs:
       # sitemap.xml is generated, not hand-maintained: the static routes plus
       # one URL per published Sanity document that owns a route (today:
       # eventPage → /event/<slug>), in all three languages with hreflang
-      # alternates. continue-on-error keeps a Sanity outage from blocking a
-      # deploy — dist/ then keeps public/sitemap.xml, the static-only
-      # fallback Vite copied in, which is stale rather than missing.
+      # alternates. There is no checked-in copy to fall back to — this is
+      # the only place the file comes from.
+      #
+      # Deliberately NOT continue-on-error, unlike the steps around it. The
+      # deploy below mirrors with --delete, so shipping a dist/ with no
+      # sitemap.xml would delete the live one. Failing here stops the job
+      # before the mirror runs and leaves the deployed sitemap in place.
       - name: Generate sitemap.xml from Sanity
-        continue-on-error: true
         env:
           VITE_SANITY_PROJECT_ID: q2yxl7gs
           VITE_SANITY_DATASET: production

@@ -8,10 +8,11 @@
  * deploy workflow runs this after `vite build`, so the file that ships is
  * always generated from the live dataset rather than hand-maintained.
  *
- * public/sitemap.xml stays in the repo as the fallback: Vite copies it into
- * dist/ first, and this script overwrites it. If Sanity is unreachable the
- * step fails, the fallback survives, and the deploy continues with a sitemap
- * that is stale rather than absent.
+ * There is no checked-in copy any more — this script is the only place
+ * sitemap.xml comes from. If Sanity is unreachable it exits non-zero and the
+ * deploy step fails on purpose: the FTPS mirror runs with --delete, so
+ * shipping a dist/ without a sitemap would remove the live one. Failing here
+ * stops the job first and leaves the deployed sitemap untouched.
  *
  * Usage: node scripts/generate-sitemap.mjs   (after `vite build`, from the
  * repo root — `npm run sitemap`)
@@ -127,10 +128,9 @@ async function main() {
 // Only run when invoked directly, so the builders above stay importable.
 if (process.argv[1] && process.argv[1].endsWith("generate-sitemap.mjs")) {
   main().catch((err) => {
-    // Loud and non-zero: the deploy step is marked continue-on-error, so the
-    // site still ships — with public/sitemap.xml, which lists the static
-    // pages only. A stale sitemap beats an empty one.
-    console.error("generate-sitemap failed — keeping the fallback:", err.message);
+    // Non-zero on purpose — see the header: this failing is what keeps a
+    // Sanity outage from deleting the live sitemap.
+    console.error("generate-sitemap failed:", err.message);
     process.exit(1);
   });
 }

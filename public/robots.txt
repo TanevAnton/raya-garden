@@ -1,6 +1,16 @@
 User-agent: *
 Disallow:
 Allow: /
+Disallow: /ad-creatives/
+
+# /ad-creatives/ holds the approved Meta Ads images at stable URLs. They are
+# assets for the ad platform, not pages: nothing on the site links to them
+# and they are not in the sitemap, so keeping them out of search results
+# costs nothing. Declared as a Disallow rather than an X-Robots-Tag noindex
+# header on purpose - the header travels with the file and can make an
+# image-fetching crawler treat the URL as unusable, while robots.txt is only
+# read by crawlers doing discovery. Longest-match wins, so this line beats
+# the "Allow: /" above it for that prefix only.
 
 # OpenAI's crawlers are named explicitly per OpenAI's own advertiser
 # guidance: OAI-AdsBot validates the landing pages of ChatGPT ads, and

@@ -129,6 +129,20 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ /index.html [L]
 
+# ───────────────────────── mime types ─────────────────────────
+# Stated rather than inherited. /ad-creatives/ is fetched by Meta's ad
+# review crawler, which reads Content-Type to decide whether the URL is an
+# image at all — a host whose mime config ever changed, or a directory
+# served without mod_mime's defaults, would fail the fetch with a file that
+# is perfectly valid on disk. Apache already knows these; saying so costs
+# nothing and removes the dependency.
+<IfModule mod_mime.c>
+  AddType image/png   .png
+  AddType image/jpeg  .jpeg .jpg
+  AddType image/webp  .webp
+  AddType image/svg+xml .svg
+</IfModule>
+
 # ───────────────────────── caching ─────────────────────────
 # Vite fingerprints filenames in /assets, so they can cache forever.
 <IfModule mod_expires.c>

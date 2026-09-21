@@ -76,8 +76,13 @@ async function checkPath(path) {
         redirect: "follow",
       });
     } catch (err) {
-      failures.push(`${lang}: request failed — ${err.message}`);
-      console.log(`  request failed: ${err.message}`);
+      // Node wraps every transport failure as a bare "fetch failed"; the
+      // cause carries the part that says what actually went wrong.
+      const cause = err.cause
+        ? ` (${err.cause.code || err.cause.message || err.cause})`
+        : "";
+      failures.push(`${lang}: request failed — ${err.message}${cause}`);
+      console.log(`  request failed: ${err.message}${cause}`);
       continue;
     }
 

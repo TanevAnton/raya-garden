@@ -37,6 +37,35 @@ jobs:
         with:
           node-version: 20
 
+      # Runs first and never fails the job: when the check below cannot
+      # reach the site, this says whether it is DNS, TCP, TLS, or the host
+      # refusing this particular caller — and whether the spoofed
+      # User-Agent is itself the reason, which would mean Facebook cannot
+      # scrape the site at all.
+      - name: Diagnose connectivity
+        continue-on-error: true
+        run: |
+          set +e
+          echo "=== DNS ==="
+          getent hosts rayagarden.bg || echo "(getent found nothing)"
+          echo
+          echo "=== HEAD / with curl's own UA ==="
+          curl -sS -o /dev/null -w "  http_code=%{http_code} time=%{time_total}s\n" \
+            --max-time 25 "https://rayagarden.bg/"; echo "  exit=$?"
+          echo
+          echo "=== GET the event page as facebookexternalhit ==="
+          curl -sS -o /dev/null -w "  http_code=%{http_code} time=%{time_total}s\n" \
+            --max-time 25 -A "facebookexternalhit/1.1" \
+            "https://rayagarden.bg/event/nova-godina-2027?lang=ro"; echo "  exit=$?"
+          echo
+          echo "=== verbose handshake ==="
+          curl -sS -v --max-time 25 -o /dev/null \
+            "https://rayagarden.bg/" 2>&1 | tail -20
+          echo
+          echo "=== plain HTTP (is it TLS-specific?) ==="
+          curl -sS -o /dev/null -w "  http_code=%{http_code}\n" \
+            --max-time 20 "http://rayagarden.bg/"; echo "  exit=$?"
+
       # Interpolated through env, never into the shell command itself.
       - name: Fetch as facebookexternalhit
         env:

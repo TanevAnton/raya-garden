@@ -30,6 +30,25 @@ diff <(cd public/ad-creatives && md5sum * | sort -k2) \
      <(cd dist/ad-creatives  && md5sum * | sort -k2) && echo "bytes unchanged"
 ```
 
+## 08A and 08B exist twice, and both copies stay
+
+```
+08A-RAYA-steak-closeup.jpeg    1536x1024
+08A-RAYA-steak-closeup.jpg     1024x1024   (1:1)
+08B-RAYA-steak-and-wine.jpeg   1022x1536
+08B-RAYA-steak-and-wine.jpg    1022x1277   (~4:5)
+```
+
+The `.jpg` pair is not a duplicate of the `.jpeg` pair and not a renamed
+copy of it — they are different crops of the same two shots, cut to the
+aspect ratios Meta requires for those placements. Re-cropping either one
+breaks it.
+
+**The extension is load-bearing.** Meta's uploader rejects `.jpeg` on the
+path the `.jpg` files are used for, so neither spelling may be "normalised"
+to the other, and neither pair may be deleted as redundant. `.htaccess`
+declares `AddType image/jpeg .jpeg .jpg`, so both answer `image/jpeg`.
+
 ## Why robots.txt and not noindex
 
 `robots.txt` carries `Disallow: /ad-creatives/`, which keeps the directory

@@ -94,6 +94,23 @@ jobs:
           VITE_SANITY_DATASET: production
         run: npm run prerender:bots
 
+      # What the snapshots actually say, from real Sanity data, before they
+      # are uploaded. CI cannot reach the live site — the host drops TCP
+      # from Actions runners (see .github/workflows/og-check.yml) — so this
+      # cannot prove Apache serves the right file to the right crawler. It
+      # does prove the file is right, which is the half CI can see, and the
+      # half a stubbed local test can only approximate.
+      #
+      # Informational: a wrong og:locale is worth shouting about but not
+      # worth blocking a deploy over.
+      - name: Check the built share cards
+        continue-on-error: true
+        env:
+          VITE_SANITY_PROJECT_ID: q2yxl7gs
+          VITE_SANITY_DATASET: production
+          SNAPSHOT_DIR: dist/__snapshots__
+        run: node scripts/check-og-cards.mjs
+
       # Deploy with lftp over explicit FTPS. SuperHosting's Pure-FTPd uses a
       # self-signed cert (CN cloud.theadmin.net), so standard FTPS actions
       # fail strict verification — lftp keeps the transfer encrypted but

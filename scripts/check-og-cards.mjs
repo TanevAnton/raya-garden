@@ -20,12 +20,26 @@
  *
  * No credentials: an ordinary public GET with a spoofed User-Agent.
  *
+ * SNAPSHOT_DIR runs the same checks against built files instead of the live
+ * site — what the deploy is about to upload, from real Sanity data. It
+ * cannot prove Apache serves the right file to the right crawler, but it
+ * does prove the file itself is correct, which is the half CI can reach:
+ *
+ *   SNAPSHOT_DIR=dist/__snapshots__ node scripts/check-og-cards.mjs
+ *
  *   SITE=https://rayagarden.bg CHECK_PATHS=/event/nova-godina-2027 \
  *     node scripts/check-og-cards.mjs
  *
  * Exits non-zero if any check fails, so it can gate a deploy.
  */
-import { LANGS, SITE as DEFAULT_SITE } from "./lib/public-routes.mjs";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import {
+  LANGS,
+  SITE as DEFAULT_SITE,
+  STATIC_ROUTES,
+  fetchDynamicRoutes,
+} from "./lib/public-routes.mjs";
 
 const SITE = process.env.SITE || DEFAULT_SITE;
 const PATHS = (process.env.CHECK_PATHS || "/event/nova-godina-2027")
@@ -66,35 +80,48 @@ function canonical(html) {
   return m ? attr(m[0], "href") : null;
 }
 
-async function checkPath(path) {
-  console.log(`\n######## ${SITE}${path} ########`);
+const SNAPSHOT_DIR = process.env.SNAPSHOT_DIR || "";
+
+/** The page's HTML, from the live site or from the build output. */
+async function load(route, lang) {
+  if (SNAPSHOT_DIR) {
+    const file = path.join(SNAPSHOT_DIR, `${route.file}.${lang}.html`);
+    return { status: 200, html: await readFile(file, "utf8"), from: file };
+  }
+  const url = `${SITE}${route.path}?lang=${lang}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "text/html" },
+    redirect: "follow",
+  });
+  return { status: res.status, html: await res.text(), from: url };
+}
+
+async function checkPath(route) {
+  const path_ = route.path;
+  console.log(`\n######## ${SITE}${path_} ########`);
   const failures = [];
   const titles = [];
 
   for (const lang of LANGS) {
-    const url = `${SITE}${path}?lang=${lang}`;
     console.log(`\n=================== ?lang=${lang} ===================`);
 
-    let res;
+    let loaded;
     try {
-      res = await fetch(url, {
-        headers: { "User-Agent": UA, Accept: "text/html" },
-        redirect: "follow",
-      });
+      loaded = await load(route, lang);
     } catch (err) {
       // Node wraps every transport failure as a bare "fetch failed"; the
       // cause carries the part that says what actually went wrong.
       const cause = err.cause
         ? ` (${err.cause.code || err.cause.message || err.cause})`
         : "";
-      failures.push(`${lang}: request failed — ${err.message}${cause}`);
-      console.log(`  request failed: ${err.message}${cause}`);
+      failures.push(`${lang}: could not read — ${err.message}${cause}`);
+      console.log(`  could not read: ${err.message}${cause}`);
       continue;
     }
 
-    const html = await res.text();
+    const { html, status: httpStatus } = loaded;
     const got = {
-      status: res.status,
+      status: httpStatus,
       "og:title": meta(html, "og:title"),
       "og:description": meta(html, "og:description"),
       "og:image": meta(html, "og:image"),
@@ -108,7 +135,7 @@ async function checkPath(path) {
       console.log(`  ${k.padEnd(16)} ${v ?? "(absent)"}`);
     }
 
-    if (res.status !== 200) failures.push(`${lang}: HTTP ${res.status}`);
+    if (httpStatus !== 200) failures.push(`${lang}: HTTP ${httpStatus}`);
 
     // The snapshot must answer in the language that was asked for.
     const wantLocale = EXPECTED_LOCALE[lang];
@@ -119,7 +146,7 @@ async function checkPath(path) {
     }
 
     // Self-referential, not the homepage and not another language.
-    const wantCanonical = `${SITE}${path}?lang=${lang}`;
+    const wantCanonical = `${SITE}${path_}?lang=${lang}`;
     if (got.canonical !== wantCanonical) {
       failures.push(
         `${lang}: canonical is ${got.canonical ?? "absent"}, expected ${wantCanonical}`
@@ -153,12 +180,34 @@ async function checkPath(path) {
   return failures;
 }
 
+// In snapshot mode every built page is checked, since the files are already
+// there; over the network only the paths asked for, to keep it quick.
+async function dynamicOrNone() {
+  try {
+    return await fetchDynamicRoutes();
+  } catch (err) {
+    // The deploy already failed at the sitemap step if Sanity is down, so
+    // this is belt and braces: check the static pages rather than nothing.
+    console.warn(`(could not list dynamic routes: ${err.message})`);
+    return [];
+  }
+}
+
+const routes = SNAPSHOT_DIR
+  ? [...STATIC_ROUTES, ...(await dynamicOrNone())]
+  : PATHS.map((p) => ({
+      path: p,
+      file: p === "/" ? "home" : p.replace(/^\//, "").replace(/\//g, "-"),
+    }));
+
 const failures = [];
-for (const path of PATHS) failures.push(...(await checkPath(path)));
+for (const route of routes) failures.push(...(await checkPath(route)));
 
 console.log("\n=================== result ===================");
 if (failures.length === 0) {
-  console.log(`PASS — every language returned its own card.`);
+  console.log(
+    `PASS — ${routes.length} page(s) × ${LANGS.length} language(s), each with its own card.`
+  );
 } else {
   console.log(`FAIL — ${failures.length} problem(s):`);
   for (const f of failures) console.log(`  · ${f}`);

@@ -1,0 +1,373 @@
+{
+  "label": "after-live",
+  "base": "https://rayagarden.bg",
+  "runs": 3,
+  "at": "2026-09-22T16:24:48.492Z",
+  "pages": [
+    {
+      "id": "events-bg",
+      "path": "/events?lang=bg",
+      "url": "https://rayagarden.bg/events?lang=bg",
+      "score": 33,
+      "lcp": 6846.685,
+      "tti": 10113.184999999998,
+      "tbt": 550,
+      "cls": 0.3997569866342649,
+      "fcp": 3070.8015,
+      "si": 6465.77729999996,
+      "bytes": 1759225,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://rayagarden.bg/assets/index-BVBX2y4l.css",
+          "ms": 670,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 1718,
+          "n": 51
+        },
+        {
+          "type": "script",
+          "kb": 1375,
+          "n": 19
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "image",
+          "kb": 118,
+          "n": 5
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 30,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 3
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 1561,
+          "n": 38
+        }
+      ],
+      "spread": {
+        "lcpMin": 6663.824000000001,
+        "lcpMax": 6856.655999999999,
+        "n": 3
+      }
+    },
+    {
+      "id": "event-ny-bg",
+      "path": "/event/nova-godina-2027?lang=bg",
+      "url": "https://rayagarden.bg/event/nova-godina-2027?lang=bg",
+      "score": 45,
+      "lcp": 6780.845500000001,
+      "tti": 10209.893999999998,
+      "tbt": 519.5,
+      "cls": 0.16563442581079507,
+      "fcp": 3104.4130000000005,
+      "si": 6659.612004000065,
+      "bytes": 1726997,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://rayagarden.bg/assets/index-BVBX2y4l.css",
+          "ms": 682,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 1687,
+          "n": 53
+        },
+        {
+          "type": "script",
+          "kb": 1376,
+          "n": 20
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "image",
+          "kb": 86,
+          "n": 5
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 29,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 1529,
+          "n": 39
+        }
+      ],
+      "spread": {
+        "lcpMin": 6694.579000000001,
+        "lcpMax": 6893.999999999998,
+        "n": 3
+      }
+    },
+    {
+      "id": "event-ny-ro",
+      "path": "/event/nova-godina-2027?lang=ro",
+      "url": "https://rayagarden.bg/event/nova-godina-2027?lang=ro",
+      "score": 43,
+      "lcp": 6730.8015000000005,
+      "tti": 10929.852749999998,
+      "tbt": 558.0000000000005,
+      "cls": 0.16563442581079507,
+      "fcp": 3039.8549999999996,
+      "si": 7665.365833982566,
+      "bytes": 1825435,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://rayagarden.bg/assets/index-BVBX2y4l.css",
+          "ms": 666,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 1783,
+          "n": 54
+        },
+        {
+          "type": "script",
+          "kb": 1375,
+          "n": 20
+        },
+        {
+          "type": "font",
+          "kb": 223,
+          "n": 5
+        },
+        {
+          "type": "image",
+          "kb": 86,
+          "n": 5
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 30,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 10,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 1625,
+          "n": 40
+        }
+      ],
+      "spread": {
+        "lcpMin": 6705.261750000001,
+        "lcpMax": 6749.63,
+        "n": 3
+      }
+    },
+    {
+      "id": "hotel-bg",
+      "path": "/hotel?lang=bg",
+      "url": "https://rayagarden.bg/hotel?lang=bg",
+      "score": 28,
+      "lcp": 6697.263500000002,
+      "tti": 10120.693500000001,
+      "tbt": 761,
+      "cls": 0.3997569866342649,
+      "fcp": 3045.9325,
+      "si": 6948.649174115102,
+      "bytes": 1759477,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://rayagarden.bg/assets/index-BVBX2y4l.css",
+          "ms": 678,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 1718,
+          "n": 52
+        },
+        {
+          "type": "script",
+          "kb": 1373,
+          "n": 18
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "image",
+          "kb": 119,
+          "n": 6
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 30,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 10,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 1563,
+          "n": 40
+        }
+      ],
+      "spread": {
+        "lcpMin": 6633.98,
+        "lcpMax": 6754.477500000001,
+        "n": 3
+      }
+    },
+    {
+      "id": "restaurant-bg",
+      "path": "/restaurant?lang=bg",
+      "url": "https://rayagarden.bg/restaurant?lang=bg",
+      "score": 34,
+      "lcp": 6823.607999999999,
+      "tti": 10415.959499999997,
+      "tbt": 516.5,
+      "cls": 0.3650271876739369,
+      "fcp": 3081.6800000000003,
+      "si": 6693.16953814396,
+      "bytes": 1821971,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://rayagarden.bg/assets/index-BVBX2y4l.css",
+          "ms": 693,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 1779,
+          "n": 52
+        },
+        {
+          "type": "script",
+          "kb": 1373,
+          "n": 18
+        },
+        {
+          "type": "image",
+          "kb": 180,
+          "n": 6
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 31,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 1624,
+          "n": 40
+        }
+      ],
+      "spread": {
+        "lcpMin": 6786.8855,
+        "lcpMax": 6847.5355,
+        "n": 3
+      }
+    }
+  ]
+}

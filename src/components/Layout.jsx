@@ -129,15 +129,16 @@ export default function Layout({ lang, setLang, t }) {
       <main id="main">
         {/* The Suspense boundary sits here rather than around <Routes>, so a
             route chunk arriving does not unmount the header and footer.
-            The fallback matches the hero's height exactly — 60vh with the
-            same 420px floor and the same background — so a page swapping in
-            shifts nothing and CLS stays at zero. */}
+
+            The fallback is a full viewport tall, not the hero's 60vh. A
+            60vh placeholder left the footer sitting in plain view about
+            halfway down the screen, and when the route chunk mounted it was
+            shoved off the bottom — one 0.40 layout shift, measured, which is
+            most of a CLS budget spent on a spacer. At 100vh the footer
+            starts below the fold, so it has nothing to shift within. */}
         <Suspense
           fallback={
-            <div
-              className="h-[60vh] min-h-[420px] w-full bg-ink-950"
-              aria-hidden="true"
-            />
+            <div className="min-h-screen w-full bg-ink-950" aria-hidden="true" />
           }
         >
           <Outlet context={{ lang, t }} />

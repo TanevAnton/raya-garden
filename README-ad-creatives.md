@@ -49,6 +49,31 @@ path the `.jpg` files are used for, so neither spelling may be "normalised"
 to the other, and neither pair may be deleted as redundant. `.htaccess`
 declares `AddType image/jpeg .jpeg .jpg`, so both answer `image/jpeg`.
 
+## 11 is a conversion, not an original
+
+```
+11-RAYA-corporate-team-dinner.png   1254x1254   md5 91e5bef580de0d9a8cf6643e06187ddc
+```
+
+Unlike 01–10, this file never arrived as the approved original. The only
+copy was a chat attachment, which the chat delivered as a lossy WebP
+(1254x1254, sRGB ICC profile). The PNG was made by decoding that WebP once
+and writing the pixels into a PNG — no resize, no colour change, profile
+kept, verified pixel-identical to the decoded WebP. So it adds no loss of
+its own, but it carries whatever the chat's WebP compression already did,
+and its md5 will not match the original artwork.
+
+**When the original PNG is available, replace this file with it** (send it
+in a ZIP, which is what keeps the bytes intact) and update the md5 above.
+
+## Missing files answer 404
+
+`.htaccess` stops every `/ad-creatives/` request before the SPA fallback. A
+file that exists is served as itself; one that does not is a plain 404.
+Before that rule, a missing creative answered `200 text/html` — the app's
+own index.html — which looks alive to a status check and is useless to
+Meta.
+
 ## Why robots.txt and not noindex
 
 `robots.txt` carries `Disallow: /ad-creatives/`, which keeps the directory

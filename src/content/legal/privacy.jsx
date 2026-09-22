@@ -24,8 +24,8 @@ export function PrivacyBg() {
 
       <H2>1. Кои сме ние</H2>
       <P>
-        Администратор на личните данни е {C.legalName}, ЕИК {C.eik}, със
-        седалище и адрес на управление {C.registeredAddress}.
+        Администратор на личните данни е {C.legalName.bg}, ЕИК {C.eik}, със
+        седалище и адрес на управление {C.registeredAddress.bg}.
       </P>
       <P>
         Търговско наименование: {C.tradingName}, {C.tradingAddress.bg}.
@@ -240,8 +240,8 @@ export function PrivacyEn() {
 
       <H2>1. Who we are</H2>
       <P>
-        The data controller is {C.legalName}, EIK {C.eik}, with its registered
-        address at {C.registeredAddress}.
+        The data controller is {C.legalName.en}, EIK {C.eik}, with its
+        registered address at {C.registeredAddress.en}.
       </P>
       <P>
         Trading name: {C.tradingName}, {C.tradingAddress.en}.

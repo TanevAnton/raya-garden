@@ -100,7 +100,7 @@ RewriteRule ^event/([^/]+)/?$ /__snapshots__/event-$1.%1.html [L]
 RewriteCond %{ENV:IS_BOT} =1
 RewriteCond %{ENV:SNAP_LANG} ^(bg|en|ro)$
 RewriteCond %{DOCUMENT_ROOT}/__snapshots__/$1.%1.html -f
-RewriteRule ^(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator)/?$ /__snapshots__/$1.%1.html [L]
+RewriteRule ^(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator|privacy-policy|cookies)/?$ /__snapshots__/$1.%1.html [L]
 
 RewriteCond %{ENV:IS_BOT} =1
 RewriteCond %{ENV:SNAP_LANG} ^(bg|en|ro)$
@@ -113,7 +113,7 @@ RewriteCond %{DOCUMENT_ROOT}/__snapshots__/event-%1.html -f
 RewriteRule ^ /__snapshots__/event-%1.html [L]
 
 RewriteCond %{ENV:IS_BOT} =1
-RewriteCond %{REQUEST_URI} ^/(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator)/?$
+RewriteCond %{REQUEST_URI} ^/(hotel|restaurant|winery|park|events|book|contact|svatben-konfigurator|privacy-policy|cookies)/?$
 RewriteCond %{DOCUMENT_ROOT}/__snapshots__/%1.html -f
 RewriteRule ^ /__snapshots__/%1.html [L]
 

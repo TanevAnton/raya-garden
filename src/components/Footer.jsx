@@ -106,15 +106,16 @@ export default function Footer({ t }) {
             © {new Date().getFullYear()} Park Hotel RAYA Garden. {t.footer.rights}
           </div>
           <div className="flex gap-6">
-            <Link to="/contact" className="hover:text-gold-200 transition-colors">
+            <Link to="/privacy-policy" className="hover:text-gold-200 transition-colors">
               {t.footer.links.privacy}
             </Link>
-            <Link to="/contact" className="hover:text-gold-200 transition-colors">
+            <Link to="/cookies" className="hover:text-gold-200 transition-colors">
               {t.footer.links.cookies}
             </Link>
-            <Link to="/contact" className="hover:text-gold-200 transition-colors">
-              {t.footer.links.terms}
-            </Link>
+            {/* No terms page exists yet. The link is hidden rather than
+                pointed somewhere else: a "Terms" link that opens the contact
+                page looks like terms that don't exist. t.footer.links.terms
+                stays in translations.js for when the page does. */}
           </div>
         </div>
       </div>

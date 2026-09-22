@@ -38,6 +38,11 @@ export const STATIC_ROUTES = [
   },
   { path: "/book", file: "book", changefreq: "monthly", priority: 0.7 },
   { path: "/contact", file: "contact", changefreq: "yearly", priority: 0.6 },
+  // Linked straight from Meta lead forms, so they are prerendered like every
+  // other page: a crawler that does not run JavaScript gets the text, not an
+  // empty <div id="root">.
+  { path: "/privacy-policy", file: "privacy-policy", changefreq: "yearly", priority: 0.3 },
+  { path: "/cookies", file: "cookies", changefreq: "yearly", priority: 0.3 },
 ];
 
 /**

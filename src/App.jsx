@@ -28,6 +28,8 @@ const Reservations = lazy(() => import("./pages/Reservations.jsx"));
 const EventPage = lazy(() => import("./pages/EventPage.jsx"));
 const WeddingConfigurator = lazy(() => import("./pages/WeddingConfigurator.jsx"));
 const NotFound = lazy(() => import("./pages/NotFound.jsx"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy.jsx"));
+const Cookies = lazy(() => import("./pages/Cookies.jsx"));
 import { translations } from "./translations.js";
 import { initClockWbe, setClockLang } from "./lib/clockWbe.js";
 
@@ -163,6 +165,8 @@ export default function App() {
           {/* Standalone wedding-enquiry configurator — also linked from /events */}
           <Route path="svatben-konfigurator" element={<WeddingConfigurator />} />
           <Route path="contact" element={<Contact />} />
+          <Route path="privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="cookies" element={<Cookies />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

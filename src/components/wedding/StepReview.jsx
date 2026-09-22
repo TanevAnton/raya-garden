@@ -123,7 +123,7 @@ export default function StepReview({
           <div className="pt-2">
             <CheckBox checked={config.consent} onChange={(v) => update("consent", v)}>
               {s.contact.consent}{" "}
-              <Link to="/contact" className="text-gold-200 link-underline">
+              <Link to="/privacy-policy" className="text-gold-200 link-underline">
                 {t.footer.links.privacy}
               </Link>
               .

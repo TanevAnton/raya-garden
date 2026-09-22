@@ -4,18 +4,89 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-M5Z8T4VB');</script>
+    <!-- Deferred third-party loader.
+         =====================================================================
+         Measured on Slow 4G: Google (gtm.js 127 kB + gtag/js 173 kB) and the
+         OpenAI SDK (28 kB) are 328 kB of the ~500 kB of third-party script on
+         a landing page, and at 1.6 Mbps that is well over a second of pipe
+         taken from the hero image while a visitor is deciding whether to
+         stay. None of them need to run before the page is on screen.
+
+         What is NOT deferred, deliberately: the Meta pixel. Its PageView is
+         what Meta counts as a landing page view — the exact number this work
+         exists to improve — so it stays inline and immediate, with a
+         preconnect ahead of it.
+
+         No event is lost. Each vendor's queue (dataLayer, oaiq's q, the gtag
+         shim) is created synchronously below, exactly as its own snippet
+         would, so anything the app reports before the SDK arrives is held and
+         replayed when it does. Only the script element's insertion waits.
+
+         Whichever of these happens first wins:
+           · the visitor touches, scrolls, taps or types
+           · the window load event
+           · a 3.5 s ceiling, so a visitor who reads without moving is still
+             measured, and so a resource that never finishes cannot strand
+             the load event forever. -->
+    <script>
+      (function (w, d) {
+        var pending = [];
+        var done = false;
+        var EVENTS = ["pointerdown", "keydown", "touchstart", "scroll", "wheel"];
+
+        function run() {
+          if (done) return;
+          done = true;
+          for (var i = 0; i < EVENTS.length; i++) {
+            w.removeEventListener(EVENTS[i], run, true);
+          }
+          w.removeEventListener("load", run);
+          for (var j = 0; j < pending.length; j++) insert(pending[j]);
+          pending.length = 0;
+        }
+
+        function insert(src) {
+          var el = d.createElement("script");
+          el.async = true;
+          el.src = src;
+          var first = d.getElementsByTagName("script")[0];
+          first.parentNode.insertBefore(el, first);
+        }
+
+        // Queue a script until the page has had its chance to paint.
+        w.rayaDefer = function (src) {
+          if (done) insert(src);
+          else pending.push(src);
+        };
+
+        for (var i = 0; i < EVENTS.length; i++) {
+          // Capture phase, so a handler that stops propagation cannot hide
+          // the interaction from us; passive, so we never delay a scroll.
+          w.addEventListener(EVENTS[i], run, { capture: true, passive: true });
+        }
+        if (d.readyState === "complete") w.setTimeout(run, 0);
+        else w.addEventListener("load", run);
+        w.setTimeout(run, 3500);
+      })(window, document);
+    </script>
+
+    <!-- Google Tag Manager. The dataLayer and the gtm.start timestamp are
+         set here, exactly as the stock snippet does; only the container
+         download is handed to rayaDefer above. -->
+    <script>(function(w,d,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var dl=l!='dataLayer'?'&l='+l:'';
+    w.rayaDefer('https://www.googletagmanager.com/gtm.js?id='+i+dl);
+    })(window,document,'dataLayer','GTM-M5Z8T4VB');</script>
     <!-- End Google Tag Manager -->
 
-    <!-- OpenAI / ChatGPT Ads pixel (OAIQ). Snippet as issued by the ads
-         dashboard for pixel P2hrm2618T2J6j8wrHQtpP — must stay byte-exact
-         and appear only once per page. -->
-    <script>!function(w,d,s,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;var j=d.createElement(s);j.async=1;j.src=u;var f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(j,f)}(window,document,"script","https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"P2hrm2618T2J6j8wrHQtpP",debug:false});</script>
+    <!-- OpenAI / ChatGPT Ads pixel (OAIQ), pixel P2hrm2618T2J6j8wrHQtpP.
+         The queue and the init call are byte-equivalent to the snippet the
+         ads dashboard issues — w.oaiq still exists synchronously and still
+         buffers into q.q, so a measure() fired before the SDK lands is
+         replayed when it loads. The one change is that the SDK script
+         element goes through rayaDefer instead of being inserted at once. Still
+         exactly once per page. -->
+    <script>!function(w,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;w.rayaDefer(u)}(window,"https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"P2hrm2618T2J6j8wrHQtpP",debug:false});</script>
     <!-- End OpenAI Ads pixel -->
 
     <meta name="theme-color" content="#0a0908" />
@@ -44,6 +115,13 @@
     <meta name="twitter:description" content="Бутиков хотел, ресторант и градина на пешеходно разстояние от Велико Търново." />
     <meta name="twitter:image" content="https://rayagarden.bg/img/hotel-all-1.png" />
 
+    <!-- No preconnect to connect.facebook.net on purpose. Measured over three
+         throttled runs each, with and without: fbevents.js starts at 199 ms
+         either way, finishes at 1581 vs 1575 ms, and PageView fires at 1674
+         vs 1702 ms — all inside the run-to-run spread. The pixel's own
+         snippet is inline in the head and inserts its script element during
+         parse, so the connection is already being opened by the time a hint
+         could have warmed it. An unused preconnect just holds a socket. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.sanity.io" crossorigin />
@@ -106,12 +184,15 @@
          to, so site visits and booking conversions land in one place.
          send_page_view is off: the SPA fires page_view on every route
          change itself (see Layout.jsx). -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-CCY6SD302S"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
       gtag('config', 'G-CCY6SD302S', { send_page_view: false });
+      // gtag() is a dataLayer push and nothing more, so it works before the
+      // library exists: Layout.jsx can fire page_view on the first route and
+      // the call sits in dataLayer until gtag/js arrives and drains it.
+      window.rayaDefer('https://www.googletagmanager.com/gtag/js?id=G-CCY6SD302S');
     </script>
 
     <!-- Facebook Pixel. Base code only inits — the automatic

@@ -95,6 +95,26 @@ function chromePath() {
   });
 }
 
+/** First `node` snippet anywhere in a Lighthouse details blob. */
+function findNodeSnippet(details, depth = 0) {
+  if (!details || depth > 6) return null;
+  if (Array.isArray(details)) {
+    for (const entry of details) {
+      const found = findNodeSnippet(entry, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof details !== "object") return null;
+  if (details.type === "node" && details.snippet) return details.snippet;
+  if (details.node?.snippet) return details.node.snippet;
+  for (const value of Object.values(details)) {
+    const found = findNodeSnippet(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
 async function runOnce(url, chromeLauncher, lighthouse) {
   const flags = [
     "--headless=new",
@@ -128,9 +148,12 @@ async function runOnce(url, chromeLauncher, lighthouse) {
       out[key] = lhr.audits[audit]?.numericValue ?? null;
     }
     // Which element is the LCP tells you what to fix; the number alone does not.
-    out.lcpElement =
-      lhr.audits["largest-contentful-paint-element"]?.details?.items?.[0]?.items?.[0]
-        ?.node?.snippet ?? null;
+    // Lighthouse has moved this node around between versions (table of nodes,
+    // then a list of sub-tables), so walk for the first node rather than
+    // hard-coding a path that silently yields null.
+    out.lcpElement = findNodeSnippet(
+      lhr.audits["largest-contentful-paint-element"]?.details
+    );
     // Render-blocking resources, biggest first — the other half of the story.
     out.blocking = (
       lhr.audits["render-blocking-resources"]?.details?.items ?? []

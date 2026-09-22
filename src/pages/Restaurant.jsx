@@ -7,6 +7,7 @@ import { useSeo } from "../hooks/useSeo.js";
 import { useMetaEvent } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage, contentImage } from "../lib/images.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "restaurant"][0]{
   eyebrow, title, subtitle, intro, heroImage,
@@ -46,10 +47,16 @@ export default function Restaurant() {
       : `${IMG}/hotel-all-8.png`,
   };
 
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = pageData?.heroImage ? heroImage(pageData?.heroImage) : null;
+
   const gallery = (pageData?.gallery || []).map((item) => {
-    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const main = item.image ? contentImage(item.image) : "";
     const extras = (item.extraImages || [])
-      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .map((img) => (img ? contentImage(img) : ""))
       .filter(Boolean);
     return {
       images: main ? [main, ...extras] : extras,
@@ -80,7 +87,7 @@ export default function Restaurant() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

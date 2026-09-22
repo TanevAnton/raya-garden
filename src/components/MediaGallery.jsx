@@ -1,17 +1,62 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Single photo → static <img>.
 // Multiple → photo + prev/next arrows + dot indicators. Keyboard arrows
 // scroll through too when the gallery has focus. Smooth easeOutQuart
 // crossfade between slides matches the hero animation.
+//
+// `images` entries are either a plain URL string or a responsive descriptor
+// from lib/images.js ({src, srcSet, sizes}). Both are accepted so a caller
+// that has not been converted yet still renders.
+//
+// Every slide lives in the DOM at once, stacked with `absolute inset-0` and
+// hidden with opacity — which means loading="lazy" never deferred anything:
+// to the browser they are all on screen, so all of them downloaded on first
+// paint. On /restaurant that was 27 images and 12 MB before a visitor had
+// touched an arrow. A slide therefore gets its `src` only once it is in play:
+// the one being shown, the ones already seen, and the immediate neighbours so
+// arrowing through still feels instant.
 export default function MediaGallery({ images, alt }) {
   const [idx, setIdx] = useState(0);
   const [loaded, setLoaded] = useState({});
   const safeImages = images?.length ? images : [""];
   const count = safeImages.length;
 
-  const go = (delta) => setIdx((c) => (c + delta + count) % count);
+  // Normalise to descriptors so the render path has one shape.
+  const slides = useMemo(
+    () =>
+      safeImages.map((entry) =>
+        typeof entry === "string" ? { src: entry } : entry || { src: "" }
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [images]
+  );
+
+  // On first paint only the visible slide is armed. Neighbours join once the
+  // visitor has actually moved through the gallery — before that, prefetching
+  // a "next" photo nobody asked for is just the old bug at half the size.
+  const [armed, setArmed] = useState(() => new Set([0]));
+  const interacted = useRef(false);
+
+  useEffect(() => {
+    setArmed((prev) => {
+      const next = new Set(prev).add(idx);
+      if (interacted.current) {
+        next.add((idx + 1) % count).add((idx - 1 + count) % count);
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [idx, count]);
+
+  const select = (i) => {
+    interacted.current = true;
+    setIdx(i);
+  };
+  const go = (delta) => {
+    interacted.current = true;
+    setIdx((c) => (c + delta + count) % count);
+  };
 
   // Keep the visible slide's "loaded" state in sync if the user comes
   // back to an image they've already seen (img.complete is true).
@@ -26,7 +71,9 @@ export default function MediaGallery({ images, alt }) {
     return (
       <img
         ref={imgRef}
-        src={safeImages[0]}
+        src={slides[0].src}
+        srcSet={slides[0].srcSet || undefined}
+        sizes={slides[0].sizes || undefined}
         alt={alt}
         loading="lazy"
         decoding="async"
@@ -55,11 +102,13 @@ export default function MediaGallery({ images, alt }) {
         if (e.key === "ArrowRight") go(1);
       }}
     >
-      {safeImages.map((src, i) => (
+      {slides.map((slide, i) => (
         <img
           key={i}
           ref={i === idx ? imgRef : null}
-          src={src}
+          src={armed.has(i) ? slide.src : undefined}
+          srcSet={armed.has(i) ? slide.srcSet || undefined : undefined}
+          sizes={slide.sizes || undefined}
           alt={`${alt} — ${i + 1}/${count}`}
           loading={i === 0 ? "eager" : "lazy"}
           decoding="async"
@@ -93,11 +142,11 @@ export default function MediaGallery({ images, alt }) {
       </button>
 
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {safeImages.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             type="button"
-            onClick={() => setIdx(i)}
+            onClick={() => select(i)}
             aria-label={`Go to photo ${i + 1}`}
             className={`h-px transition-all duration-500 ${
               i === idx ? "w-10 bg-gold-300" : "w-5 bg-cream-100/40"

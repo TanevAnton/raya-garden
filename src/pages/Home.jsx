@@ -454,7 +454,7 @@ function Offers({ t, lang, offers }) {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 reveal">
           {offers.map((o) => {
-            const image = o.image ? urlFor(o.image).width(800).quality(80).url() : null;
+            const image = o.image ? urlFor(o.image).width(800).quality(80).auto("format").url() : null;
             return (
               <article
                 key={o._id}
@@ -514,7 +514,7 @@ function EventTeaser({ t, lang, data }) {
   const badge = pickLocale(data.eyebrow, lang) || t.eventTeaser.badge;
   const subtitle = pickLocale(data.subtitle, lang);
   const image = data.heroImage
-    ? urlFor(data.heroImage).width(1200).quality(82).url()
+    ? urlFor(data.heroImage).width(1200).quality(82).auto("format").url()
     : "";
   if (!title) return null;
 
@@ -572,7 +572,7 @@ function RoomsTeaser({ t, lang, data }) {
     name: pickLocale(r.name, lang),
     view: pickLocale(r.view, lang),
     price: r.price,
-    image: r.image ? urlFor(r.image).width(1000).quality(82).url() : "",
+    image: r.image ? urlFor(r.image).width(1000).quality(82).auto("format").url() : "",
   }));
   if (rooms.length === 0) return null;
 
@@ -652,7 +652,7 @@ function EventsTeaser({ t, lang, data }) {
   const tp = t.pages.events;
   const intro = pickLocale(data?.intro, lang) || tp.intro;
   const cards = (data?.gallery || []).slice(0, 2).map((g) => ({
-    image: g.image ? urlFor(g.image).width(1200).quality(82).url() : "",
+    image: g.image ? urlFor(g.image).width(1200).quality(82).auto("format").url() : "",
     title: pickLocale(g.title, lang),
     text: pickLocale(g.text, lang),
   }));
@@ -758,7 +758,7 @@ export default function Home() {
         text: pickLocale(c.text, lang),
         cta: pickLocale(c.cta, lang),
         image: c.image
-          ? urlFor(c.image).width(1600).quality(85).url()
+          ? urlFor(c.image).width(1600).quality(85).auto("format").url()
           : "",
       }))
     : [
@@ -789,7 +789,7 @@ export default function Home() {
   // expect, with Sanity values when present and translations.js as fallback.
   const findBlock = (key) => pageData?.blocks?.find((b) => b.key === key);
   const heroImage = pageData?.heroImage
-    ? urlFor(pageData.heroImage).width(2400).quality(85).url()
+    ? urlFor(pageData.heroImage).width(2400).quality(85).auto("format").url()
     : null;
 
   // Hero slideshow: render nothing until Sanity has loaded so the
@@ -797,7 +797,7 @@ export default function Home() {
   // GROQ query is in flight. After load: use Sanity's heroSlideshow,
   // then the single heroImage, then static photos as last-resort fallback.
   const sanitySlides = (pageData?.heroSlideshow || [])
-    .map((img) => (img ? urlFor(img).width(2400).quality(85).url() : null))
+    .map((img) => (img ? urlFor(img).width(2400).quality(85).auto("format").url() : null))
     .filter(Boolean);
   const heroSlides = pageLoading
     ? []

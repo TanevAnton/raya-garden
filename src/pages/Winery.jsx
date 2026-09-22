@@ -6,6 +6,7 @@ import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage, contentImage } from "../lib/images.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "winery"][0]{
   eyebrow, title, subtitle, heroImage, extraImages,
@@ -41,18 +42,24 @@ export default function Winery() {
     secondaryImage: pageLoading
       ? ""
       : pageData?.extraImages?.[0]
-      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
+      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).auto("format").url()
       : `${IMG}/hotel-all-12.png`,
   };
+
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = pageData?.heroImage ? heroImage(pageData?.heroImage) : null;
 
   const story = pickLocale(findBlock(pageData?.blocks, "story")?.body, lang) || tp.story;
   const story2 = pickLocale(findBlock(pageData?.blocks, "story2")?.body, lang) || tp.story2;
   const visitText = pickLocale(findBlock(pageData?.blocks, "visitText")?.body, lang) || tp.visitText;
 
   const gallery = (pageData?.gallery || []).map((item) => {
-    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const main = item.image ? contentImage(item.image) : "";
     const extras = (item.galleryExtras || [])
-      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .map((img) => (img ? contentImage(img) : ""))
       .filter(Boolean);
     return {
       images: main ? [main, ...extras] : extras,
@@ -72,7 +79,7 @@ export default function Winery() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

@@ -7,6 +7,7 @@ import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage, contentImage } from "../lib/images.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "events"][0]{
   eyebrow, title, subtitle, intro, heroImage,
@@ -165,6 +166,12 @@ export default function Events() {
       : `${IMG}/hotel-all-9.png`,
   };
 
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = pageData?.heroImage ? heroImage(pageData?.heroImage) : null;
+
   const consultingBlock = findBlock(pageData?.blocks, "consulting");
   const consulting = pickLocale(consultingBlock?.title, lang) || tp.consulting;
   const consultingText = pickLocale(consultingBlock?.body, lang) || tp.consultingText;
@@ -175,7 +182,7 @@ export default function Events() {
   const brochureCover = (key, override, size) =>
     override && size?.width && size?.height
       ? {
-          src: urlFor(override).width(640).quality(82).url(),
+          src: urlFor(override).width(640).quality(82).auto("format").url(),
           w: size.width,
           h: size.height,
         }
@@ -192,9 +199,9 @@ export default function Events() {
   );
 
   const gallery = (pageData?.gallery || []).map((item) => {
-    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const main = item.image ? contentImage(item.image) : "";
     const extras = (item.extraImages || [])
-      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .map((img) => (img ? contentImage(img) : ""))
       .filter(Boolean);
     return {
       images: main ? [main, ...extras] : extras,
@@ -214,7 +221,7 @@ export default function Events() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

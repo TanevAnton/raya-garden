@@ -48,13 +48,58 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.sanity.io" crossorigin />
     <link rel="dns-prefetch" href="https://cdn.sanity.io" />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- The content query goes to apicdn.sanity.io, a different host from the
+         image CDN and previously not preconnected — so every page paid a cold
+         DNS + TCP + TLS handshake on the critical path before the first byte
+         of content. Nothing renders until this answers. -->
+    <link rel="preconnect" href="https://q2yxl7gs.apicdn.sanity.io" crossorigin />
+
+    <!-- Fonts load without blocking the first paint. The stylesheet itself
+         was render-blocking for ~870 ms on Slow 4G: a whole round trip to a
+         third origin before a single pixel. `media="print"` makes the browser
+         fetch it at low priority and not block on it; onload flips it to
+         `all`. display=swap means text is painted in the fallback face
+         immediately and re-painted when the webfont arrives, so nothing is
+         invisible in the meantime.
+
+         Only the weights the CSS actually asks for are requested. Cormorant
+         carries the display headings at 300/400 plus the one italic; Inter
+         covers body text at 300/400/500. The 600 and 700 cuts were being
+         downloaded and never used. -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&family=Inter:wght@300;400;500&display=swap"
+      media="print"
+      onload="this.media='all';this.onload=null"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,400&family=Inter:wght@300;400;500&display=swap"
+      />
+    </noscript>
 
     <!-- Clock PMS+ web booking engine (official integration). Provides the
          tracked booking overlay opened via window.clockPmsWbe* helpers.
          Booking funnel events report to the GA4 property set in Clock. -->
-    <link rel="stylesheet" href="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css" />
-    <link rel="stylesheet" href="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css" />
+    <!-- Styles for the booking overlay, loaded the same non-blocking way.
+         They were costing ~1 s of render-blocking time on every page,
+         including pages with no booking widget on them, for CSS that is
+         only visible once a guest opens the overlay — which cannot happen
+         before the page has painted. The script below is unchanged and
+         still deferred, so the integration and its callbacks are untouched. -->
+    <link
+      rel="stylesheet"
+      href="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css"
+      media="print"
+      onload="this.media='all';this.onload=null"
+    />
+    <link
+      rel="stylesheet"
+      href="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css"
+      media="print"
+      onload="this.media='all';this.onload=null"
+    />
     <script defer src="https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.js"></script>
 
     <!-- Google Analytics 4 — same property the Clock booking engine reports

@@ -1,0 +1,448 @@
+{
+  "label": "before-live",
+  "base": "https://rayagarden.bg",
+  "runs": 3,
+  "at": "2026-09-22T16:02:12.348Z",
+  "pages": [
+    {
+      "id": "events-bg",
+      "path": "/events?lang=bg",
+      "url": "https://rayagarden.bg/events?lang=bg",
+      "score": 49,
+      "lcp": 8410.896,
+      "tti": 11945.29,
+      "tbt": 439.0000000000009,
+      "cls": 0,
+      "fcp": 3863.772,
+      "si": 8285.22890914042,
+      "bytes": 10915174,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+          "ms": 812,
+          "kb": 2
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css",
+          "ms": 1169,
+          "kb": 1
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css",
+          "ms": 1169,
+          "kb": 1
+        },
+        {
+          "url": "https://rayagarden.bg/assets/index-C6bcyplg.css",
+          "ms": 1001,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 10659,
+          "n": 48
+        },
+        {
+          "type": "image",
+          "kb": 8872,
+          "n": 9
+        },
+        {
+          "type": "script",
+          "kb": 1576,
+          "n": 12
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 17,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 8,
+          "n": 3
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 10475,
+          "n": 43
+        }
+      ],
+      "spread": {
+        "lcpMin": 7187.785000000001,
+        "lcpMax": 9448.297,
+        "n": 3
+      }
+    },
+    {
+      "id": "event-ny-bg",
+      "path": "/event/nova-godina-2027?lang=bg",
+      "url": "https://rayagarden.bg/event/nova-godina-2027?lang=bg",
+      "score": 51,
+      "lcp": 7130.3245,
+      "tti": 8893.3115,
+      "tbt": 449,
+      "cls": 0,
+      "fcp": 3819.2917500000003,
+      "si": 7031.130984999922,
+      "bytes": 7377400,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+          "ms": 798,
+          "kb": 2
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css",
+          "ms": 824,
+          "kb": 1
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css",
+          "ms": 824,
+          "kb": 1
+        },
+        {
+          "url": "https://rayagarden.bg/assets/index-C6bcyplg.css",
+          "ms": 953,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 7204,
+          "n": 44
+        },
+        {
+          "type": "image",
+          "kb": 5579,
+          "n": 5
+        },
+        {
+          "type": "script",
+          "kb": 1401,
+          "n": 11
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 29,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 7020,
+          "n": 39
+        }
+      ],
+      "spread": {
+        "lcpMin": 6747.502000000001,
+        "lcpMax": 7429.852,
+        "n": 3
+      }
+    },
+    {
+      "id": "event-ny-ro",
+      "path": "/event/nova-godina-2027?lang=ro",
+      "url": "https://rayagarden.bg/event/nova-godina-2027?lang=ro",
+      "score": 51,
+      "lcp": 6938.428999999998,
+      "tti": 10005.0075,
+      "tbt": 456,
+      "cls": 0,
+      "fcp": 3405.4925000000003,
+      "si": 7965.1001864478385,
+      "bytes": 7477442,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+          "ms": 784,
+          "kb": 2
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css",
+          "ms": 855,
+          "kb": 1
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css",
+          "ms": 855,
+          "kb": 1
+        },
+        {
+          "url": "https://rayagarden.bg/assets/index-C6bcyplg.css",
+          "ms": 822,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 7302,
+          "n": 45
+        },
+        {
+          "type": "image",
+          "kb": 5591,
+          "n": 5
+        },
+        {
+          "type": "script",
+          "kb": 1403,
+          "n": 11
+        },
+        {
+          "type": "font",
+          "kb": 223,
+          "n": 5
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 17,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 7118,
+          "n": 40
+        }
+      ],
+      "spread": {
+        "lcpMin": 6840.066249999998,
+        "lcpMax": 6958.880999999999,
+        "n": 3
+      }
+    },
+    {
+      "id": "hotel-bg",
+      "path": "/hotel?lang=bg",
+      "url": "https://rayagarden.bg/hotel?lang=bg",
+      "score": 43,
+      "lcp": 7564.202000000001,
+      "tti": 10778.337000000003,
+      "tbt": 784,
+      "cls": 0,
+      "fcp": 3931.1985,
+      "si": 7179.482624,
+      "bytes": 5839390,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+          "ms": 782,
+          "kb": 2
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css",
+          "ms": 871,
+          "kb": 1
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css",
+          "ms": 871,
+          "kb": 1
+        },
+        {
+          "url": "https://rayagarden.bg/assets/index-C6bcyplg.css",
+          "ms": 1001,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 5703,
+          "n": 50
+        },
+        {
+          "type": "image",
+          "kb": 3914,
+          "n": 10
+        },
+        {
+          "type": "script",
+          "kb": 1576,
+          "n": 12
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 18,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 5519,
+          "n": 45
+        }
+      ],
+      "spread": {
+        "lcpMin": 6514.324500000001,
+        "lcpMax": 11575.457499999999,
+        "n": 3
+      }
+    },
+    {
+      "id": "restaurant-bg",
+      "path": "/restaurant?lang=bg",
+      "url": "https://rayagarden.bg/restaurant?lang=bg",
+      "score": 54,
+      "lcp": 7372.416999999999,
+      "tti": 13516.0925,
+      "tbt": 412.5000000000009,
+      "cls": 0,
+      "fcp": 3496.6974999999993,
+      "si": 6091.209758000032,
+      "bytes": 14205594,
+      "lcpElement": null,
+      "blocking": [
+        {
+          "url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap",
+          "ms": 778,
+          "kb": 2
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-integration.css",
+          "ms": 1003,
+          "kb": 1
+        },
+        {
+          "url": "https://static-assets.clock-software.com/wbe_v2/clock-pms-wbe-reminder.css",
+          "ms": 1003,
+          "kb": 1
+        },
+        {
+          "url": "https://rayagarden.bg/assets/index-C6bcyplg.css",
+          "ms": 829,
+          "kb": 8
+        }
+      ],
+      "heaviest": [
+        {
+          "type": "total",
+          "kb": 13873,
+          "n": 49
+        },
+        {
+          "type": "image",
+          "kb": 12084,
+          "n": 9
+        },
+        {
+          "type": "script",
+          "kb": 1576,
+          "n": 12
+        },
+        {
+          "type": "font",
+          "kb": 126,
+          "n": 4
+        },
+        {
+          "type": "stylesheet",
+          "kb": 60,
+          "n": 5
+        },
+        {
+          "type": "other",
+          "kb": 18,
+          "n": 15
+        },
+        {
+          "type": "document",
+          "kb": 9,
+          "n": 4
+        },
+        {
+          "type": "media",
+          "kb": 0,
+          "n": 0
+        },
+        {
+          "type": "third-party",
+          "kb": 13689,
+          "n": 44
+        }
+      ],
+      "spread": {
+        "lcpMin": 6953.9645,
+        "lcpMax": 7655.805999999999,
+        "n": 3
+      }
+    }
+  ]
+}

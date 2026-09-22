@@ -14,26 +14,41 @@ export default function PageHero({
   const [loaded, setLoaded] = useState(false);
   const imgRef = useRef(null);
 
+  // `image` is a responsive descriptor from lib/images.js. A plain string is
+  // still accepted — the brochure covers and a couple of static assets pass
+  // one — and simply arrives without a srcSet.
+  const img =
+    typeof image === "string" ? (image ? { src: image } : null) : image || null;
+
+  // Keyed on the URL, not on `image`: the descriptor is a fresh object every
+  // render, so depending on it would reset `loaded` on each render and leave
+  // the hero fading in forever.
+  const src = img?.src || "";
+
   useEffect(() => {
     setLoaded(false);
-    if (!image) return;
+    if (!src) return;
     const el = imgRef.current;
     // Image might already be cached & complete by the time React runs
     // this effect — in that case onLoad won't fire, so check `complete`.
     if (el?.complete && el.naturalWidth > 0) {
       setLoaded(true);
     }
-  }, [image]);
+  }, [src]);
 
   return (
     <section
       className="relative h-[60vh] min-h-[420px] w-full overflow-hidden grain bg-ink-950"
       aria-labelledby="page-hero-title"
     >
-      {image && (
+      {img && (
         <img
           ref={imgRef}
-          src={image}
+          src={img.src}
+          srcSet={img.srcSet || undefined}
+          sizes={img.sizes || undefined}
+          width={img.width || undefined}
+          height={img.height || undefined}
           alt=""
           fetchpriority="high"
           decoding="async"

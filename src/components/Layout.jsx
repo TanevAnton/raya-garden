@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Nav from "./Nav.jsx";
 import Footer from "./Footer.jsx";
@@ -127,7 +127,21 @@ export default function Layout({ lang, setLang, t }) {
       <div ref={progressRef} className="scroll-progress" aria-hidden="true" />
       <Nav lang={lang} setLang={setLang} t={t} />
       <main id="main">
-        <Outlet context={{ lang, t }} />
+        {/* The Suspense boundary sits here rather than around <Routes>, so a
+            route chunk arriving does not unmount the header and footer.
+            The fallback matches the hero's height exactly — 60vh with the
+            same 420px floor and the same background — so a page swapping in
+            shifts nothing and CLS stays at zero. */}
+        <Suspense
+          fallback={
+            <div
+              className="h-[60vh] min-h-[420px] w-full bg-ink-950"
+              aria-hidden="true"
+            />
+          }
+        >
+          <Outlet context={{ lang, t }} />
+        </Suspense>
       </main>
       <Footer t={t} />
     </div>

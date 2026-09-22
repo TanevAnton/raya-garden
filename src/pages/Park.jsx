@@ -5,6 +5,7 @@ import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage } from "../lib/images.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "park"][0]{
   eyebrow, title, subtitle, heroImage, extraImages,
@@ -48,18 +49,24 @@ export default function Park() {
     parkImage: pageLoading
       ? ""
       : pageData?.parkSectionImage
-      ? urlFor(pageData.parkSectionImage).width(1200).quality(80).url()
+      ? urlFor(pageData.parkSectionImage).width(1200).quality(80).auto("format").url()
       : pageData?.heroImage
-      ? urlFor(pageData.heroImage).width(1200).quality(80).url()
+      ? urlFor(pageData.heroImage).width(1200).quality(80).auto("format").url()
       : `${IMG}/hotel-all-17.png`,
     cityImage: pageLoading
       ? ""
       : pageData?.citySectionImage
-      ? urlFor(pageData.citySectionImage).width(1200).quality(80).url()
+      ? urlFor(pageData.citySectionImage).width(1200).quality(80).auto("format").url()
       : pageData?.extraImages?.[0]
-      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).url()
+      ? urlFor(pageData.extraImages[0]).width(1200).quality(80).auto("format").url()
       : `${IMG}/hotel-all-15.png`,
   };
+
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = pageData?.heroImage ? heroImage(pageData?.heroImage) : null;
 
   const parkBlock = findBlock(pageData?.blocks, "parkText");
   const cityBlock = findBlock(pageData?.blocks, "cityText");
@@ -86,7 +93,7 @@ export default function Park() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

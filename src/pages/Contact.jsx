@@ -17,6 +17,7 @@ import { useSeo } from "../hooks/useSeo.js";
 import { trackMeta } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage } from "../lib/images.js";
 
 const PAGE_QUERY = `*[_type == "pageContent" && page == "contact"][0]{
   eyebrow, title, subtitle, heroImage, infoBlockTitle, formNote
@@ -89,6 +90,12 @@ export default function Contact() {
       ? urlFor(pageData.heroImage).width(2000).quality(80).url()
       : `${IMG}/hotel-all-7.png`,
   };
+
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = pageData?.heroImage ? heroImage(pageData?.heroImage) : null;
 
   useSeo({
     title: hero.title,
@@ -163,7 +170,7 @@ export default function Contact() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

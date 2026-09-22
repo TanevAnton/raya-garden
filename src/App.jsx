@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -7,17 +7,27 @@ import {
   useNavigate,
 } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
-import Home from "./pages/Home.jsx";
-import Hotel from "./pages/Hotel.jsx";
-import Restaurant from "./pages/Restaurant.jsx";
-import Winery from "./pages/Winery.jsx";
-import Park from "./pages/Park.jsx";
-import Events from "./pages/Events.jsx";
-import Contact from "./pages/Contact.jsx";
-import Reservations from "./pages/Reservations.jsx";
-import EventPage from "./pages/EventPage.jsx";
-import WeddingConfigurator from "./pages/WeddingConfigurator.jsx";
-import NotFound from "./pages/NotFound.jsx";
+
+// One page per chunk. Every route used to be imported eagerly, so a visitor
+// landing on /events from an ad downloaded the wedding configurator, the
+// booking page and every other route before anything could render. Layout
+// stays eager — it is the frame on every page and splitting it would only
+// add a round trip.
+//
+// The ad landing pages are the ones this is for, so they are named: a chunk
+// called "events" is findable in a network panel, which "index-Ck2f.js" is
+// not.
+const Home = lazy(() => import(/* webpackChunkName: "home" */ "./pages/Home.jsx"));
+const Hotel = lazy(() => import("./pages/Hotel.jsx"));
+const Restaurant = lazy(() => import("./pages/Restaurant.jsx"));
+const Winery = lazy(() => import("./pages/Winery.jsx"));
+const Park = lazy(() => import("./pages/Park.jsx"));
+const Events = lazy(() => import("./pages/Events.jsx"));
+const Contact = lazy(() => import("./pages/Contact.jsx"));
+const Reservations = lazy(() => import("./pages/Reservations.jsx"));
+const EventPage = lazy(() => import("./pages/EventPage.jsx"));
+const WeddingConfigurator = lazy(() => import("./pages/WeddingConfigurator.jsx"));
+const NotFound = lazy(() => import("./pages/NotFound.jsx"));
 import { translations } from "./translations.js";
 import { initClockWbe, setClockLang } from "./lib/clockWbe.js";
 

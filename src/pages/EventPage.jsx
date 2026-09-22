@@ -8,6 +8,7 @@ import { useSeo } from "../hooks/useSeo.js";
 import { useMetaEvent } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
+import { heroImage, contentImage } from "../lib/images.js";
 
 // Generic seasonal/event landing page (New Year, Easter…). Fully driven
 // by an `eventPage` document in Sanity: /event/<slug> renders only while
@@ -37,14 +38,20 @@ export default function EventPage() {
       ? urlFor(data.heroImage).width(2000).quality(80).url()
       : `${IMG}/hotel-all-16.png`,
   };
+
+  // What the browser downloads: a responsive ladder in AVIF/WebP, capped at
+  // the source's own width. `hero.image` deliberately stays a plain 2000px
+  // JPEG URL — it is what og:image advertises, and a share-card scraper
+  // should be handed a real JPEG rather than a negotiated AVIF.
+  const heroSources = data?.heroImage ? heroImage(data?.heroImage) : null;
   const intro = pickLocale(data?.intro, lang);
   const highlights =
     data?.highlights?.[lang] || data?.highlights?.en || data?.highlights?.bg || [];
   const priceText = pickLocale(data?.priceText, lang);
   const gallery = (data?.gallery || []).map((item) => {
-    const main = item.image ? urlFor(item.image).width(1400).quality(82).url() : "";
+    const main = item.image ? contentImage(item.image) : "";
     const extras = (item.extraImages || [])
-      .map((img) => (img ? urlFor(img).width(1400).quality(82).url() : ""))
+      .map((img) => (img ? contentImage(img) : ""))
       .filter(Boolean);
     return {
       images: main ? [main, ...extras] : extras,
@@ -60,7 +67,7 @@ export default function EventPage() {
       url: o.url,
       label: pickLocale(o.label, lang),
       preview: o.previewImage
-        ? urlFor(o.previewImage).width(320).quality(80).url()
+        ? urlFor(o.previewImage).width(320).quality(80).auto("format").url()
         : null,
     }));
 
@@ -104,7 +111,7 @@ export default function EventPage() {
   return (
     <>
       <PageHero
-        image={hero.image}
+        image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
         title={hero.title}
         subtitle={hero.subtitle}

@@ -16,7 +16,7 @@ const EVENT_NAV_QUERY = `*[_type == "eventPage" && active == true] | order(order
 export function Logo({ className = "" }) {
   const { data } = useSanityQuery(LOGO_QUERY);
   const logoUrl = data?.logo
-    ? urlFor(data.logo).width(160).height(160).fit("max").url()
+    ? urlFor(data.logo).width(160).height(160).fit("max").auto("format").url()
     : FALLBACK_LOGO;
 
   return (

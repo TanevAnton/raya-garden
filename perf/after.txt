@@ -1,0 +1,47 @@
+base       https://rayagarden.bg
+profile    Lighthouse mobile default — Slow 4G (150 ms RTT, 1.6 Mbps), 4x CPU
+runs       3 per page, median by LCP
+chrome     /opt/pw-browsers/chromium-1194/chrome-linux/chrome
+
+events-bg  ···
+event-ny-bg  ···
+event-ny-ro  ···
+hotel-bg  ···
+restaurant-bg  ···
+
+=== after ===
+page                  LCP      TTI      TBT     CLS      FCP   transfer  score
+------------------------------------------------------------------------------
+events-bg          6.91 s  10.44 s   0.56 s   0.000   3.02 s    1717 kB     51
+event-ny-bg        6.75 s  10.65 s   0.56 s   0.000   3.06 s    1686 kB     52
+event-ny-ro        6.76 s  10.70 s   0.51 s   0.000   3.09 s    1783 kB     51
+hotel-bg           6.83 s  10.26 s   0.57 s   0.000   3.12 s    1718 kB     50
+restaurant-bg      6.80 s  10.14 s   0.74 s   0.000   3.14 s    1779 kB     47
+
+LCP element per page
+  events-bg        —
+  event-ny-bg      —
+  event-ny-ro      —
+  hotel-bg         —
+  restaurant-bg    —
+
+Render-blocking resources (median run)
+  events-bg
+        669 ms     8 kB  https://rayagarden.bg/assets/index-BVBX2y4l.css
+  event-ny-bg
+        683 ms     8 kB  https://rayagarden.bg/assets/index-BVBX2y4l.css
+  event-ny-ro
+        680 ms     8 kB  https://rayagarden.bg/assets/index-BVBX2y4l.css
+  hotel-bg
+        678 ms     8 kB  https://rayagarden.bg/assets/index-BVBX2y4l.css
+  restaurant-bg
+        679 ms     8 kB  https://rayagarden.bg/assets/index-BVBX2y4l.css
+
+Spread across runs (LCP min → max)
+  events-bg        6.66 s → 7.62 s over 3 run(s)
+  event-ny-bg      6.61 s → 6.88 s over 3 run(s)
+  event-ny-ro      6.75 s → 6.82 s over 3 run(s)
+  hotel-bg         6.73 s → 7.36 s over 3 run(s)
+  restaurant-bg    6.78 s → 6.87 s over 3 run(s)
+
+wrote perf/after.json

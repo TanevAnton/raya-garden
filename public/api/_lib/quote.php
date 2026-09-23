@@ -100,6 +100,20 @@ function raya_ids(array $items): array
  * Returns [$data, $errors]; $errors is field => code and is never empty on
  * rejection, so the browser can highlight exactly what to fix.
  */
+/**
+ * A menu's upgrades, or none while "menuUpgradesEnabled" is false in the
+ * offer. Mirrors upgradesForMenu() in src/lib/weddingPricing.js: with the
+ * add-ons hidden on the page, an upgrade id arriving here is rejected like
+ * any other unknown option, and none is ever priced.
+ */
+function raya_menu_upgrades(array $offer, array $menu): array
+{
+    if (($offer['menuUpgradesEnabled'] ?? true) === false) {
+        return [];
+    }
+    return $menu['upgrades'] ?? [];
+}
+
 function raya_validate(array $in, array $offer): array
 {
     $errors = [];
@@ -167,7 +181,7 @@ function raya_validate(array $in, array $offer): array
     $available = [];
     foreach ($offer['menus'] as $menu) {
         if ($menu['id'] === $d['primaryMenu']) {
-            $available = $menu['upgrades'] ?? [];
+            $available = raya_menu_upgrades($offer, $menu);
         }
     }
     $availableIds = raya_ids($available);
@@ -505,7 +519,7 @@ function raya_build_quote(array $d, array $offer): array
         if ($menu['id'] !== $d['primaryMenu']) {
             continue;
         }
-        foreach ($menu['upgrades'] ?? [] as $upgrade) {
+        foreach (raya_menu_upgrades($offer, $menu) as $upgrade) {
             if (!in_array($upgrade['id'], $d['menuUpgrades'], true)) {
                 continue;
             }

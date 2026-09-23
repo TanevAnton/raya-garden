@@ -50,8 +50,18 @@ export function resolveRate(offer, standardGuests, children) {
   };
 }
 
-/** The upgrades belonging to the chosen variant, indexed by id. */
+/**
+ * The upgrades belonging to the chosen variant, indexed by id.
+ *
+ * `menuUpgradesEnabled: false` in wedding-offer.json hides them everywhere at
+ * once: this returns nothing, so the menu step shows no add-ons, the quote
+ * charges none, the summary lists none, and the draft clean-up drops any a
+ * guest ticked before they were hidden. The data stays in the offer, so
+ * setting it back to true restores them exactly. quote.php honours the same
+ * switch, so the server never accepts what the page cannot show.
+ */
 export function upgradesForMenu(offer, menuId) {
+  if (offer.menuUpgradesEnabled === false) return [];
   return offer.menus.find((m) => m.id === menuId)?.upgrades || [];
 }
 

@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { StepHeading, SliderNumberField, TextArea } from "./fields.jsx";
-import { formatMoney } from "../../lib/weddingPricing.js";
+import { formatMoney, upgradesForMenu } from "../../lib/weddingPricing.js";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
 function MenuCard({ menu, offer, s, lang, selected, onSelect, chosenUpgrades, onToggleUpgrade }) {
+  // Through the helper, not menu.upgrades, so the offer's on/off switch
+  // applies here too.
+  const upgrades = upgradesForMenu(offer, menu.id);
   const [open, setOpen] = useState(false);
 
   return (
@@ -91,7 +94,7 @@ function MenuCard({ menu, offer, s, lang, selected, onSelect, chosenUpgrades, on
         {/* Upgrades belong to this variant, so they live in its card and
             appear once it is chosen — an upgrade to a menu nobody picked is
             just noise in the grid. */}
-        {selected && menu.upgrades?.length > 0 && (
+        {selected && upgrades.length > 0 && (
           <div className="mt-5 pt-5 border-t border-gold-300/10">
             <div className="text-[11px] tracking-[0.2em] uppercase text-gold-300/70">
               {s.menus.upgradesTitle}
@@ -100,7 +103,7 @@ function MenuCard({ menu, offer, s, lang, selected, onSelect, chosenUpgrades, on
               {s.menus.upgradesHint}
             </p>
             <ul className="space-y-2">
-              {menu.upgrades.map((upgrade) => {
+              {upgrades.map((upgrade) => {
                 const chosen = chosenUpgrades.includes(upgrade.id);
                 return (
                   <li key={upgrade.id}>

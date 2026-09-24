@@ -154,101 +154,105 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
           </a>
         </div>
 
-        {status === "sent" ? (
-          <div
-            role="status"
-            className="border border-gold-300/20 bg-ink-900/60 px-6 py-10 text-center rounded-sm"
-          >
-            <div className="font-display text-3xl text-gold-300 mb-3">✓</div>
-            <p className="text-cream-100/85">{s.sent}</p>
-          </div>
-        ) : (
-          <form
-            onSubmit={onSubmit}
-            className="border border-gold-300/15 bg-ink-900/40 p-5 sm:p-7 rounded-sm space-y-5"
-          >
-            {/* honeypot — bots fill this, humans never see it */}
-            <input
-              ref={honeypot}
-              type="text"
-              name="_gotcha"
-              tabIndex={-1}
-              autoComplete="off"
-              className="hidden"
-              aria-hidden="true"
-            />
-            <div className="grid sm:grid-cols-2 gap-5">
-              <TextField
-                label={s.name}
-                value={form.name}
-                onChange={set("name")}
-                autoComplete="name"
-                required
-              />
-              <TextField
-                label={s.phone}
-                type="tel"
-                value={form.phone}
-                onChange={set("phone")}
-                autoComplete="tel"
-                required
-              />
-              <SelectField label={s.type} value={form.type} onChange={set("type")}>
-                <option value="" disabled>
-                  {s.choose}
-                </option>
-                {TYPE_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {s.types[code]}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField label={s.guests} value={form.guests} onChange={set("guests")}>
-                <option value="" disabled>
-                  {s.choose}
-                </option>
-                {GUEST_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {s.guestOptions[code]}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField label={s.month} value={form.month} onChange={set("month")}>
-                <option value="" disabled>
-                  {s.choose}
-                </option>
-                {months.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-                <option value="unknown">{s.monthUnknown}</option>
-              </SelectField>
-            </div>
-
-            <CheckBox checked={form.consent} onChange={set("consent")} required>
-              {s.consent}{" "}
-              <Link to="/privacy-policy" className="text-gold-200 link-underline">
-                {t.footer.links.privacy}
-              </Link>
-              .
-            </CheckBox>
-
-            {status === "error" && (
-              <p role="alert" className="text-sm text-red-300/90">
-                {s.error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={status === "sending"}
-              className="btn-gold w-full sm:w-auto px-10 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm disabled:opacity-60"
+        {/* EnquiryBar watches this box — the form, or what replaces it once
+            sent — to know when to step aside. */}
+        <div id="enquiry-form">
+          {status === "sent" ? (
+            <div
+              role="status"
+              className="border border-gold-300/20 bg-ink-900/60 px-6 py-10 text-center rounded-sm"
             >
-              {status === "sending" ? s.sending : s.submit}
-            </button>
-          </form>
-        )}
+              <div className="font-display text-3xl text-gold-300 mb-3">✓</div>
+              <p className="text-cream-100/85">{s.sent}</p>
+            </div>
+          ) : (
+            <form
+              onSubmit={onSubmit}
+              className="border border-gold-300/15 bg-ink-900/40 p-5 sm:p-7 rounded-sm space-y-5"
+            >
+              {/* honeypot — bots fill this, humans never see it */}
+              <input
+                ref={honeypot}
+                type="text"
+                name="_gotcha"
+                tabIndex={-1}
+                autoComplete="off"
+                className="hidden"
+                aria-hidden="true"
+              />
+              <div className="grid sm:grid-cols-2 gap-5">
+                <TextField
+                  label={s.name}
+                  value={form.name}
+                  onChange={set("name")}
+                  autoComplete="name"
+                  required
+                />
+                <TextField
+                  label={s.phone}
+                  type="tel"
+                  value={form.phone}
+                  onChange={set("phone")}
+                  autoComplete="tel"
+                  required
+                />
+                <SelectField label={s.type} value={form.type} onChange={set("type")}>
+                  <option value="" disabled>
+                    {s.choose}
+                  </option>
+                  {TYPE_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {s.types[code]}
+                    </option>
+                  ))}
+                </SelectField>
+                <SelectField label={s.guests} value={form.guests} onChange={set("guests")}>
+                  <option value="" disabled>
+                    {s.choose}
+                  </option>
+                  {GUEST_CODES.map((code) => (
+                    <option key={code} value={code}>
+                      {s.guestOptions[code]}
+                    </option>
+                  ))}
+                </SelectField>
+                <SelectField label={s.month} value={form.month} onChange={set("month")}>
+                  <option value="" disabled>
+                    {s.choose}
+                  </option>
+                  {months.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                  <option value="unknown">{s.monthUnknown}</option>
+                </SelectField>
+              </div>
+
+              <CheckBox checked={form.consent} onChange={set("consent")} required>
+                {s.consent}{" "}
+                <Link to="/privacy-policy" className="text-gold-200 link-underline">
+                  {t.footer.links.privacy}
+                </Link>
+                .
+              </CheckBox>
+
+              {status === "error" && (
+                <p role="alert" className="text-sm text-red-300/90">
+                  {s.error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={status === "sending"}
+                className="btn-gold w-full sm:w-auto px-10 py-4 text-xs tracking-[0.3em] uppercase font-medium rounded-sm disabled:opacity-60"
+              >
+                {status === "sending" ? s.sending : s.submit}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </section>
   );

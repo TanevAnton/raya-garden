@@ -10,13 +10,17 @@ import { Phone, Send } from "lucide-react";
 // pages have no form of their own, so there it opens the /events form — the
 // same form, reached in one tap, rather than a second copy to keep in step.
 //
-// On /events the bar steps aside while the form is on screen, so it never
-// sits on top of the submit button it is pointing at.
+// On /events the bar steps aside once most of the form is on screen, so it
+// never sits on top of the fields or the submit button it is pointing at.
+// Only the form counts, not the whole block: on a phone the block's heading
+// and call button already fill the first screen, and the bar should be
+// there when the page opens.
 //
 // The phone link needs no tracking of its own: Layout's delegated listener
 // already sends Contact for every tel: link, with the page's category.
 
 const PHONE_HREF = "tel:+359896100100";
+const FORM_SHARE = 0.35; // hide once this share of the form is visible
 
 export default function EnquiryBar({ t, lang }) {
   const s = t.pages.events.enquiry;
@@ -31,11 +35,12 @@ export default function EnquiryBar({ t, lang }) {
   }, []);
 
   useEffect(() => {
-    const target = document.getElementById("enquiry");
+    const target = document.getElementById("enquiry-form");
     if (!target || typeof IntersectionObserver === "undefined") return;
+    // isIntersecting is true for any overlap at all, so the ratio decides.
     const observer = new IntersectionObserver(
-      ([entry]) => setFormInView(entry.isIntersecting),
-      { threshold: 0.2 }
+      ([entry]) => setFormInView(entry.intersectionRatio >= FORM_SHARE),
+      { threshold: FORM_SHARE }
     );
     observer.observe(target);
     return () => observer.disconnect();

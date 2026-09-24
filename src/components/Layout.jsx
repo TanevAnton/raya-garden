@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Nav from "./Nav.jsx";
 import Footer from "./Footer.jsx";
-import { trackMeta } from "../lib/metaPixel.js";
+import { trackMeta, contentCategoryForPath, contactMethodForHref } from "../lib/metaPixel.js";
 
 export default function Layout({ lang, setLang, t }) {
   const { pathname } = useLocation();
@@ -48,13 +48,26 @@ export default function Layout({ lang, setLang, t }) {
     });
   }, [pathname]);
 
-  // One delegated listener rather than a handler on each of the nine tel:
-  // links scattered across seven files — and it covers any added later.
-  // Capture phase, so it still counts if something stops propagation.
+  // One delegated listener rather than a handler on each contact link — the
+  // tel: and mailto: links are spread across a dozen places, and a Viber or
+  // WhatsApp link added later (there are none today) is covered without
+  // touching this. Capture phase, so it still counts if something stops
+  // propagation. Registered once per language, so each click is one event.
+  //
+  // The category is read from the URL at click time rather than from the
+  // `pathname` above, which this effect does not depend on and would see
+  // stale.
   useEffect(() => {
     const onClick = (event) => {
-      if (!event.target?.closest?.('a[href^="tel:"]')) return;
-      trackMeta("Contact", { lang });
+      const link = event.target?.closest?.("a[href]");
+      if (!link) return;
+      const method = contactMethodForHref(link.getAttribute("href"));
+      if (!method) return;
+      trackMeta("Contact", {
+        content_category: contentCategoryForPath(window.location.pathname),
+        method,
+        lang,
+      });
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

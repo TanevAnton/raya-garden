@@ -32,9 +32,37 @@ would race it. That is why the funnel is not in the React bundle.
 | `ViewContent` | `/hotel` | `content_type: hotel_room`, `content_ids: ['hotel']`, `content_name`, `lang` |
 | `ViewContent` | `/restaurant` | `content_type: restaurant`, `content_ids: ['restaurant']` |
 | `ViewContent` | `/event/<slug>` | `content_type: event`, `content_ids: [slug]` |
-| `Lead` | contact form | `content_name: 'Contact form'`, `lang` |
-| `Lead` | wedding configurator | `content_name: 'Wedding configurator'`, `lang` |
-| `Contact` | any `tel:` link | `lang` |
+| `Lead` | contact form | `content_name: 'Contact form'`, `content_category` by topic, `lang` |
+| `Lead` | wedding configurator | `content_name: 'Wedding configurator'`, `content_category: 'events'`, `lang` |
+| `Contact` | any `tel:`, `mailto:`, `viber:` or WhatsApp (`wa.me`, `api.whatsapp.com`, `whatsapp:`) link | `method`, `content_category` by page, `lang` |
+
+### `content_category`
+
+One of `events`, `hotel`, `restaurant`, `nye` — the four ad categories — so
+results split the way the campaigns do. `contentCategoryForPath()` and
+`contactMethodForHref()` in `src/lib/metaPixel.js` decide it.
+
+| Where | Category |
+| --- | --- |
+| `/event/nova-godina*` | `nye` (by slug, so next year's page needs no change) |
+| `/events`, `/svatben-konfigurator`, any other `/event/<slug>` | `events` |
+| `/hotel`, `/book`, the Clock booking request | `hotel` |
+| `/restaurant` | `restaurant` |
+| contact form topic Резервация / Сватба или събитие / Ресторант | `hotel` / `events` / `restaurant` |
+| `/`, `/contact`, `/park`, `/winery`, legal pages; topics Езеро, Друго | none — sent without a category rather than a wrong one |
+
+`method` on `Contact` is `phone`, `email`, `viber` or `whatsapp`. The site has
+no Viber or WhatsApp links today; the listener counts them when they appear.
+
+### Nothing fires twice
+
+The pixel is initialised once, in `index.html`. GTM container
+`GTM-M5Z8T4VB` carries no Meta tag (no pixel id, no `fbq`, no `fbevents` —
+checked 24.09.2026); its tags are GA4 only. Meta's own config for the pixel
+has no Event Setup Tool rules. What it does have on is automatic button-click
+detection, which sends `SubscribedButtonClick` alongside a `Contact` when a
+phone button is tapped — a different event, not a duplicate, and switchable
+off in Events Manager → Settings → Automatic events.
 
 Every one carries a UUID `eventID`, so the same conversion sent later by the
 Conversions API is deduplicated rather than counted twice.
@@ -100,6 +128,11 @@ a `tel:` link, and drives the Clock callback through all six steps. It prints
 every event with its params and asserts:
 
 - the exact event per route and per funnel step
+- `Contact` with the right `method` and `content_category` for phone, email,
+  Viber and WhatsApp links, exactly once, and nothing for an ordinary link
+- `Lead` with the right `content_category` for each form and topic, exactly
+  once — and no `Lead` when Formspree or the wedding endpoint refuses, when
+  required fields are empty, or when consent is unticked
 - `9900` → `99`, never `9900`
 - nulls and empty strings stripped rather than sent
 - an `eventID` on every site event, and `clock-<numbers>` on `Purchase`

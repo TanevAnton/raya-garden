@@ -379,8 +379,11 @@
             }, ids.length ? 'clock-' + ids.join('-') : null);
             break;
           case 'offer':
+            // A room booking request the guest submitted inside Clock — the
+            // booking engine is rooms only, so its category is always hotel.
             send('Lead', {
               content_name: 'Clock offer',
+              content_category: 'hotel',
               content_ids: p.offerNumber ? [String(p.offerNumber)] : null
             });
             break;

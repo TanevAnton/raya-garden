@@ -90,8 +90,8 @@ const browser = await puppeteer.launch({
 // cross-origin, and a stubbed response without it is rejected by the
 // browser exactly like a network failure — which reads as "the event never
 // fired" rather than "the test lied".
-const json = (body) => ({
-  status: 200,
+const json = (body, status = 200) => ({
+  status,
   contentType: "application/json",
   headers: {
     "Access-Control-Allow-Origin": "*",
@@ -101,7 +101,7 @@ const json = (body) => ({
   body: JSON.stringify(body),
 });
 
-const open = async (path) => {
+const open = async (path, { failBackends = false } = {}) => {
   const page = await browser.newPage();
   await page.evaluateOnNewDocument(CAPTURE);
   await page.setRequestInterception(true);
@@ -110,10 +110,16 @@ const open = async (path) => {
     if (url.includes(".sanity.io")) {
       return req.respond(json({ result: sanityAnswer(url) }));
     }
-    // Both enquiry backends answer success, so the Lead paths are reachable.
-    if (url.includes("formspree.io")) return req.respond(json({}));
+    // Both enquiry backends answer success, so the Lead paths are reachable
+    // — or, with failBackends, refuse, to prove a Lead needs a real success.
+    if (url.includes("formspree.io")) {
+      return req.respond(failBackends ? json({ errors: [{ message: "test refusal" }] }, 422) : json({}));
+    }
     if (url.includes("/api/wedding-enquiry.php")) {
-      return req.respond(json({ ok: true, reference: "RG-WD-TEST" }));
+      return req.respond(
+        failBackends ? json({ ok: false, errors: { email: "invalid" } }, 422)
+                     : json({ ok: true, reference: "RG-WD-TEST" })
+      );
     }
     // Clock's real bundle would register its own callback; the page defines
     // ours regardless, and the funnel steps are invoked directly below.
@@ -176,51 +182,81 @@ for (const path of [
   await page.close();
 }
 
-// ── Part A: a tel: click ─────────────────────────────────────────────
-{
-  const page = await open("/contact?lang=bg");
-  // The footer carries one on every page, but /contact is the page that
-  // exists to show the number — and it renders without waiting on Sanity.
-  await page.waitForSelector('a[href^="tel:"]', { timeout: 8000 });
-  await page.evaluate(() => {
+// ── Part A: contact links — every method, every category ────────────
+// Real links where the site has them (/contact's phone and email). Viber
+// and WhatsApp links do not exist on the site yet, so those are injected —
+// which exercises the same delegated listener a future real link would hit.
+// Each click is cancelled after the capture-phase listener has run, so no
+// dialler or mail client opens. `count` pins "fires once".
+const CONTACT_CASES = [
+  { where: "contact link: tel on /contact", path: "/contact?lang=bg", real: 'a[href^="tel:"]' },
+  { where: "contact link: mailto on /contact", path: "/contact?lang=bg", real: 'main a[href^="mailto:"]' },
+  { where: "contact link: tel on /hotel", path: "/hotel?lang=bg", href: "tel:+359896100100" },
+  { where: "contact link: tel on /events", path: "/events?lang=bg", href: "tel:+359896100100" },
+  { where: "contact link: viber on /restaurant", path: "/restaurant?lang=en", href: "viber://chat?number=%2B359896100100" },
+  { where: `contact link: wa.me on /event/${EVENT_SLUG}`, path: `/event/${EVENT_SLUG}?lang=ro`, href: "https://wa.me/359896100100" },
+  { where: "contact link: api.whatsapp on /events", path: "/events?lang=bg", href: "https://api.whatsapp.com/send?phone=359896100100" },
+  { where: "contact link: ordinary link on /hotel", path: "/hotel?lang=bg", href: "/contact" },
+];
+for (const c of CONTACT_CASES) {
+  const page = await open(c.path);
+  if (c.real) await page.waitForSelector(c.real, { timeout: 8000 });
+  await page.evaluate(({ real, href }) => {
     window.__fbqCalls.length = 0;
-    const a = document.querySelector('a[href^="tel:"]');
-    if (!a) throw new Error("no tel: link found");
+    let a = real ? document.querySelector(real) : null;
+    if (!a) {
+      a = document.createElement("a");
+      a.href = href;
+      a.textContent = "test link";
+      document.querySelector("main").appendChild(a);
+    }
     // The production listener is on document in the capture phase, so it
     // has already run by the time this one cancels the navigation.
     a.addEventListener("click", (e) => e.preventDefault(), { once: true });
     a.click();
-  });
+  }, c);
   await sleep(300);
-  record("tel: click", await page.evaluate(() => window.__fbqCalls));
+  record(c.where, await page.evaluate(() => window.__fbqCalls));
   await page.close();
 }
 
-// ── Part A: the contact form, on a confirmed send ────────────────────
-{
-  const page = await open("/contact?lang=bg");
+// ── Part A: the contact form — Lead on a confirmed send, and only then ──
+// topic: index into the dropdown (same order in every language).
+// empty: leave the required fields blank, so the browser refuses to submit.
+async function submitContact(where, { topic = 0, failBackends = false, empty = false } = {}) {
+  const page = await open("/contact?lang=bg", { failBackends });
   await page.evaluate(() => (window.__fbqCalls.length = 0));
-  await page.evaluate(() => {
+  await page.evaluate(({ topic, empty }) => {
     const proto = (el) => Object.getPrototypeOf(el);
     const set = (el, v) => {
       Object.getOwnPropertyDescriptor(proto(el), "value").set.call(el, v);
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.dispatchEvent(new Event("change", { bubbles: true }));
     };
-    for (const el of document.querySelectorAll("form input, form textarea")) {
-      if (el.type === "hidden" || el.name === "_gotcha") continue;
-      set(el, el.type === "email" ? "test@example.com" : "Тест Тестов");
+    if (!empty) {
+      for (const el of document.querySelectorAll("form input, form textarea")) {
+        if (el.type === "hidden" || el.name === "_gotcha") continue;
+        set(el, el.type === "email" ? "test@example.com" : "Тест Тестов");
+      }
     }
-  });
+    const select = document.querySelector("form select");
+    if (select) set(select, select.options[topic].value);
+  }, { topic, empty });
   await clickText(page, /Изпрати|Send/i);
   await sleep(1400);
-  record("/contact submit", await page.evaluate(() => window.__fbqCalls));
+  record(where, await page.evaluate(() => window.__fbqCalls));
   await page.close();
 }
+await submitContact("/contact submit [topic: Резервация]", { topic: 0 });
+await submitContact("/contact submit [topic: Сватба или събитие]", { topic: 1 });
+await submitContact("/contact submit [topic: Ресторант]", { topic: 2 });
+await submitContact("/contact submit [topic: Езеро]", { topic: 3 });
+await submitContact("/contact submit refused by Formspree", { failBackends: true });
+await submitContact("/contact submit with required fields empty", { empty: true });
 
-// ── Part A: the wedding configurator, on the endpoint's confirmation ──
-{
-  const page = await open("/svatben-konfigurator?lang=bg");
+// ── Part A: the wedding configurator — Lead on the endpoint's confirmation ─
+async function submitConfigurator(where, { failBackends = false, consent = true } = {}) {
+  const page = await open("/svatben-konfigurator?lang=bg", { failBackends });
   const next = async () => {
     await clickText(page, /^Напред$/);
     await sleep(600);
@@ -236,18 +272,23 @@ for (const path of [
   await fill(page, "input[type=text]", "Тест Тестов", 0);
   await fill(page, "input[type=tel]", "+359888123456", 0);
   await fill(page, "input[type=email]", "test@example.com", 0);
-  await page.evaluate(() => {
-    const boxes = document.querySelectorAll('input[type=checkbox]');
-    const consent = boxes[boxes.length - 1];
-    if (consent && !consent.checked) consent.click();
-  });
+  if (consent) {
+    await page.evaluate(() => {
+      const boxes = document.querySelectorAll('input[type=checkbox]');
+      const box = boxes[boxes.length - 1];
+      if (box && !box.checked) box.click();
+    });
+  }
   await sleep(200);
   await page.evaluate(() => (window.__fbqCalls.length = 0));
   await clickText(page, /Изпрати запитване/);
   await sleep(1800);
-  record("/svatben-konfigurator submit", await page.evaluate(() => window.__fbqCalls));
+  record(where, await page.evaluate(() => window.__fbqCalls));
   await page.close();
 }
+await submitConfigurator("/svatben-konfigurator submit");
+await submitConfigurator("/svatben-konfigurator submit refused by the endpoint", { failBackends: true });
+await submitConfigurator("/svatben-konfigurator submit without consent", { consent: false });
 
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
@@ -423,21 +464,33 @@ for (const r of rows) {
 }
 
 // ── expectations ─────────────────────────────────────────────────────
-const find = (event, where) => rows.find((r) => r.event === event && r.where.includes(where));
+const find = (event, where) =>
+  rows.find((r) => r.event === event && (r.where === where || (r.where.includes(where) && !r.where.includes(" refused") && !r.where.includes(" without") && !r.where.includes(" empty"))));
 
 const expect = [
   ["ViewContent", "/hotel", { content_type: "hotel_room", content_ids: ["hotel"] }],
   ["ViewContent", "/restaurant", { content_type: "restaurant", content_ids: ["restaurant"] }],
   ["ViewContent", `/event/${EVENT_SLUG}`, { content_type: "event", content_ids: [EVENT_SLUG] }],
-  ["Contact", "tel:", {}],
-  ["Lead", "/contact submit", { content_name: "Contact form" }],
-  ["Lead", "/svatben-konfigurator submit", { content_name: "Wedding configurator" }],
+  // Contact: method always; content_category only on the four ad sections.
+  ["Contact", "contact link: tel on /contact", { method: "phone", content_category: undefined }],
+  ["Contact", "contact link: mailto on /contact", { method: "email", content_category: undefined }],
+  ["Contact", "contact link: tel on /hotel", { method: "phone", content_category: "hotel" }],
+  ["Contact", "contact link: tel on /events", { method: "phone", content_category: "events" }],
+  ["Contact", "contact link: viber on /restaurant", { method: "viber", content_category: "restaurant" }],
+  ["Contact", `contact link: wa.me on /event/${EVENT_SLUG}`, { method: "whatsapp", content_category: "nye" }],
+  ["Contact", "contact link: api.whatsapp on /events", { method: "whatsapp", content_category: "events" }],
+  // Lead: content_category from the form or the topic chosen.
+  ["Lead", "/contact submit [topic: Резервация]", { content_name: "Contact form", content_category: "hotel" }],
+  ["Lead", "/contact submit [topic: Сватба или събитие]", { content_category: "events" }],
+  ["Lead", "/contact submit [topic: Ресторант]", { content_category: "restaurant" }],
+  ["Lead", "/contact submit [topic: Езеро]", { content_category: undefined }],
+  ["Lead", "/svatben-konfigurator submit", { content_name: "Wedding configurator", content_category: "events" }],
   ["Search", "clock: rooms", {}],
   ["ViewContent", "clock: rates", { content_name: "Double Deluxe" }],
   ["AddToCart", "clock: extras", { content_name: "Double Deluxe" }],
   ["InitiateCheckout", "clock: checkout", { value: 99, currency: "EUR", num_items: 2 }],
   ["Purchase", "clock: completed", { value: 99, currency: "EUR", num_items: 2 }],
-  ["Lead", "clock: offer", { content_ids: ["55123"] }],
+  ["Lead", "clock: offer", { content_ids: ["55123"], content_category: "hotel" }],
 ];
 
 for (const [event, where, want] of expect) {
@@ -452,6 +505,34 @@ for (const [event, where, want] of expect) {
       failures.push(`${event} at ${where}: ${k} is ${actual}, expected ${JSON.stringify(v)}`);
     }
   }
+}
+
+// Exactly one event per action — a second would double-count in Ads Manager.
+for (const c of CONTACT_CASES) {
+  const n = rows.filter((r) => r.where === c.where && r.event === "Contact").length;
+  const want = c.href === "/contact" ? 0 : 1;
+  if (n !== want) failures.push(`${c.where}: Contact fired ${n} time(s), expected ${want}`);
+}
+for (const where of [
+  "/contact submit [topic: Резервация]",
+  "/contact submit [topic: Сватба или събитие]",
+  "/contact submit [topic: Ресторант]",
+  "/contact submit [topic: Езеро]",
+  "/svatben-konfigurator submit",
+]) {
+  const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
+  if (n !== 1) failures.push(`${where}: Lead fired ${n} time(s), expected exactly 1`);
+}
+// Never on a click, a refusal or a validation error.
+for (const where of [
+  "/contact submit refused by Formspree",
+  "/contact submit with required fields empty",
+  "/svatben-konfigurator submit refused by the endpoint",
+  "/svatben-konfigurator submit without consent",
+]) {
+  const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
+  if (n !== 0) failures.push(`${where}: Lead fired ${n} time(s) — it must not`);
+  else console.log(`no Lead, correctly: ${where}`);
 }
 
 // The one that silently ruins reported revenue.

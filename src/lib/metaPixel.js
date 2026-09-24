@@ -47,6 +47,45 @@ function clean(params) {
 }
 
 /**
+ * The ad category a page belongs to, sent as content_category so results can
+ * be split the way the campaigns are: events, hotel, restaurant, nye.
+ *
+ * Only pages that plainly belong to one of the four get a value. The home
+ * page, /contact, /park, /winery and the legal pages are about the whole
+ * place, and labelling a call from them "hotel" would make the hotel look
+ * better than it is — they return undefined, which clean() drops.
+ *
+ * NYE is matched on the slug, so next year's /event/nova-godina-2028 is
+ * classified without a code change; every other event page is "events".
+ */
+export function contentCategoryForPath(pathname = "") {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (/^\/event\/nova-godina/.test(path)) return "nye";
+  if (path === "/events" || path === "/svatben-konfigurator" || path.startsWith("/event/")) {
+    return "events";
+  }
+  if (path === "/hotel" || path === "/book") return "hotel";
+  if (path === "/restaurant") return "restaurant";
+  return undefined;
+}
+
+/**
+ * Which way a guest is reaching out, from a link's href — or null when the
+ * link is not a contact link at all. WhatsApp has three spellings in the
+ * wild (wa.me, api.whatsapp.com, the whatsapp: scheme); all count.
+ */
+export function contactMethodForHref(href = "") {
+  const h = String(href).trim().toLowerCase();
+  if (h.startsWith("tel:")) return "phone";
+  if (h.startsWith("mailto:")) return "email";
+  if (h.startsWith("viber:")) return "viber";
+  if (h.startsWith("whatsapp:") || /^https?:\/\/(www\.)?(wa\.me|api\.whatsapp\.com)\//.test(h)) {
+    return "whatsapp";
+  }
+  return null;
+}
+
+/**
  * Send one event. Returns the eventID used, or null when nothing was sent
  * (no pixel, or it threw) — callers ignore it; it exists for tests.
  */

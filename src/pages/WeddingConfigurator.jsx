@@ -373,7 +373,11 @@ export default function WeddingConfigurator() {
         setStatus("sent");
         // The endpoint confirmed delivery — see README-wedding-enquiry.md;
         // a 422 or a transport failure never reaches this branch.
-        trackMeta("Lead", { content_name: "Wedding configurator", lang });
+        trackMeta("Lead", {
+          content_name: "Wedding configurator",
+          content_category: "events",
+          lang,
+        });
         try {
           window.sessionStorage.removeItem(STORAGE_KEY);
         } catch {

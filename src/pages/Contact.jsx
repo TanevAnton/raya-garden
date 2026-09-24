@@ -49,6 +49,12 @@ function buildMailto(form, lang, email) {
   )}&body=${encodeURIComponent(lines.join("\n"))}`;
 }
 
+// content_category for the Lead, by the topic's position in tp.topics — the
+// same in every language (Reservation, Wedding or event, Restaurant, Lake,
+// Other). The lake and "other" belong to none of the ad categories and are
+// sent without one rather than forced into the wrong bucket.
+const TOPIC_CATEGORY = ["hotel", "events", "restaurant"];
+
 export default function Contact() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.contact;
@@ -155,7 +161,11 @@ export default function Contact() {
       // Here and nowhere earlier: Formspree answered ok. The mailto branch
       // above only opens a mail client and cannot know whether anything was
       // ever sent, so it reports no conversion.
-      trackMeta("Lead", { content_name: "Contact form", lang });
+      trackMeta("Lead", {
+        content_name: "Contact form",
+        content_category: TOPIC_CATEGORY[tp.topics.indexOf(form.topic)],
+        lang,
+      });
     } catch (err) {
       console.error("[Formspree] error:", err);
       setStatus("error");

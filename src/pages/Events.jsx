@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useOutletContext, useSearchParams } from "react-router-dom";
 import { Heart, Briefcase, Phone, ExternalLink, Sparkles } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
+import EventEnquiry from "../components/EventEnquiry.jsx";
+import EnquiryBar from "../components/EnquiryBar.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
@@ -144,6 +146,25 @@ export default function Events() {
   const { lang, t } = useOutletContext();
   const tp = t.pages.events;
 
+  // ?for=corporate — the corporate ads land here. Only the hero's headline
+  // and subtitle change; the page, its SEO title and canonical stay the same,
+  // so the variant is a message, not a second page.
+  const [searchParams] = useSearchParams();
+  const corporate = searchParams.get("for") === "corporate";
+
+  // Arriving from an event page's "Запитване" (/events#enquiry): scroll to
+  // the form once the page is up. Deferred so it lands after Layout's
+  // scroll-to-top on route change rather than being undone by it.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash !== "#enquiry") return;
+    const timer = setTimeout(
+      () => document.getElementById("enquiry")?.scrollIntoView({ block: "start" }),
+      150
+    );
+    return () => clearTimeout(timer);
+  }, [hash]);
+
   const { data: pageData, loading: pageLoading } = useSanityQuery(PAGE_QUERY);
   const { data: brochures, loading: brochuresLoading } =
     useSanityQuery(BROCHURES_QUERY);
@@ -223,10 +244,13 @@ export default function Events() {
       <PageHero
         image={heroSources || hero.image}
         eyebrow={hero.eyebrow}
-        title={hero.title}
-        subtitle={hero.subtitle}
+        title={corporate ? tp.corporateTitle : hero.title}
+        subtitle={corporate ? tp.corporateSubtitle : hero.subtitle}
         ready={!pageLoading}
       />
+      {/* Straight under the hero and outside the fade below: it needs nothing
+          from Sanity, so it is usable while the rest of the page loads. */}
+      <EventEnquiry t={t} lang={lang} corporate={corporate} />
       <div
         className={`transition-opacity duration-700 ease-out ${
           bodyLoading ? "opacity-0" : "opacity-100"
@@ -335,6 +359,7 @@ export default function Events() {
         </div>
       </section>
       </div>
+      <EnquiryBar t={t} lang={lang} />
     </>
   );
 }

@@ -176,8 +176,12 @@ export function TextArea({ label, hint, error, value, onChange, placeholder, row
   );
 }
 
-/** Square gold checkbox — the native control, restyled rather than replaced. */
-export function CheckBox({ checked, onChange, children, id }) {
+/**
+ * Square gold checkbox — the native control, restyled rather than replaced.
+ * `required` hands the check to the browser, so a form cannot submit without
+ * it; the configurator validates its own consent and leaves it off.
+ */
+export function CheckBox({ checked, onChange, children, id, required }) {
   const generated = useId();
   const inputId = id || generated;
   return (
@@ -186,6 +190,7 @@ export function CheckBox({ checked, onChange, children, id }) {
         id={inputId}
         type="checkbox"
         checked={checked}
+        required={required}
         onChange={(e) => onChange(e.target.checked)}
         className="mt-1 w-4 h-4 flex-shrink-0 accent-[#d7b85f] bg-ink-950 border border-gold-300/40 cursor-pointer"
       />

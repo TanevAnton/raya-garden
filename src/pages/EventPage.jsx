@@ -1,6 +1,7 @@
 import { useParams, useOutletContext, Link } from "react-router-dom";
 import { Check, Phone, ArrowRight, Download } from "lucide-react";
 import PageHero from "../components/PageHero.jsx";
+import EnquiryBar from "../components/EnquiryBar.jsx";
 import MediaGallery from "../components/MediaGallery.jsx";
 import NotFound from "./NotFound.jsx";
 import { IMG } from "../data.js";
@@ -280,6 +281,7 @@ export default function EventPage() {
         )}
 
       </div>
+      <EnquiryBar t={t} lang={lang} />
     </>
   );
 }

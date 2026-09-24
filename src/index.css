@@ -245,3 +245,12 @@
     width: 100%;
   }
 }
+
+/* Room at the foot of the page for the mobile enquiry bar (EnquiryBar.jsx),
+   so the footer's last line is never underneath it. Phones only — the bar is
+   md:hidden, and so is the space it needs. */
+@media (max-width: 767.98px) {
+  body.has-enquiry-bar {
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+  }
+}

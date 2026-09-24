@@ -13,6 +13,7 @@ src/lib/metaPixel.js        trackMeta() / useMetaEvent() — every site event
   ├── Restaurant.jsx        ViewContent
   ├── EventPage.jsx         ViewContent
   ├── Contact.jsx           Lead
+  ├── EventEnquiry.jsx      Lead (the /events enquiry block)
   └── WeddingConfigurator   Lead
 
 index.html (inline script)  the Clock PMS booking funnel
@@ -34,6 +35,7 @@ would race it. That is why the funnel is not in the React bundle.
 | `ViewContent` | `/event/<slug>` | `content_type: event`, `content_ids: [slug]` |
 | `Lead` | contact form | `content_name: 'Contact form'`, `content_category` by topic, `lang` |
 | `Lead` | wedding configurator | `content_name: 'Wedding configurator'`, `content_category: 'events'`, `lang` |
+| `Lead` | /events enquiry block | `content_name: 'Events enquiry form'`, `content_category: 'events'`, `event_type` (`corporate` / `wedding` / `birthday` / `other`), `lang` |
 | `Contact` | any `tel:`, `mailto:`, `viber:` or WhatsApp (`wa.me`, `api.whatsapp.com`, `whatsapp:`) link | `method`, `content_category` by page, `lang` |
 
 ### `content_category`
@@ -123,8 +125,9 @@ DEV_BASE=http://127.0.0.1:5173 npm run check:meta   # adds the StrictMode check
 
 `scripts/check-meta-events.mjs` stubs `window.fbq` before any page script
 (the pixel's own snippet starts `if (f.fbq) return;`, so it leaves the stub
-alone), walks every route, submits both forms against stubbed backends, clicks
-a `tel:` link, and drives the Clock callback through all six steps. It prints
+alone), walks every route, submits the three forms against stubbed backends,
+taps the phone links and the mobile bar on /events and an event page, and
+drives the Clock callback through all six steps. It prints
 every event with its params and asserts:
 
 - the exact event per route and per funnel step
@@ -133,6 +136,11 @@ every event with its params and asserts:
 - `Lead` with the right `content_category` for each form and topic, exactly
   once — and no `Lead` when Formspree or the wedding endpoint refuses, when
   required fields are empty, or when consent is unticked
+- the /events enquiry: `event_type` from the dropdown (`corporate` preselected
+  by `?for=corporate`), the email subject `Запитване за събитие – <Тип>`, and
+  nothing sent at all when a field, the event type or consent is missing;
+  the call buttons send `Contact` only, and the bar's «Запитване» sends
+  nothing
 - `9900` → `99`, never `9900`
 - nulls and empty strings stripped rather than sent
 - an `eventID` on every site event, and `clock-<numbers>` on `Purchase`

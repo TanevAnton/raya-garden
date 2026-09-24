@@ -101,8 +101,13 @@ const json = (body, status = 200) => ({
   body: JSON.stringify(body),
 });
 
-const open = async (path, { failBackends = false } = {}) => {
+const formspreeBodies = [];
+
+const open = async (path, { failBackends = false, mobile = false } = {}) => {
   const page = await browser.newPage();
+  if (mobile) {
+    await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  }
   await page.evaluateOnNewDocument(CAPTURE);
   await page.setRequestInterception(true);
   page.on("request", (req) => {
@@ -113,6 +118,7 @@ const open = async (path, { failBackends = false } = {}) => {
     // Both enquiry backends answer success, so the Lead paths are reachable
     // — or, with failBackends, refuse, to prove a Lead needs a real success.
     if (url.includes("formspree.io")) {
+      formspreeBodies.push(req.postData() || "");
       return req.respond(failBackends ? json({ errors: [{ message: "test refusal" }] }, 422) : json({}));
     }
     if (url.includes("/api/wedding-enquiry.php")) {
@@ -290,6 +296,74 @@ await submitConfigurator("/svatben-konfigurator submit");
 await submitConfigurator("/svatben-konfigurator submit refused by the endpoint", { failBackends: true });
 await submitConfigurator("/svatben-konfigurator submit without consent", { consent: false });
 
+// ── Part A: the /events enquiry form (and the mobile bar) ───────────
+// fields: which of name/phone/type/guests/month/consent to fill; anything
+// left out stays empty, so the browser's own validation must stop the
+// submit before any code — or any Lead — runs.
+const subjectOf = (body) => (/name="_subject"\r\n\r\n([^\r]*)/.exec(body) || [])[1] || null;
+async function submitEventsEnquiry(where, {
+  path = "/events?lang=bg",
+  failBackends = false,
+  fields = { name: true, phone: true, type: "wedding", guests: "20-50", month: "unknown", consent: true },
+} = {}) {
+  const page = await open(path, { failBackends, mobile: true });
+  await page.waitForSelector("#enquiry form", { timeout: 8000 });
+  const sentBefore = formspreeBodies.length;
+  if (fields.name) await fill(page, '#enquiry input[autocomplete="name"]', "Тест Тестов");
+  if (fields.phone) await fill(page, '#enquiry input[type="tel"]', "+359888123456");
+  if (fields.type) await fill(page, "#enquiry select", fields.type, 0);
+  if (fields.guests) await fill(page, "#enquiry select", fields.guests, 1);
+  if (fields.month) await fill(page, "#enquiry select", fields.month, 2);
+  if (fields.consent) await page.evaluate(() => document.querySelector('#enquiry input[type="checkbox"]').click());
+  await sleep(200);
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await page.evaluate(() => document.querySelector('#enquiry button[type="submit"]').click());
+  await sleep(1400);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  const sent = formspreeBodies.slice(sentBefore);
+  enquiryPosts[where] = { count: sent.length, subject: sent.length ? subjectOf(sent[0]) : null };
+  await page.close();
+}
+const enquiryPosts = {};
+await submitEventsEnquiry("/events?for=corporate enquiry sent", {
+  path: "/events?for=corporate&lang=bg",
+  fields: { name: true, phone: true, type: null, guests: "50-100", month: "unknown", consent: true },
+});
+await submitEventsEnquiry("/events enquiry sent [Сватба]");
+await submitEventsEnquiry("/events enquiry refused by Formspree", { failBackends: true });
+await submitEventsEnquiry("/events enquiry without consent", {
+  fields: { name: true, phone: true, type: "wedding", guests: "20-50", month: "unknown", consent: false },
+});
+await submitEventsEnquiry("/events enquiry with name empty", {
+  fields: { name: false, phone: true, type: "wedding", guests: "20-50", month: "unknown", consent: true },
+});
+await submitEventsEnquiry("/events enquiry with type not chosen", {
+  fields: { name: true, phone: true, type: null, guests: "20-50", month: "unknown", consent: true },
+});
+
+// The call button in the block, and the mobile bar on /events and an event page.
+async function tap(where, path, selector) {
+  const page = await open(path, { mobile: true });
+  await page.waitForSelector(selector, { timeout: 8000 });
+  await page.evaluate((sel) => {
+    window.__fbqCalls.length = 0;
+    const a = document.querySelector(sel);
+    // Cancel the dialler; the capture-phase listener has already run.
+    if (a.tagName === "A") a.addEventListener("click", (e) => e.preventDefault(), { once: true });
+    a.click();
+  }, selector);
+  await sleep(700);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  const url = await page.evaluate(() => location.pathname + location.hash);
+  await page.close();
+  return url;
+}
+await tap("/events enquiry call button", "/events?lang=bg", '#enquiry a[href^="tel:"]');
+await tap("/events mobile bar: call", "/events?lang=bg", 'div.fixed.bottom-0 a[href^="tel:"]');
+await tap("/events mobile bar: Запитване", "/events?lang=bg", "div.fixed.bottom-0 button");
+await tap(`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}?lang=bg`, 'div.fixed.bottom-0 a[href^="tel:"]');
+const barLanding = await tap(`/event/${EVENT_SLUG} mobile bar: Запитване`, `/event/${EVENT_SLUG}?lang=bg`, "div.fixed.bottom-0 button");
+
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
 // every effect in development and not in a production build, so a dev
@@ -465,7 +539,7 @@ for (const r of rows) {
 
 // ── expectations ─────────────────────────────────────────────────────
 const find = (event, where) =>
-  rows.find((r) => r.event === event && (r.where === where || (r.where.includes(where) && !r.where.includes(" refused") && !r.where.includes(" without") && !r.where.includes(" empty"))));
+  rows.find((r) => r.event === event && (r.where === where || (r.where.includes(where) && !r.where.includes(" refused") && !r.where.includes(" without") && !r.where.includes(" empty") && !r.where.includes(" not chosen"))));
 
 const expect = [
   ["ViewContent", "/hotel", { content_type: "hotel_room", content_ids: ["hotel"] }],
@@ -485,6 +559,11 @@ const expect = [
   ["Lead", "/contact submit [topic: Ресторант]", { content_category: "restaurant" }],
   ["Lead", "/contact submit [topic: Езеро]", { content_category: undefined }],
   ["Lead", "/svatben-konfigurator submit", { content_name: "Wedding configurator", content_category: "events" }],
+  ["Lead", "/events?for=corporate enquiry sent", { content_name: "Events enquiry form", content_category: "events", event_type: "corporate" }],
+  ["Lead", "/events enquiry sent [Сватба]", { content_category: "events", event_type: "wedding" }],
+  ["Contact", "/events enquiry call button", { method: "phone", content_category: "events" }],
+  ["Contact", "/events mobile bar: call", { method: "phone", content_category: "events" }],
+  ["Contact", `/event/${EVENT_SLUG} mobile bar: call`, { method: "phone", content_category: "nye" }],
   ["Search", "clock: rooms", {}],
   ["ViewContent", "clock: rates", { content_name: "Double Deluxe" }],
   ["AddToCart", "clock: extras", { content_name: "Double Deluxe" }],
@@ -519,9 +598,43 @@ for (const where of [
   "/contact submit [topic: Ресторант]",
   "/contact submit [topic: Езеро]",
   "/svatben-konfigurator submit",
+  "/events?for=corporate enquiry sent",
+  "/events enquiry sent [Сватба]",
 ]) {
   const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
   if (n !== 1) failures.push(`${where}: Lead fired ${n} time(s), expected exactly 1`);
+}
+// Taps are Contact at most, never Lead; the bar's "Запитване" is neither.
+for (const where of [
+  "/events enquiry call button",
+  "/events mobile bar: call",
+  `/event/${EVENT_SLUG} mobile bar: call`,
+]) {
+  const n = rows.filter((r) => r.where === where && r.event === "Contact").length;
+  if (n !== 1) failures.push(`${where}: Contact fired ${n} time(s), expected exactly 1`);
+}
+// What reaches Formspree — and so hotel@svetagora.bg.
+for (const [where, subject] of [
+  ["/events?for=corporate enquiry sent", "Запитване за събитие – Фирмено"],
+  ["/events enquiry sent [Сватба]", "Запитване за събитие – Сватба"],
+]) {
+  const got = enquiryPosts[where];
+  if (!got || got.count !== 1) failures.push(`${where}: ${got?.count ?? 0} Formspree post(s), expected 1`);
+  else if (got.subject !== subject) failures.push(`${where}: subject "${got.subject}", expected "${subject}"`);
+  else console.log(`email subject, correctly: "${got.subject}"`);
+}
+for (const where of [
+  "/events enquiry without consent",
+  "/events enquiry with name empty",
+  "/events enquiry with type not chosen",
+]) {
+  const got = enquiryPosts[where];
+  if (got?.count) failures.push(`${where}: reached Formspree — the browser should have stopped it`);
+}
+if (barLanding !== "/events#enquiry") {
+  failures.push(`event page bar "Запитване" landed on ${barLanding}, expected /events#enquiry`);
+} else {
+  console.log(`event page bar "Запитване", correctly → ${barLanding}`);
 }
 // Never on a click, a refusal or a validation error.
 for (const where of [
@@ -529,6 +642,14 @@ for (const where of [
   "/contact submit with required fields empty",
   "/svatben-konfigurator submit refused by the endpoint",
   "/svatben-konfigurator submit without consent",
+  "/events enquiry refused by Formspree",
+  "/events enquiry without consent",
+  "/events enquiry with name empty",
+  "/events enquiry with type not chosen",
+  "/events enquiry call button",
+  "/events mobile bar: call",
+  "/events mobile bar: Запитване",
+  `/event/${EVENT_SLUG} mobile bar: Запитване`,
 ]) {
   const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
   if (n !== 0) failures.push(`${where}: Lead fired ${n} time(s) — it must not`);

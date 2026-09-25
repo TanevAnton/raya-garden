@@ -154,6 +154,20 @@ RewriteRule ^ /index.html [L]
   AddType image/svg+xml .svg
 </IfModule>
 
+# ───────────────────────── deploy records ─────────────────────────
+# scripts/deploy-ftp.mjs keeps its bookkeeping on the server
+# (/.deploy-manifest.json, /assets/.deployed). Nothing on the site reads
+# them over HTTP, so they are not served. Both forms, as in api/_lib/.
+<FilesMatch "^\.deploy">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
 # ───────────────────────── caching ─────────────────────────
 # Vite fingerprints filenames in /assets, so they can cache forever.
 <IfModule mod_expires.c>

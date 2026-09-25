@@ -111,12 +111,14 @@ jobs:
           SNAPSHOT_DIR: dist/__snapshots__
         run: node scripts/check-og-cards.mjs
 
-      # Deploy with lftp over explicit FTPS, in an order that never leaves the
-      # live site half-deployed: assets/ first (nothing deleted, every file
-      # checked on the server), then everything else, index.html last, then
-      # prune chunks older than the previous build. scripts/deploy-ftp.sh
-      # explains each step, the FTPS settings, the serial transfers and why
-      # api/error_log is never touched.
+      # Deploy with lftp over explicit FTPS so that the live site is never
+      # half-deployed: assets/ first, then everything else, index.html last,
+      # clean-up after. Only changed files are sent (SHA-256 against the
+      # previous deploy's record), each under a temporary name renamed over
+      # the old one — nothing is deleted before its replacement is up, and
+      # every file is checked on the server before index.html switches.
+      # scripts/deploy-ftp.mjs explains each step, the FTPS settings, the
+      # serial transfers and why api/error_log is never touched.
       - name: Deploy to SuperHosting via FTPS (lftp)
         if: ${{ env.HAS_FTP == 'true' }}
         env:
@@ -126,4 +128,4 @@ jobs:
           FTP_DIR: ${{ vars.FTP_SERVER_DIR || 'rayagarden.bg/' }}
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-          bash scripts/deploy-ftp.sh
+          node scripts/deploy-ftp.mjs

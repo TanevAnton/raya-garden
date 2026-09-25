@@ -26,14 +26,15 @@ const GUEST_CODES = ["lt20", "20-50", "50-100", "gt100"];
 const LOCALE = { bg: "bg-BG", en: "en-GB", ro: "ro-RO" };
 
 /**
- * The current month and the five after it, as {value: "2026-09", label}.
- * Labels come from Intl rather than a hand-kept list, capitalised, with the
- * year appended plainly — Intl's Bulgarian adds a "г." we do not want here.
+ * The six months starting next month — in September, October to March —
+ * as {value: "2026-10", label}. Labels come from Intl rather than a
+ * hand-kept list, capitalised, with the year appended plainly — Intl's
+ * Bulgarian adds a "г." we do not want here.
  */
 function nextSixMonths(lang, from = new Date()) {
   const fmt = new Intl.DateTimeFormat(LOCALE[lang] || LOCALE.bg, { month: "long" });
   return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(from.getFullYear(), from.getMonth() + i, 1);
+    const d = new Date(from.getFullYear(), from.getMonth() + 1 + i, 1);
     const name = fmt.format(d);
     return {
       value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,

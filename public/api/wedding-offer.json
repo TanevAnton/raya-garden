@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-23.2",
+  "version": "2026-09-25.1",
   "source": "Сватбена оферта (PDF), RAYA Garden — Хотел & Ресторант",
   "currency": "EUR",
   "reservationDeadline": "2027-08-31",
@@ -397,8 +397,9 @@
       "labelEn": "Decoration of the hall",
       "labelRo": "Decorarea sălii",
       "viaPartner": true,
-      "fromPriceCents": 500000,
-      "fromUnit": "fixed"
+      "priceNote": "по договаряне",
+      "priceNoteEn": "negotiable",
+      "priceNoteRo": "negociabil"
     },
     {
       "id": "cake",

@@ -782,9 +782,10 @@ function raya_summary_blocks(array $d, array $offer, array $quote, string $refer
             $value = $viaPartner ? 'заявено (чрез партньор)' : 'заявено (от хотела)';
             // Priced ones are already a line in the table above; saying so
             // here keeps the two lists from reading as two charges.
+            // Otherwise the same words the guest saw on the card.
             $value .= isset($request['priceCents'])
                 ? ' — включено в стойността по-горе'
-                : ' — по индивидуална оферта';
+                : ' — ' . ($request['priceNote'] ?? 'по индивидуална оферта');
             if (isset($entry['rooms'])) {
                 $value .= sprintf(
                     ' — стаи: %d, гости: %d, нощувки: %d',

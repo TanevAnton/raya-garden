@@ -411,8 +411,12 @@ function RequestCard({ request, s, lang, selection, onChange, totalGuests }) {
   const priced = request.priceCents != null;
   const quantity = request.unit === "per_person" ? totalGuests : 1;
 
+  // A price the hotel sets, else its own wording ("по договаряне"), else a
+  // starting price, else the generic "individual quotation".
   const badge = priced
     ? `${formatMoney(request.priceCents, lang)} ${unitLabel(s, request.unit)}`
+    : pick(request, lang, "priceNote")
+    ? pick(request, lang, "priceNote")
     : request.fromPriceCents != null
     ? fill(s.extras.fromPrice, {
         price: formatMoney(request.fromPriceCents, lang),

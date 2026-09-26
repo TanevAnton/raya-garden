@@ -86,15 +86,25 @@ export function contactMethodForHref(href = "") {
 }
 
 /**
- * The pages where reaching out counts as an event enquiry: /events and every
- * /event/<slug> — except New Year, which is its own campaign (nye) and not
- * an event enquiry. The wedding configurator is not a page here: its form
- * reports for itself on success.
+ * The pages where reaching out counts as an event enquiry: /events, the
+ * wedding configurator, and every /event/<slug> — except New Year, which is
+ * its own campaign (nye) and not an event enquiry.
  */
 export function isEventEnquiryPage(pathname = "") {
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/events") return true;
+  if (path === "/events" || path === "/svatben-konfigurator") return true;
   return path.startsWith("/event/") && contentCategoryForPath(path) !== "nye";
+}
+
+/**
+ * event_type for a contact-link tap on an event-enquiry page: "wedding" on
+ * the wedding configurator, whatever its URL says; "corporate" where the
+ * page was opened with ?for=corporate; otherwise none.
+ */
+export function eventTypeForTap(pathname = "", search = "") {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/svatben-konfigurator") return "wedding";
+  return new URLSearchParams(search).get("for") === "corporate" ? "corporate" : undefined;
 }
 
 function send(kind, event, params, eventID) {
@@ -128,8 +138,9 @@ export function trackMeta(event, params = {}, eventID = undefined) {
  *
  *   method      form | phone | email | viber | whatsapp
  *   event_type  corporate | wedding | birthday | other — from the form's
- *               dropdown; for a tap, "corporate" when the page was opened
- *               with ?for=corporate, otherwise left out.
+ *               dropdown; for a tap, eventTypeForTap(): "wedding" on the
+ *               configurator, "corporate" when the page was opened with
+ *               ?for=corporate, otherwise left out.
  *
  * Only from the two event forms (on a confirmed send) and from contact links
  * on isEventEnquiryPage() pages.

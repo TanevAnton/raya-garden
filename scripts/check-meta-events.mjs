@@ -210,6 +210,12 @@ const CONTACT_CASES = [
   { where: "contact link: viber on /events", path: "/events?lang=bg", href: "viber://chat?number=%2B359896100100" },
   { where: `contact link: tel on /event/${OTHER_EVENT_SLUG}`, path: `/event/${OTHER_EVENT_SLUG}?lang=bg`, href: "tel:+359896100100" },
   { where: "contact link: tel on / (home)", path: "/?lang=bg", href: "tel:+359896100100" },
+  { where: "contact link: tel on /svatben-konfigurator", path: "/svatben-konfigurator?lang=bg", real: 'footer a[href^="tel:"]' },
+  { where: "contact link: mailto on /svatben-konfigurator", path: "/svatben-konfigurator?lang=bg", href: "mailto:hotel@svetagora.bg" },
+  { where: "contact link: viber on /svatben-konfigurator", path: "/svatben-konfigurator?lang=bg", href: "viber://chat?number=%2B359896100100" },
+  { where: "contact link: wa.me on /svatben-konfigurator", path: "/svatben-konfigurator?lang=bg", href: "https://wa.me/359896100100" },
+  { where: "contact link: tel on /svatben-konfigurator?for=corporate", path: "/svatben-konfigurator?for=corporate&lang=bg", href: "tel:+359896100100" },
+  { where: "contact link: tel on /winery", path: "/winery?lang=bg", href: "tel:+359896100100" },
   { where: "contact link: ordinary link on /hotel", path: "/hotel?lang=bg", href: "/contact" },
 ];
 for (const c of CONTACT_CASES) {
@@ -568,6 +574,11 @@ const expect = [
   ["Contact", "contact link: viber on /events", { method: "viber", content_category: "events" }],
   ["Contact", `contact link: tel on /event/${OTHER_EVENT_SLUG}`, { method: "phone", content_category: "events" }],
   ["Contact", "contact link: tel on / (home)", { method: "phone", content_category: undefined }],
+  ["Contact", "contact link: tel on /svatben-konfigurator", { method: "phone", content_category: "events" }],
+  ["Contact", "contact link: mailto on /svatben-konfigurator", { method: "email", content_category: "events" }],
+  ["Contact", "contact link: viber on /svatben-konfigurator", { method: "viber", content_category: "events" }],
+  ["Contact", "contact link: wa.me on /svatben-konfigurator", { method: "whatsapp", content_category: "events" }],
+  ["Contact", "contact link: tel on /winery", { method: "phone", content_category: undefined }],
   // Lead: content_category from the form or the topic chosen.
   ["Lead", "/contact submit [topic: Резервация]", { content_name: "Contact form", content_category: "hotel" }],
   ["Lead", "/contact submit [topic: Сватба или събитие]", { content_category: "events" }],
@@ -693,6 +704,12 @@ const ENQUIRY_FIRES = {
   "/events mobile bar: call": { method: "phone" },
   "/events?for=corporate mobile bar: call": { method: "phone", event_type: "corporate" },
   [`/event/${OTHER_EVENT_SLUG} mobile bar: call`]: { method: "phone" },
+  // The configurator: always "wedding", whatever the URL says.
+  "contact link: tel on /svatben-konfigurator": { method: "phone", event_type: "wedding" },
+  "contact link: mailto on /svatben-konfigurator": { method: "email", event_type: "wedding" },
+  "contact link: viber on /svatben-konfigurator": { method: "viber", event_type: "wedding" },
+  "contact link: wa.me on /svatben-konfigurator": { method: "whatsapp", event_type: "wedding" },
+  "contact link: tel on /svatben-konfigurator?for=corporate": { method: "phone", event_type: "wedding" },
 };
 const everyWhere = new Set([...rows.map((r) => r.where), ...Object.keys(ENQUIRY_FIRES)]);
 let enquiryFires = 0;
@@ -719,6 +736,7 @@ for (const where of [
   "contact link: tel on /hotel",
   "contact link: viber on /restaurant",
   "contact link: tel on / (home)",
+  "contact link: tel on /winery",
   "contact link: tel on /contact",
   `contact link: wa.me on /event/${EVENT_SLUG}`,
   `/event/${EVENT_SLUG} mobile bar: call`,

@@ -8,6 +8,7 @@ import {
   contentCategoryForPath,
   contactMethodForHref,
   isEventEnquiryPage,
+  eventTypeForTap,
 } from "../lib/metaPixel.js";
 
 export default function Layout({ lang, setLang, t }) {
@@ -74,11 +75,12 @@ export default function Layout({ lang, setLang, t }) {
         method,
         lang,
       });
-      // On /events and the event pages the same tap is also an event
-      // enquiry — the mobile bar's call button included, being a tel: link.
-      if (isEventEnquiryPage(window.location.pathname)) {
-        const corporate = new URLSearchParams(window.location.search).get("for") === "corporate";
-        trackEventEnquiry({ method, event_type: corporate ? "corporate" : undefined });
+      // On /events, the event pages and the wedding configurator the same
+      // tap is also an event enquiry — the mobile bar's call button
+      // included, being a tel: link.
+      const { pathname: path, search } = window.location;
+      if (isEventEnquiryPage(path)) {
+        trackEventEnquiry({ method, event_type: eventTypeForTap(path, search) });
       }
     };
     document.addEventListener("click", onClick, true);

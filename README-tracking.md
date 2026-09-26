@@ -50,12 +50,13 @@ instead of it — and exactly once per action:
 | /events enquiry form, confirmed by Formspree | `Lead` | `form` | from the dropdown: `corporate` / `wedding` / `birthday` / `other` |
 | wedding configurator, confirmed by the endpoint | `Lead` | `form` | `wedding` |
 | a contact link tapped on `/events` or any `/event/<slug>` except `nova-godina*` — the mobile bar's «Обади се» included | `Contact` | `phone` / `email` / `viber` / `whatsapp` | `corporate` if the URL has `for=corporate`, otherwise absent |
+| a contact link tapped on `/svatben-konfigurator` | `Contact` | `phone` / `email` / `viber` / `whatsapp` | `wedding`, always |
 
 Never on a refused or invalid submit, never from `/contact` (even its
 «Сватба или събитие» topic), the New Year pages, `/hotel`, `/restaurant` or
 the home page, and not from the mobile bar's «Запитване», which only
-scrolls. `isEventEnquiryPage()` and `trackEventEnquiry()` in
-`src/lib/metaPixel.js` decide it.
+scrolls. `isEventEnquiryPage()`, `eventTypeForTap()` and
+`trackEventEnquiry()` in `src/lib/metaPixel.js` decide it.
 
 ### `content_category`
 
@@ -156,7 +157,7 @@ every event with its params and asserts:
   once — and no `Lead` when Formspree or the wedding endpoint refuses, when
   required fields are empty, or when consent is unticked
 - `EventEnquiry` exactly once, with exactly the params in the table above,
-  at each of the 13 actions that should send it — and at no other action in
+  at each of the 18 actions that should send it — and at no other action in
   the run
 - the /events enquiry: `event_type` from the dropdown (`corporate` preselected
   by `?for=corporate`), the email subject `Запитване за събитие – <Тип>`, and

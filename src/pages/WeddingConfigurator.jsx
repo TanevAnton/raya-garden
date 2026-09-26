@@ -5,7 +5,7 @@ import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { weddingStrings, fill } from "../i18n/weddingConfigurator.js";
 import { buildQuote, formatMoney, toCount, upgradesForMenu } from "../lib/weddingPricing.js";
-import { trackMeta } from "../lib/metaPixel.js";
+import { trackMeta, trackEventEnquiry } from "../lib/metaPixel.js";
 import offer from "../../public/api/wedding-offer.json";
 import StepDateGuests from "../components/wedding/StepDateGuests.jsx";
 import StepMenus from "../components/wedding/StepMenus.jsx";
@@ -378,6 +378,7 @@ export default function WeddingConfigurator() {
           content_category: "events",
           lang,
         });
+        trackEventEnquiry({ method: "form", event_type: "wedding" });
         try {
           window.sessionStorage.removeItem(STORAGE_KEY);
         } catch {

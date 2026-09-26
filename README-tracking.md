@@ -37,6 +37,25 @@ would race it. That is why the funnel is not in the React bundle.
 | `Lead` | wedding configurator | `content_name: 'Wedding configurator'`, `content_category: 'events'`, `lang` |
 | `Lead` | /events enquiry block | `content_name: 'Events enquiry form'`, `content_category: 'events'`, `event_type` (`corporate` / `wedding` / `birthday` / `other`), `lang` |
 | `Contact` | any `tel:`, `mailto:`, `viber:` or WhatsApp (`wa.me`, `api.whatsapp.com`, `whatsapp:`) link | `method`, `content_category` by page, `lang` |
+| `EventEnquiry` (custom, `trackCustom`) | see below | `method`, `event_type` |
+
+### `EventEnquiry`
+
+Every way of asking about an event under one name, so one custom conversion
+in Events Manager counts them all. Sent alongside the standard event — never
+instead of it — and exactly once per action:
+
+| Action | Sent with | `method` | `event_type` |
+| --- | --- | --- | --- |
+| /events enquiry form, confirmed by Formspree | `Lead` | `form` | from the dropdown: `corporate` / `wedding` / `birthday` / `other` |
+| wedding configurator, confirmed by the endpoint | `Lead` | `form` | `wedding` |
+| a contact link tapped on `/events` or any `/event/<slug>` except `nova-godina*` — the mobile bar's «Обади се» included | `Contact` | `phone` / `email` / `viber` / `whatsapp` | `corporate` if the URL has `for=corporate`, otherwise absent |
+
+Never on a refused or invalid submit, never from `/contact` (even its
+«Сватба или събитие» topic), the New Year pages, `/hotel`, `/restaurant` or
+the home page, and not from the mobile bar's «Запитване», which only
+scrolls. `isEventEnquiryPage()` and `trackEventEnquiry()` in
+`src/lib/metaPixel.js` decide it.
 
 ### `content_category`
 
@@ -136,6 +155,9 @@ every event with its params and asserts:
 - `Lead` with the right `content_category` for each form and topic, exactly
   once — and no `Lead` when Formspree or the wedding endpoint refuses, when
   required fields are empty, or when consent is unticked
+- `EventEnquiry` exactly once, with exactly the params in the table above,
+  at each of the 13 actions that should send it — and at no other action in
+  the run
 - the /events enquiry: `event_type` from the dropdown (`corporate` preselected
   by `?for=corporate`), the email subject `Запитване за събитие – <Тип>`, and
   nothing sent at all when a field, the event type or consent is missing;

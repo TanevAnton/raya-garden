@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Phone } from "lucide-react";
 import { Field, TextField, CheckBox, inputClass } from "./wedding/fields.jsx";
-import { trackMeta } from "../lib/metaPixel.js";
+import { trackMeta, trackEventEnquiry } from "../lib/metaPixel.js";
 import { translations } from "../translations.js";
 
 // The short enquiry form under the /events hero — for the visitor who came
@@ -132,6 +132,7 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
         event_type: form.type,
         lang,
       });
+      trackEventEnquiry({ method: "form", event_type: form.type });
     } catch (err) {
       console.error("[events enquiry]", err);
       setStatus("error");

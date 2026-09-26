@@ -28,6 +28,9 @@ import puppeteer from "puppeteer";
 
 const BASE = process.env.BASE || "http://127.0.0.1:5200";
 const EVENT_SLUG = "nova-godina-2027";
+// Any other event page. The Sanity stub answers every slug with the same
+// document; the pixel classifies pages by slug, so that is all it takes.
+const OTHER_EVENT_SLUG = "firmeno-parti-2026";
 
 // ── what Sanity would answer ─────────────────────────────────────────
 const EVENT_DOC = {
@@ -76,8 +79,8 @@ const rows = [];
 
 function record(where, calls) {
   for (const call of calls) {
-    if (call[0] !== "track") continue;
-    rows.push({ where, event: call[1], params: call[2] || {}, opts: call[3] || {} });
+    if (call[0] !== "track" && call[0] !== "trackCustom") continue;
+    rows.push({ where, kind: call[0], event: call[1], params: call[2] || {}, opts: call[3] || {} });
   }
 }
 
@@ -202,6 +205,11 @@ const CONTACT_CASES = [
   { where: "contact link: viber on /restaurant", path: "/restaurant?lang=en", href: "viber://chat?number=%2B359896100100" },
   { where: `contact link: wa.me on /event/${EVENT_SLUG}`, path: `/event/${EVENT_SLUG}?lang=ro`, href: "https://wa.me/359896100100" },
   { where: "contact link: api.whatsapp on /events", path: "/events?lang=bg", href: "https://api.whatsapp.com/send?phone=359896100100" },
+  { where: "contact link: tel on /events?for=corporate", path: "/events?for=corporate&lang=bg", href: "tel:+359896100100" },
+  { where: "contact link: mailto on /events", path: "/events?lang=bg", href: "mailto:hotel@svetagora.bg" },
+  { where: "contact link: viber on /events", path: "/events?lang=bg", href: "viber://chat?number=%2B359896100100" },
+  { where: `contact link: tel on /event/${OTHER_EVENT_SLUG}`, path: `/event/${OTHER_EVENT_SLUG}?lang=bg`, href: "tel:+359896100100" },
+  { where: "contact link: tel on / (home)", path: "/?lang=bg", href: "tel:+359896100100" },
   { where: "contact link: ordinary link on /hotel", path: "/hotel?lang=bg", href: "/contact" },
 ];
 for (const c of CONTACT_CASES) {
@@ -362,6 +370,8 @@ await tap("/events enquiry call button", "/events?lang=bg", '#enquiry a[href^="t
 await tap("/events mobile bar: call", "/events?lang=bg", 'div.fixed.bottom-0 a[href^="tel:"]');
 await tap("/events mobile bar: Запитване", "/events?lang=bg", "div.fixed.bottom-0 button");
 await tap(`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}?lang=bg`, 'div.fixed.bottom-0 a[href^="tel:"]');
+await tap("/events?for=corporate mobile bar: call", "/events?for=corporate&lang=bg", 'div.fixed.bottom-0 a[href^="tel:"]');
+await tap(`/event/${OTHER_EVENT_SLUG} mobile bar: call`, `/event/${OTHER_EVENT_SLUG}?lang=bg`, 'div.fixed.bottom-0 a[href^="tel:"]');
 const barLanding = await tap(`/event/${EVENT_SLUG} mobile bar: Запитване`, `/event/${EVENT_SLUG}?lang=bg`, "div.fixed.bottom-0 button");
 
 // ── Part A: StrictMode must not double-count ─────────────────────────
@@ -553,6 +563,11 @@ const expect = [
   ["Contact", "contact link: viber on /restaurant", { method: "viber", content_category: "restaurant" }],
   ["Contact", `contact link: wa.me on /event/${EVENT_SLUG}`, { method: "whatsapp", content_category: "nye" }],
   ["Contact", "contact link: api.whatsapp on /events", { method: "whatsapp", content_category: "events" }],
+  ["Contact", "contact link: tel on /events?for=corporate", { method: "phone", content_category: "events" }],
+  ["Contact", "contact link: mailto on /events", { method: "email", content_category: "events" }],
+  ["Contact", "contact link: viber on /events", { method: "viber", content_category: "events" }],
+  ["Contact", `contact link: tel on /event/${OTHER_EVENT_SLUG}`, { method: "phone", content_category: "events" }],
+  ["Contact", "contact link: tel on / (home)", { method: "phone", content_category: undefined }],
   // Lead: content_category from the form or the topic chosen.
   ["Lead", "/contact submit [topic: Резервация]", { content_name: "Contact form", content_category: "hotel" }],
   ["Lead", "/contact submit [topic: Сватба или събитие]", { content_category: "events" }],
@@ -609,6 +624,8 @@ for (const where of [
   "/events enquiry call button",
   "/events mobile bar: call",
   `/event/${EVENT_SLUG} mobile bar: call`,
+  "/events?for=corporate mobile bar: call",
+  `/event/${OTHER_EVENT_SLUG} mobile bar: call`,
 ]) {
   const n = rows.filter((r) => r.where === where && r.event === "Contact").length;
   if (n !== 1) failures.push(`${where}: Contact fired ${n} time(s), expected exactly 1`);
@@ -654,6 +671,68 @@ for (const where of [
   const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
   if (n !== 0) failures.push(`${where}: Lead fired ${n} time(s) — it must not`);
   else console.log(`no Lead, correctly: ${where}`);
+}
+
+// EventEnquiry: the custom event that sits beside Lead (a form) or Contact
+// (a tap) on the event pages. Exactly once, with exactly these params, where
+// listed — and nowhere else in this whole run: not on page loads, not from
+// /contact or the hotel, restaurant, home or New Year pages, not from the
+// bar's "Запитване", not on a refused or invalid submit, not in the Clock
+// funnel. `undefined` means the key must be absent.
+const ENQUIRY_FIRES = {
+  "/events?for=corporate enquiry sent": { method: "form", event_type: "corporate" },
+  "/events enquiry sent [Сватба]": { method: "form", event_type: "wedding" },
+  "/svatben-konfigurator submit": { method: "form", event_type: "wedding" },
+  "contact link: tel on /events": { method: "phone" },
+  "contact link: tel on /events?for=corporate": { method: "phone", event_type: "corporate" },
+  "contact link: mailto on /events": { method: "email" },
+  "contact link: viber on /events": { method: "viber" },
+  "contact link: api.whatsapp on /events": { method: "whatsapp" },
+  [`contact link: tel on /event/${OTHER_EVENT_SLUG}`]: { method: "phone" },
+  "/events enquiry call button": { method: "phone" },
+  "/events mobile bar: call": { method: "phone" },
+  "/events?for=corporate mobile bar: call": { method: "phone", event_type: "corporate" },
+  [`/event/${OTHER_EVENT_SLUG} mobile bar: call`]: { method: "phone" },
+};
+const everyWhere = new Set([...rows.map((r) => r.where), ...Object.keys(ENQUIRY_FIRES)]);
+let enquiryFires = 0;
+let enquirySilent = 0;
+for (const where of everyWhere) {
+  const got = rows.filter((r) => r.where === where && r.event === "EventEnquiry");
+  const want = ENQUIRY_FIRES[where];
+  if (!want) {
+    if (got.length) failures.push(`${where}: EventEnquiry fired ${got.length} time(s) — it must not`);
+    else enquirySilent++;
+    continue;
+  }
+  if (got.length !== 1) {
+    failures.push(`${where}: EventEnquiry fired ${got.length} time(s), expected exactly 1`);
+    continue;
+  }
+  if (got[0].kind !== "trackCustom") failures.push(`${where}: EventEnquiry sent with fbq('${got[0].kind}'), expected trackCustom`);
+  if (JSON.stringify(got[0].params) !== JSON.stringify(want)) {
+    failures.push(`${where}: EventEnquiry params ${JSON.stringify(got[0].params)}, expected ${JSON.stringify(want)}`);
+  } else enquiryFires++;
+}
+console.log(`\nEventEnquiry: exactly once with the right params at ${enquiryFires}/${Object.keys(ENQUIRY_FIRES).length} actions; silent, correctly, at the other ${enquirySilent}`);
+for (const where of [
+  "contact link: tel on /hotel",
+  "contact link: viber on /restaurant",
+  "contact link: tel on / (home)",
+  "contact link: tel on /contact",
+  `contact link: wa.me on /event/${EVENT_SLUG}`,
+  `/event/${EVENT_SLUG} mobile bar: call`,
+  "/events mobile bar: Запитване",
+  `/event/${EVENT_SLUG} mobile bar: Запитване`,
+  "/contact submit [topic: Сватба или събитие]",
+  "/events enquiry refused by Formspree",
+  "/events enquiry without consent",
+  "/events enquiry with name empty",
+  "/events enquiry with type not chosen",
+  "/svatben-konfigurator submit refused by the endpoint",
+  "/svatben-konfigurator submit without consent",
+]) {
+  if (!rows.some((r) => r.where === where && r.event === "EventEnquiry")) console.log(`no EventEnquiry, correctly: ${where}`);
 }
 
 // The one that silently ruins reported revenue.

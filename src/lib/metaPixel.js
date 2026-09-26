@@ -86,22 +86,56 @@ export function contactMethodForHref(href = "") {
 }
 
 /**
- * Send one event. Returns the eventID used, or null when nothing was sent
- * (no pixel, or it threw) — callers ignore it; it exists for tests.
+ * The pages where reaching out counts as an event enquiry: /events and every
+ * /event/<slug> — except New Year, which is its own campaign (nye) and not
+ * an event enquiry. The wedding configurator is not a page here: its form
+ * reports for itself on success.
  */
-export function trackMeta(event, params = {}, eventID = undefined) {
+export function isEventEnquiryPage(pathname = "") {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/events") return true;
+  return path.startsWith("/event/") && contentCategoryForPath(path) !== "nye";
+}
+
+function send(kind, event, params, eventID) {
   try {
     if (typeof window === "undefined" || typeof window.fbq !== "function") {
       return null;
     }
     const id = eventID || newEventId();
-    window.fbq("track", event, clean(params), { eventID: id });
+    window.fbq(kind, event, clean(params), { eventID: id });
     return id;
   } catch (err) {
     // Never let a pixel problem surface to a guest.
     if (typeof console !== "undefined") console.error("[meta-pixel]", err);
     return null;
   }
+}
+
+/**
+ * Send one standard event. Returns the eventID used, or null when nothing
+ * was sent (no pixel, or it threw) — callers ignore it; it exists for tests.
+ */
+export function trackMeta(event, params = {}, eventID = undefined) {
+  return send("track", event, params, eventID);
+}
+
+/**
+ * EventEnquiry — a custom event that puts every way of asking about an event
+ * under one name, so a single custom conversion can count them all. It is
+ * sent alongside the standard event (Lead for a form, Contact for a tap),
+ * never instead of it, and exactly once per action:
+ *
+ *   method      form | phone | email | viber | whatsapp
+ *   event_type  corporate | wedding | birthday | other — from the form's
+ *               dropdown; for a tap, "corporate" when the page was opened
+ *               with ?for=corporate, otherwise left out.
+ *
+ * Only from the two event forms (on a confirmed send) and from contact links
+ * on isEventEnquiryPage() pages.
+ */
+export function trackEventEnquiry({ method, event_type } = {}) {
+  return send("trackCustom", "EventEnquiry", { method, event_type });
 }
 
 /**

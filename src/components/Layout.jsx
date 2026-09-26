@@ -2,7 +2,13 @@ import { Suspense, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Nav from "./Nav.jsx";
 import Footer from "./Footer.jsx";
-import { trackMeta, contentCategoryForPath, contactMethodForHref } from "../lib/metaPixel.js";
+import {
+  trackMeta,
+  trackEventEnquiry,
+  contentCategoryForPath,
+  contactMethodForHref,
+  isEventEnquiryPage,
+} from "../lib/metaPixel.js";
 
 export default function Layout({ lang, setLang, t }) {
   const { pathname } = useLocation();
@@ -68,6 +74,12 @@ export default function Layout({ lang, setLang, t }) {
         method,
         lang,
       });
+      // On /events and the event pages the same tap is also an event
+      // enquiry — the mobile bar's call button included, being a tel: link.
+      if (isEventEnquiryPage(window.location.pathname)) {
+        const corporate = new URLSearchParams(window.location.search).get("for") === "corporate";
+        trackEventEnquiry({ method, event_type: corporate ? "corporate" : undefined });
+      }
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

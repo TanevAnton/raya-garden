@@ -134,6 +134,9 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         if ((int) $count->fetchColumn() >= QR_IP_LIMIT) {
             return [429, ['ok' => false, 'error' => 'rate_limited', 'scope' => 'network', 'retryAfter' => QR_LIMIT_WINDOW]];
         }
+        // The address stand-in is only needed for the limit above, so it is
+        // not kept once an order is older than the window.
+        $pdo->prepare("UPDATE orders SET ip_hash = '' WHERE ip_hash <> '' AND created_at <= ?")->execute([$since]);
 
         // 6. Store it, with names and prices copied in: a menu edited later
         //    never changes an order already placed.

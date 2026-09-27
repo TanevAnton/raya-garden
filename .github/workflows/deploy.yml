@@ -27,6 +27,7 @@ jobs:
     # push (before secrets exist) still builds green instead of failing red.
     env:
       HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
+      HAS_QR_PASSWORD: ${{ secrets.QR_ADMIN_PASSWORD != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,3 +130,21 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           node scripts/deploy-ftp.mjs
+
+      # The staff password for rayagarden.bg/admin (QR table ordering), from
+      # the secret QR_ADMIN_PASSWORD. Only its bcrypt hash reaches the server,
+      # in raya-qr-config.php one folder above the web root, and the file is
+      # left alone while the password still matches — so staff stay signed in
+      # across deploys. Runs after the site is live: it can never hold up or
+      # break a deploy of the site itself. scripts/qr-admin-password.mjs.
+      - name: Staff password for /admin
+        if: ${{ env.HAS_FTP == 'true' && env.HAS_QR_PASSWORD == 'true' }}
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR: ${{ vars.FTP_SERVER_DIR || 'rayagarden.bg/' }}
+          QR_ADMIN_PASSWORD: ${{ secrets.QR_ADMIN_PASSWORD }}
+        run: |
+          command -v php >/dev/null || sudo apt-get install -y -qq php-cli
+          node scripts/qr-admin-password.mjs

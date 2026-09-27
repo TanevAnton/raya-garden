@@ -310,6 +310,16 @@ describe("rate limits", () => {
     assert.equal(res.status, 429);
     assert.equal(res.body.scope, "network");
   });
+
+  it("forgets the network address once the window has passed", async () => {
+    await setUp();
+    const guest = client(srv.base);
+    await order(guest, 1, [["tiramisu"]], { at: AT_20H });
+    await order(guest, 2, [["tiramisu"]], { at: AT_20H + 200 });
+    await order(guest, 3, [["tiramisu"]], { at: AT_20H + 301 });
+    const kept = JSON.parse(srv.sqlite("SELECT table_no, ip_hash FROM orders ORDER BY table_no")).map((r) => [r.table_no, r.ip_hash !== ""]);
+    assert.deepEqual(kept, [[1, false], [2, true], [3, true]]);
+  });
 });
 
 describe("a guest's order page", () => {

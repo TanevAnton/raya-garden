@@ -19,7 +19,9 @@
     "studio:deploy": "sanity deploy",
     "test:qr": "node --test tests/qr/api.test.mjs",
     "qr:php-check": "vendor/bin/phpcs -q --standard=PHPCompatibility --runtime-set testVersion 7.3 --extensions=php public/api",
-    "test:qr:e2e": "node --test --test-concurrency=1 tests/qr/e2e.test.mjs"
+    "test:qr:e2e": "node --test --test-concurrency=1 tests/qr/e2e.test.mjs",
+    "qr:password": "node scripts/qr-admin-password.mjs --print",
+    "qr:print": "node scripts/qr-print.mjs"
   },
   "dependencies": {
     "@sanity/client": "^7.22.0",
@@ -37,6 +39,7 @@
     "dotenv": "^17.4.2",
     "postcss": "^8.4.47",
     "puppeteer": "^25.10.0",
+    "qrcode": "^1.5.4",
     "sanity": "^5.25.1",
     "styled-components": "^6.4.1",
     "tailwindcss": "^3.4.14",

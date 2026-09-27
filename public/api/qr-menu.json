@@ -1,0 +1,2849 @@
+{
+ "version": "2026-05-15.1",
+ "source": "Menu Raya 2026 — PDF от 15.05.2026 (Canva). Цените са в евро с ДДС.",
+ "currency": "EUR",
+ "allergens": {
+  "1": {
+   "bg": "Зърнени култури, съдържащи глутен",
+   "en": "Cereals containing gluten"
+  },
+  "2": {
+   "bg": "Ракообразни и продукти от тях",
+   "en": "Crustaceans and products thereof"
+  },
+  "3": {
+   "bg": "Яйца и продукти от тях",
+   "en": "Eggs and products thereof"
+  },
+  "4": {
+   "bg": "Риба и рибни продукти, с изключение на рибен желатин",
+   "en": "Fish and fish products, except fish gelatine"
+  },
+  "5": {
+   "bg": "Фъстъци и сродни продукти",
+   "en": "Peanuts and products thereof"
+  },
+  "6": {
+   "bg": "Соя и соеви продукти",
+   "en": "Soy and soy products"
+  },
+  "7": {
+   "bg": "Мляко и млечни продукти",
+   "en": "Milk and milk products"
+  },
+  "8": {
+   "bg": "Ядки – бадеми, лешници, орехи, кашу и други",
+   "en": "Nuts such as almonds, hazelnuts, walnuts, cashews and others"
+  },
+  "9": {
+   "bg": "Целина и продукти от нея",
+   "en": "Celery and products thereof"
+  },
+  "10": {
+   "bg": "Синап и сродни продукти",
+   "en": "Mustard and products thereof"
+  },
+  "11": {
+   "bg": "Сусамово семе и сродни продукти",
+   "en": "Sesame seeds and products thereof"
+  },
+  "12": {
+   "bg": "Серен диоксид и сулфити с концентрация над 10 мг/кг",
+   "en": "Sulphur dioxide and sulphites above 10 mg/kg"
+  },
+  "13": {
+   "bg": "Лупина и продукти от нея",
+   "en": "Lupin and products thereof"
+  },
+  "14": {
+   "bg": "Мекотели и сродни продукти",
+   "en": "Molluscs and products thereof"
+  }
+ },
+ "categories": [
+  {
+   "id": "premium",
+   "bg": "Премиум предложения",
+   "en": "Premium selection",
+   "items": [
+    {
+     "id": "wagyu-striploin",
+     "bg": "Стриплойн стек „Wagyu“",
+     "en": "Striploin steak ‘Wagyu’",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 4100
+      }
+     ],
+     "orderable": false,
+     "byWeight": true
+    },
+    {
+     "id": "wagyu-ribeye",
+     "bg": "Рибай стек „Wagyu“",
+     "en": "Ribeye steak ‘Wagyu’",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 4600
+      }
+     ],
+     "orderable": false,
+     "byWeight": true
+    },
+    {
+     "id": "wagyu-tenderloin",
+     "bg": "Тендърлойн стек „Wagyu“",
+     "en": "Tenderloin steak ‘Wagyu’",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 6500
+      }
+     ],
+     "orderable": false,
+     "byWeight": true
+    },
+    {
+     "id": "wagyu-meatballs",
+     "bg": "Кюфтета „Wagyu“",
+     "en": "Meatballs ‘Wagyu’",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 2300
+      }
+     ]
+    },
+    {
+     "id": "wagyu-lukanka",
+     "bg": "Луканка „Wagyu“",
+     "en": "Flat sausage ‘Wagyu’",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 2400
+      }
+     ],
+     "orderable": false,
+     "byWeight": true
+    },
+    {
+     "id": "sturgeon-caviar",
+     "bg": "Черен хайвер от сибирска есетра върху ледена възглавница",
+     "en": "Siberian sturgeon caviar served on a bed of ice",
+     "allergens": [
+      4
+     ],
+     "variants": [
+      {
+       "id": "10g",
+       "bg": "10 g",
+       "en": "10 g",
+       "size": "10 g",
+       "price": 2500
+      },
+      {
+       "id": "30g",
+       "bg": "30 g",
+       "en": "30 g",
+       "size": "30 g",
+       "price": 6500
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "salads",
+   "bg": "Салати",
+   "en": "Salads",
+   "items": [
+    {
+     "id": "raya-salad",
+     "bg": "Салата „Raya“",
+     "en": "Raya salad",
+     "descBg": "Микс от свежи салатки, чери домати, яйце, прошуто и медено-горчичен винегрет",
+     "descEn": "Mixed fresh salads, cherry tomatoes, egg, prosciutto and honey-mustard vinaigrette",
+     "allergens": [
+      3,
+      10
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "caprese",
+     "bg": "Салата „Капрезе“",
+     "en": "Caprese salad",
+     "descBg": "Приготвена с розов домат, моцарела, песто „Дженовезе“",
+     "descEn": "With pink tomato, mozzarella, pesto “Genovese”",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 930
+      }
+     ]
+    },
+    {
+     "id": "caesar",
+     "bg": "Салата „Цезар“",
+     "en": "Caesar salad",
+     "descBg": "Салата „айсберг“, хрупкави крутони, бекон, пармезан, чери домати и сос „Цезар“",
+     "descEn": "Iceberg lettuce, croutons, bacon, parmesan, cherry tomatoes and “Caesar” sauce",
+     "allergens": [
+      1,
+      2,
+      4,
+      7,
+      10
+     ],
+     "variants": [
+      {
+       "id": "chicken",
+       "bg": "с пиле",
+       "en": "with chicken",
+       "size": "400 g",
+       "price": 990
+      },
+      {
+       "id": "shrimps",
+       "bg": "със скариди",
+       "en": "with shrimps",
+       "size": "350 g",
+       "price": 1090
+      }
+     ]
+    },
+    {
+     "id": "shepherds-salad",
+     "bg": "Пастирска салата",
+     "en": "Shepherd's salad",
+     "descBg": "Домати, краставици, печена чушка, сирене, кашкавал, гъби, бекон, яйце, маслини, магданоз, лук",
+     "descEn": "Tomatoes, cucumbers, roasted pepper, cheese, yellow cheese, mushrooms, bacon, egg, olives, parsley, onion",
+     "allergens": [
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 890
+      }
+     ]
+    },
+    {
+     "id": "elena-ham-salad",
+     "bg": "Салата с еленски бут",
+     "en": "Salad with Elena pork",
+     "descBg": "Еленски бут, рохко яйце, листни салатки, сушен домат, дресинг и пармезан",
+     "descEn": "Pork leg from Elena, soft-boiled egg, leafy salad, sun-dried tomato, dressing and Parmesan cheese",
+     "allergens": [
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "burrata-salad",
+     "bg": "Салата бурата с чери домати",
+     "en": "Burrata with cherry tomatoes",
+     "descBg": "Сирене бурата, чери домати, свежи салати, кедрови ядки и песто „Дженовезе“",
+     "descEn": "Burrata cheese, cherry tomatoes, fresh salads, pine nuts, pesto “Genovese”",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "green-apple-salad",
+     "bg": "Зелена салата с ябълки",
+     "en": "Green salad with apples",
+     "descBg": "Микс от свежи салатки, чери домати, ябълка, пармезан, дресинг, тиквени семки",
+     "descEn": "Mixed fresh salads, cherry tomatoes, apple, parmesan, dressing, pumpkin seeds",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 890
+      }
+     ]
+    },
+    {
+     "id": "greek-salad",
+     "bg": "Гръцка салата",
+     "en": "Greek salad",
+     "descBg": "Домати, краставици, прясна чушка, сирене фета, маслини, лук, риган",
+     "descEn": "Tomatoes, cucumbers, fresh pepper, Feta cheese, olives, onions, oregano",
+     "allergens": [
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 790
+      }
+     ]
+    },
+    {
+     "id": "bulgarian-salad",
+     "bg": "Класическа българска салата",
+     "en": "Classic Bulgarian salad",
+     "descBg": "Домати, краставици, печена чушка, сирене, магданоз, маслини",
+     "descEn": "Tomatoes, cucumbers, roasted pepper, cheese, parsley, olives",
+     "allergens": [
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 750
+      }
+     ]
+    },
+    {
+     "id": "provence-salad",
+     "bg": "Салата „Прованс“ с мус от краве сирене",
+     "en": "“Provence” salad with cheese mousse",
+     "descBg": "Домати, краставици, печена чушка, мус от сирена, магданозено песто, маслини",
+     "descEn": "Tomatoes, cucumbers, roasted pepper, cheese mousse, parsley pesto, olives",
+     "allergens": [
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 920
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "soups",
+   "bg": "Супи",
+   "en": "Soups",
+   "items": [
+    {
+     "id": "fish-soup",
+     "bg": "Домашна рибена супа",
+     "en": "Homemade fish soup",
+     "allergens": [
+      1,
+      4,
+      7,
+      9
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 490
+      }
+     ]
+    },
+    {
+     "id": "beef-soup",
+     "bg": "Бистра телешка супа",
+     "en": "Beef stew",
+     "allergens": [
+      9
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 510
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "starters",
+   "bg": "Разядки",
+   "en": "Starters",
+   "noteBg": "Поднесени с хрупкави брускети",
+   "noteEn": "Served with crispy bruschetta",
+   "items": [
+    {
+     "id": "tarama",
+     "bg": "Домашна тарама",
+     "en": "Homemade tarama",
+     "allergens": [
+      1,
+      4
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 750
+      }
+     ]
+    },
+    {
+     "id": "red-pepper-cheese-mousse",
+     "bg": "Разядка с печена червена чушка и мус от сирена",
+     "en": "Starter with baked red pepper and cheese mousse",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 750
+      }
+     ]
+    },
+    {
+     "id": "salmon-philadelphia-mousse",
+     "bg": "Мус от сьомга и филаделфия",
+     "en": "Salmon and Philadelphia mousse",
+     "allergens": [
+      4,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 790
+      }
+     ]
+    },
+    {
+     "id": "mix-starters",
+     "bg": "Микс разядки",
+     "en": "Mix starters",
+     "allergens": [
+      1,
+      4,
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hot-appetisers",
+   "bg": "Топли предястия",
+   "en": "Hot appetisers",
+   "items": [
+    {
+     "id": "crispy-squid",
+     "bg": "Калмари с хрупкава коричка и сос от сладко чили",
+     "en": "Crispy fried squids with sweet chilli sauce",
+     "allergens": [
+      1,
+      14
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 1190
+      }
+     ]
+    },
+    {
+     "id": "grilled-squid",
+     "bg": "Грилован цял калмар на BBQ със сос сладко чили и лимон",
+     "en": "Grilled whole squid on BBQ with sweet chilli sauce and lemon",
+     "allergens": [
+      14
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1190
+      }
+     ]
+    },
+    {
+     "id": "shrimps-tempura",
+     "bg": "Скариди темпура със сос манго",
+     "en": "Shrimps tempura with mango sauce",
+     "allergens": [
+      14
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 1290
+      }
+     ]
+    },
+    {
+     "id": "pan-fried-shrimps",
+     "bg": "Скариди на тиган с бяло вино, копър и чесън",
+     "en": "Pan-fried shrimps with white wine, dill and garlic",
+     "allergens": [
+      7,
+      12,
+      14
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 1290
+      }
+     ]
+    },
+    {
+     "id": "beef-tongue",
+     "bg": "Телешки език в масло",
+     "en": "Beef tongue in butter",
+     "allergens": [
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 1250
+      }
+     ]
+    },
+    {
+     "id": "baked-vegetables-pesto",
+     "bg": "Запечени зеленчуци с пармезан и песто „Дженовезе“",
+     "en": "Grilled vegetables sprinkled with parmesan and pesto “Genovese”",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 850
+      }
+     ]
+    },
+    {
+     "id": "spinach-meatballs",
+     "bg": "Спаначени кюфтенца с млечен сос",
+     "en": "Spinach meatballs with milk sauce",
+     "allergens": [
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 850
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "risotto-pasta",
+   "bg": "Ризото и паста",
+   "en": "Risotto and pasta",
+   "items": [
+    {
+     "id": "tagliatelle-bolognese",
+     "bg": "Талиатели „Болонезе“",
+     "en": "Tagliatelle “Bolognese”",
+     "allergens": [
+      1
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "tagliatelle-carbonara",
+     "bg": "Талиатели „Карбонара“",
+     "en": "Tagliatelle “Carbonara”",
+     "allergens": [
+      1,
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "tagliatelle-burrata",
+     "bg": "Талиатели „Бурата“",
+     "en": "Tagliatelle “Burrata”",
+     "allergens": [
+      1,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "tagliatelle-alfredo-chicken",
+     "bg": "Талиатели „Алфредо“ с пиле",
+     "en": "Tagliatelle “Alfredo” with chicken",
+     "allergens": [
+      1,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "tagliatelle-alfredo-shrimps",
+     "bg": "Талиатели „Алфредо“ със скариди",
+     "en": "Tagliatelle “Alfredo” with shrimps",
+     "allergens": [
+      1,
+      2,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1190
+      }
+     ]
+    },
+    {
+     "id": "vegetable-risotto",
+     "bg": "Пъстро ризото с пресни зеленчуци и пармезан",
+     "en": "Risotto with vegetables and parmesan",
+     "allergens": [
+      1,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 890
+      }
+     ]
+    },
+    {
+     "id": "chicken-risotto",
+     "bg": "Ризото с пиле",
+     "en": "Risotto with chicken",
+     "allergens": [
+      1
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 990
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bbq-fish",
+   "bg": "Риба на барбекю",
+   "en": "BBQ fish",
+   "items": [
+    {
+     "id": "beluga-fillet",
+     "bg": "Филе от белуга на грил с лимонено-маслен сос и гриловани зеленчуци",
+     "en": "Grilled beluga fillet with lemon-butter sauce & grilled vegetables",
+     "allergens": [
+      4,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 2590
+      }
+     ]
+    },
+    {
+     "id": "crispy-sturgeon",
+     "bg": "Хрупкава руска есетра в златна коричка, гарнирана с императорски ориз",
+     "en": "Crispy sturgeon with black rice",
+     "allergens": [
+      1,
+      3,
+      4,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 2190
+      }
+     ]
+    },
+    {
+     "id": "salmon-trout",
+     "bg": "Котлет от сьомгова пъстърва с грилован картоф",
+     "en": "Salmon trout with grilled potato",
+     "allergens": [
+      4
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1150
+      }
+     ]
+    },
+    {
+     "id": "carp-cutlet",
+     "bg": "Котлет от шаран / амур със сотирани картофи",
+     "en": "Carp / grass carp cutlet with sauté potatoes",
+     "allergens": [
+      4
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 1090
+      }
+     ]
+    },
+    {
+     "id": "seabass",
+     "bg": "Лаврак, гарниран с гриловани зеленчуци",
+     "en": "Seabass garnished with grilled vegetables",
+     "allergens": [
+      4
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1790
+      }
+     ]
+    },
+    {
+     "id": "salmon-parmesan",
+     "bg": "Сьомга с хрупкав пармезанов загар, гарнирана с императорски ориз",
+     "en": "Baked salmon with parmesan and black rice",
+     "allergens": [
+      1,
+      4,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1690
+      }
+     ]
+    },
+    {
+     "id": "fish-plate",
+     "bg": "Рибно плато",
+     "en": "Fish plate",
+     "descBg": "Шаран, амур, сьомгова пъстърва и калмар с печен картоф и лимонов дресинг",
+     "descEn": "Carp, grass carp, salmon trout, squid with baked potato and lemon dressing",
+     "allergens": [
+      1,
+      4,
+      14
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "1250 g",
+       "price": 4520
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bbq-mains",
+   "bg": "Основни ястия на BBQ",
+   "en": "Main BBQ dishes",
+   "items": [
+    {
+     "id": "veal-cutlet",
+     "bg": "Котлет от млечно телешко с грилован картоф",
+     "en": "Veal cutlet with grilled potato",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "400 g",
+       "price": 2090
+      }
+     ]
+    },
+    {
+     "id": "tenderloin-steak",
+     "bg": "Говежди тендърлойн стек с грилован картоф",
+     "en": "Tenderloin steak with grilled potato",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 3090
+      }
+     ]
+    },
+    {
+     "id": "fresh-sudzhuk",
+     "bg": "Пресен суджук с пържени картофки и домашна лютеница",
+     "en": "Fresh sausage with French fries and “lyutenitsa”",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1090
+      }
+     ]
+    },
+    {
+     "id": "adana-kebab",
+     "bg": "Адана кебап",
+     "en": "Adana kebab",
+     "descBg": "Телешко-агнешка кайма, домат, червен лук, чушка, магданоз и лаваш питка",
+     "descEn": "Veal - minced lamb, tomato, red onion, pepper, parsley and pita bread",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1490
+      }
+     ]
+    },
+    {
+     "id": "royal-pork-cutlet",
+     "bg": "Грилован кралски котлет с дълга ребрена кост, гарниран с печен картоф и сладко от червен лук",
+     "en": "Grilled pork cutlet with long rib bone, garnished with baked potato and red onion jam",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "400 g",
+       "price": 1690
+      }
+     ]
+    },
+    {
+     "id": "juicy-sausages",
+     "bg": "Сочни наденички с пресни пържени картофки и сос медена горчица",
+     "en": "Juicy sausages with French fries and honey mustard",
+     "allergens": [
+      10
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1050
+      }
+     ]
+    },
+    {
+     "id": "homemade-meatballs",
+     "bg": "Домашно приготвени кюфтета с пресни пържени картофки и лютеница",
+     "en": "Homemade meatballs with fries and homemade “lyutenitsa”",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1050
+      }
+     ]
+    },
+    {
+     "id": "kebabcheta",
+     "bg": "Тройка домашно приготвени кебапчета с пресни картофки и домашна лютеница",
+     "en": "Three homemade “kebapcheta” with fries and homemade “lyutenitsa”",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1050
+      }
+     ]
+    },
+    {
+     "id": "chicken-fillet",
+     "bg": "Мариновано пилешко филе, гарнирано с гриловани зеленчуци",
+     "en": "Marinated chicken fillet with grilled vegetables",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "mix-grill-platter",
+     "bg": "Плато микс грил",
+     "en": "Platter mix grill",
+     "descBg": "Пилешко филе, шарено свинско месце, сочна наденичка, два броя кюфтенца, гарнирани със сосчета, пържени картофки",
+     "descEn": "Chicken fillet, marbled pork meat, juicy sausage, meatballs garnished with sauce and French fries",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "1300 g",
+       "price": 4380
+      }
+     ]
+    },
+    {
+     "id": "pork-loin",
+     "bg": "Крехки свински карета с картофи по селски и сос BBQ",
+     "en": "Tender pork loin with homemade style potatoes with BBQ sauce",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1090
+      }
+     ]
+    },
+    {
+     "id": "pork-neck",
+     "bg": "Грилована свинска вратна пържола със зеленчуци и домашна салца",
+     "en": "Grilled pork neck with vegetables and homemade tomato salsa",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1290
+      }
+     ]
+    },
+    {
+     "id": "pork-ribs",
+     "bg": "Сувидирани свински ребърца на BBQ с картофи по селски",
+     "en": "BBQ pork ribs sous-vide with homemade style potato",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "400 g",
+       "price": 1290
+      }
+     ]
+    },
+    {
+     "id": "marbled-pork",
+     "bg": "Мариновано шарено месце с доматена салца и розов лук",
+     "en": "Marbled meat with fresh tomato salsa",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1290
+      }
+     ]
+    },
+    {
+     "id": "pork-medallions",
+     "bg": "Свински медальони на BBQ с печен картоф и сос",
+     "en": "BBQ pork medallions with baked potato and gravy",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "400 g",
+       "price": 1350
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sandwiches",
+   "bg": "Сандвичи",
+   "en": "Sandwiches",
+   "items": [
+    {
+     "id": "raya-burger",
+     "bg": "Бургер „Рая Гардън“",
+     "en": "Burger “Raya Garden”",
+     "descBg": "С телешко кюфте, специален сос, сладко от лук, домашно приготвени питка и картофки",
+     "descEn": "With beef, special sauce, onion jam, homemade bun and fries",
+     "allergens": [
+      1,
+      7,
+      10,
+      11
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1190
+      }
+     ]
+    },
+    {
+     "id": "bbq-chicken-tortilla",
+     "bg": "Тортила с пиле на BBQ",
+     "en": "Tortilla with BBQ chicken",
+     "descBg": "С пилешко филе, майонезен дресинг и свежи зеленчуци, поднесена с пресни пържени картофки",
+     "descEn": "With chicken fillet, mayonnaise dressing and fresh vegetables, served with fries",
+     "allergens": [
+      1,
+      7,
+      10
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1090
+      }
+     ]
+    },
+    {
+     "id": "prosciutto-burrata-sandwich",
+     "bg": "Сандвич „Прошуто & Бурата“",
+     "en": "Prosciutto & Burrata sandwich",
+     "descBg": "Чабата, прошуто крудо, бурата, домати, микс свежи салатки, песто",
+     "descEn": "Ciabatta, prosciutto crudo, burrata, tomatoes, mixed fresh salads, pesto",
+     "allergens": [
+      1,
+      7,
+      10
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "300 g",
+       "price": 1150
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sides",
+   "bg": "Гарнитури",
+   "en": "Side dishes",
+   "items": [
+    {
+     "id": "french-fries",
+     "bg": "Пресни пържени картофи",
+     "en": "French fries",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 450
+      }
+     ]
+    },
+    {
+     "id": "potato-chips",
+     "bg": "Картофен чипс",
+     "en": "Potato chips",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 g",
+       "price": 410
+      }
+     ]
+    },
+    {
+     "id": "homemade-potatoes",
+     "bg": "Картофи по селски",
+     "en": "Homemade potatoes",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 420
+      }
+     ]
+    },
+    {
+     "id": "roasted-vegetables",
+     "bg": "Запечени зеленчуци",
+     "en": "Roasted vegetables",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 g",
+       "price": 590
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cold-cuts",
+   "bg": "Домашно приготвени мезета",
+   "en": "Homemade cold cuts",
+   "items": [
+    {
+     "id": "elena-ham",
+     "bg": "Еленски бут",
+     "en": "Pork leg from Elena",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "elena-fillet",
+     "bg": "Филе Елена",
+     "en": "Local dry cured ham from Elena",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 850
+      }
+     ]
+    },
+    {
+     "id": "kaiserovan-neck",
+     "bg": "Кайзерован врат",
+     "en": "Pork neck",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 990
+      }
+     ]
+    },
+    {
+     "id": "elena-sudzhuk",
+     "bg": "Домашен суджук от Елена",
+     "en": "Homemade dried sausage from Elena",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 790
+      }
+     ]
+    },
+    {
+     "id": "cold-cuts-platter",
+     "bg": "Плато микс мезета и сирена",
+     "en": "Platter of mixed cold cuts and cheese",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "350 g",
+       "price": 1750
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bread",
+   "bg": "Хляб",
+   "en": "Bread",
+   "items": [
+    {
+     "id": "homemade-bread",
+     "bg": "Домашно приготвен хляб със зехтин и провансалски билки",
+     "en": "Homemade bread with olive oil and herbs",
+     "allergens": [
+      1
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 240
+      }
+     ]
+    },
+    {
+     "id": "ciabatta",
+     "bg": "Чабата",
+     "en": "Ciabatta",
+     "allergens": [
+      1
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 210
+      }
+     ],
+     "choices": {
+      "bg": "Вид",
+      "en": "Type",
+      "options": [
+       {
+        "id": "wheat",
+        "bg": "пшенична",
+        "en": "wheat"
+       },
+       {
+        "id": "whole-wheat",
+        "bg": "пълнозърнеста",
+        "en": "whole-wheat"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "desserts",
+   "bg": "Десерти",
+   "en": "Desserts",
+   "items": [
+    {
+     "id": "cheesecake",
+     "bg": "Чийзкейк с боровинки",
+     "en": "Cheesecake with blueberries",
+     "allergens": [
+      1,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "chocolate-souffle",
+     "bg": "Шоколадово суфле, поднесено със сладолед",
+     "en": "Chocolate soufflé with ice cream",
+     "allergens": [
+      1,
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 650
+      }
+     ]
+    },
+    {
+     "id": "kazan-dibi",
+     "bg": "Казан диби – традиционен турски млечен десерт",
+     "en": "Kazan dibi – Turkish milk dessert",
+     "allergens": [
+      1,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "pavlova",
+     "bg": "Десерт „Павлова“ с плодов мус",
+     "en": "“Pavlova” dessert with fruit mousse",
+     "allergens": [
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "tiramisu",
+     "bg": "Тирамису",
+     "en": "Tiramisu",
+     "allergens": [
+      3,
+      7
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "eclair",
+     "bg": "Еклер с бял шоколад и плодове",
+     "en": "Eclair with white chocolate and fruits",
+     "allergens": [
+      1,
+      3,
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 520
+      }
+     ]
+    },
+    {
+     "id": "french-country-cake",
+     "bg": "Френска селска торта",
+     "en": "French country cake",
+     "allergens": [
+      1,
+      3,
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "150 g",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "ice-cream",
+     "bg": "Топка домашен сладолед с орехи и смокини",
+     "en": "Scoop of homemade ice cream with walnuts and fig",
+     "allergens": [
+      7,
+      8
+     ],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 g",
+       "price": 310
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "hot-drinks",
+   "bg": "Топли напитки",
+   "en": "Hot drinks",
+   "items": [
+    {
+     "id": "illy-coffee",
+     "bg": "Кафе Illy",
+     "en": "Coffee “Caffè Illy”",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "60 ml",
+       "price": 250
+      }
+     ]
+    },
+    {
+     "id": "illy-decaf",
+     "bg": "Кафе Illy без кофеин",
+     "en": "Decaffeinated coffee",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "60 ml",
+       "price": 250
+      }
+     ]
+    },
+    {
+     "id": "twinings-tea",
+     "bg": "Чай Twinings",
+     "en": "Tea Twinings",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "200 ml",
+       "price": 200
+      }
+     ]
+    },
+    {
+     "id": "nescafe-3in1",
+     "bg": "Нес кафе 3 в 1",
+     "en": "Nescafé 3 in 1",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "70 ml",
+       "price": 190
+      }
+     ]
+    },
+    {
+     "id": "cappuccino",
+     "bg": "Капучино",
+     "en": "Cappuccino",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "180 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "milk-nescafe",
+     "bg": "Мляко с нес кафе",
+     "en": "Milk with Nescafé",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "180 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "milk-or-creamer",
+     "bg": "Мляко или сметана",
+     "en": "Milk or coffee creamer",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "1 pc",
+       "price": 80
+      }
+     ],
+     "choices": {
+      "bg": "Избор",
+      "en": "Choice",
+      "options": [
+       {
+        "id": "milk",
+        "bg": "мляко",
+        "en": "milk"
+       },
+       {
+        "id": "creamer",
+        "bg": "сметана",
+        "en": "coffee creamer"
+       }
+      ]
+     }
+    },
+    {
+     "id": "honey",
+     "bg": "Мед",
+     "en": "Honey",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "1 pc",
+       "price": 90
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "soft-drinks",
+   "bg": "Безалкохолни напитки",
+   "en": "Soft drinks",
+   "items": [
+    {
+     "id": "homemade-lemonade",
+     "bg": "Домашна лимонада",
+     "en": "Homemade lemonade",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "400ml",
+       "bg": "400 ml",
+       "en": "400 ml",
+       "size": "400 ml",
+       "price": 450
+      },
+      {
+       "id": "1000ml",
+       "bg": "1000 ml",
+       "en": "1000 ml",
+       "size": "1000 ml",
+       "price": 690
+      }
+     ]
+    },
+    {
+     "id": "fruit-lemonade",
+     "bg": "Плодова лимонада",
+     "en": "Fruit lemonade",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "400ml",
+       "bg": "400 ml",
+       "en": "400 ml",
+       "size": "400 ml",
+       "price": 450
+      },
+      {
+       "id": "1000ml",
+       "bg": "1000 ml",
+       "en": "1000 ml",
+       "size": "1000 ml",
+       "price": 690
+      }
+     ]
+    },
+    {
+     "id": "fresh-juice",
+     "bg": "Фреш",
+     "en": "Fresh juice",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 ml",
+       "price": 550
+      }
+     ],
+     "choices": {
+      "bg": "Плод",
+      "en": "Fruit",
+      "options": [
+       {
+        "id": "orange",
+        "bg": "портокал",
+        "en": "orange"
+       },
+       {
+        "id": "grapefruit",
+        "bg": "грейпфрут",
+        "en": "grapefruit"
+       },
+       {
+        "id": "lemon",
+        "bg": "лимон",
+        "en": "lemon"
+       }
+      ]
+     }
+    },
+    {
+     "id": "coca-cola-products",
+     "bg": "Продукти на Кока-Кола",
+     "en": "Coca-Cola products",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 ml",
+       "price": 250
+      }
+     ],
+     "choices": {
+      "bg": "Напитка",
+      "en": "Drink",
+      "options": [
+       {
+        "id": "coca-cola",
+        "bg": "Coca-Cola",
+        "en": "Coca-Cola"
+       },
+       {
+        "id": "sprite",
+        "bg": "Sprite",
+        "en": "Sprite"
+       },
+       {
+        "id": "fanta",
+        "bg": "Fanta",
+        "en": "Fanta"
+       },
+       {
+        "id": "bitter-lemon",
+        "bg": "Bitter Lemon",
+        "en": "Bitter Lemon"
+       },
+       {
+        "id": "tonic",
+        "bg": "Tonic",
+        "en": "Tonic"
+       },
+       {
+        "id": "soda",
+        "bg": "сода",
+        "en": "soda"
+       }
+      ]
+     }
+    },
+    {
+     "id": "cappy-juice",
+     "bg": "Натурален сок Капи",
+     "en": "Juice Cappy",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 ml",
+       "price": 250
+      }
+     ]
+    },
+    {
+     "id": "ice-tea",
+     "bg": "Студен чай",
+     "en": "Ice tea",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 ml",
+       "price": 250
+      }
+     ]
+    },
+    {
+     "id": "red-bull",
+     "bg": "Ред Бул",
+     "en": "Red Bull",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "250 ml",
+       "price": 390
+      }
+     ]
+    },
+    {
+     "id": "perrier",
+     "bg": "Газирана вода Перие",
+     "en": "Carbonated water Perrier",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "330 ml",
+       "price": 390
+      }
+     ]
+    },
+    {
+     "id": "devin-crystal",
+     "bg": "Минерална вода Девин Кристал",
+     "en": "Mineral water Devin",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "330 ml",
+       "price": 200
+      }
+     ]
+    },
+    {
+     "id": "san-bernardo-500",
+     "bg": "Минерална вода С. Бернардо",
+     "en": "Mineral water S. Bernardo",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "500 ml",
+       "price": 200
+      }
+     ]
+    },
+    {
+     "id": "san-bernardo-sparkling",
+     "bg": "Газирана вода С. Бернардо",
+     "en": "Carbonated water S. Bernardo",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "750 ml",
+       "price": 510
+      }
+     ]
+    },
+    {
+     "id": "san-bernardo-750",
+     "bg": "Минерална вода С. Бернардо",
+     "en": "Mineral water S. Bernardo",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "750 ml",
+       "price": 510
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "wines",
+   "bg": "Вина Old School Wines",
+   "en": "Old School Wines",
+   "items": [
+    {
+     "id": "raya-garden-rose",
+     "bg": "Raya Garden Розе",
+     "en": "Raya Garden Rosé",
+     "descBg": "Деликатно прасковено-розово вино с блясък, отличаващо се с интензивен аромат на грейпфрут, нар и захарен памук, допълнен с нюанси на папрат и розмарин. Вкусът е свеж и плътен със средно тяло, завършващ с приятна сладост и спомен за ягодов тарт.",
+     "descEn": "A delicate peach-pink wine with a sparkle, characterized by intense aromas of grapefruit, pomegranate and cotton candy, complemented by nuances of fern and rosemary. The taste is fresh and dense with a medium body, ending with a pleasant sweetness and a memory of strawberry tart.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "golden-hands-sauvignon-blanc",
+     "bg": "Златни ръце, Совиньон блан",
+     "en": "Golden Hands, Sauvignon Blanc",
+     "descBg": "Бледо сламено-жълто вино от Дунавската равнина съчетава минерални и плодови аромати, включително кремък, цитрус и манго, предлагайки много свеж и динамичен вкус със сочен финал, напомнящ за морски бриз, зелена ябълка и тропически плодове.",
+     "descEn": "Pale straw yellow wine from the Danube Plain combines mineral and fruit aromas including flint, citrus and mango, offering a very fresh and dynamic taste with a juicy finish reminiscent of sea breeze, green apple and tropical fruit.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "golden-hands-chardonnay",
+     "bg": "Златни ръце, Шардоне",
+     "en": "Golden Hands, Chardonnay",
+     "descBg": "Сламено-жълтото вино с аромати на цитруси и печена курабийка, предлагащо средно тяло и богат вкус на масло и круша, завършва с финал на лимонов тарт, е идеално за аперитив и се съчетава добре с безмесни ястия и морски деликатеси.",
+     "descEn": "The straw yellow wine with aromas of citrus and baked shortbread, offering a medium body and a rich flavor of butter and pear, finishes with a lemon tart finish, is ideal as an aperitif and pairs well with meatless dishes and seafood delicacies.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "3-blend-reserve-white",
+     "bg": "3 Бленд Резерва (бяло)",
+     "en": "3 Blend Reserve (white)",
+     "descBg": "Елегантно бяло вино със златист цвят. Отличава се с аромати на цитрус, узряла ябълка и леки ванилови нотки. Вкусът е свеж и балансиран, със средно тяло и мек, приятен финал.",
+     "descEn": "An elegant white wine with a golden color. It offers aromas of citrus, ripe apple and subtle vanilla notes. The palate is fresh and balanced with a medium body and a smooth, pleasant finish.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 3400
+      }
+     ]
+    },
+    {
+     "id": "reserve-rubin",
+     "bg": "Резерва Рубин",
+     "en": "Reserve Rubin",
+     "descBg": "Много плътно рубинено-червено вино със сортов нос, доминиран от нотки на черен плод, капучино и ванилия, предлага елегантен и динамичен вкус с гъвкаво тяло, сладост и зърнисти танини, завършващ с дълъг финал на дъб и пушек.",
+     "descEn": "A very dense ruby-red wine with a varietal nose dominated by notes of black fruit, cappuccino and vanilla, it offers an elegant and dynamic taste with a supple body, sweetness and grainy tannins, finishing with a long finish of oak and smoke.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 3400
+      }
+     ]
+    },
+    {
+     "id": "golden-hands-cabernet-franc",
+     "bg": "Златни ръце, Каберне фран",
+     "en": "Golden Hands, Cabernet Franc",
+     "descBg": "Гранатово червено вино, отлежало 12 месеца в дъбови бъчви, разкрива аромати на горски плодове, шоколад и черен пипер, с плътен, хармоничен вкус, кадифени танини и атрактивен финал с нотки на пипер и шоколад.",
+     "descEn": "Garnet red wine, aged 12 months in oak barrels, reveals aromas of berries, chocolate and black pepper, with a dense, harmonious taste, velvety tannins and an attractive finish with hints of pepper and chocolate.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "3-blend-reserve-red",
+     "bg": "3 Бленд Резерва (червено)",
+     "en": "3 Blend Reserve (red)",
+     "descBg": "Плътно и комплексно червено вино с наситен цвят. Отличава се с аромати на зрели черни плодове, подправки и леки нотки на дъб. Вкусът е богат и балансиран, със средно към плътно тяло, меки танини и дълъг, хармоничен финал.",
+     "descEn": "A rich and complex red wine with a deep color. It reveals aromas of ripe dark fruits, spices and subtle oak notes. The palate is full and balanced with a medium to full body, smooth tannins and a long, harmonious finish.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 3400
+      }
+     ]
+    },
+    {
+     "id": "art-of-assemblage-rose",
+     "bg": "The Art of Assemblage – розе",
+     "en": "The Art of Assemblage – rosé",
+     "descBg": "Елегантно розово вино с нежен прасковен цвят. Отличава се с аромати на червени плодове, цитрус и леки флорални нотки. Вкусът е свеж и балансиран, със средно тяло и приятен, мек финал.",
+     "descEn": "An elegant rosé with a delicate peach color. It offers aromas of red fruits, citrus and subtle floral notes. The taste is fresh and balanced with a medium body and a smooth, pleasant finish.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2000
+      }
+     ]
+    },
+    {
+     "id": "golden-hands-gamza",
+     "bg": "Златни ръце, Гъмза",
+     "en": "Golden Hands, Gamza",
+     "descBg": "Първата реколта от сорт Гъмза, традиционно ферментирала и отлежала 14 месеца в бъчва без филтрация, се откроява с рубинено-червен цвят и аромати на къпина, ванилия, какао, и хармоничен вкус с акценти на черна боровинка.",
+     "descEn": "The first harvest of the Gamza variety, traditionally fermented and aged for 14 months in a barrel without filtration, stands out with a ruby-red color and aromas of blackberry, vanilla, cocoa, and a harmonious taste with accents of blackberry.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "petnat",
+     "bg": "Петнат пенливо розе",
+     "en": "Petnat sparkling wine",
+     "descBg": "Свежо розово пенливо вино с фин и жив перлаж. Отличава се с аромати на ягода, малина и лек цитрус. Вкусът е лек и сочен, с балансирана свежест и приятен, чист финал. Спомен за ягодов тарт.",
+     "descEn": "A fresh rosé sparkling wine with fine, lively bubbles. It offers aromas of strawberry, raspberry and light citrus. The palate is light and juicy with balanced freshness and a clean, pleasant finish. A memory of strawberry tart.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 2500
+      }
+     ]
+    },
+    {
+     "id": "grand-reserve-rubin-2021",
+     "bg": "Гранд Резерва Рубин 2021",
+     "en": "Grand Reserve Rubin 2021",
+     "descBg": "Плътно и елегантно червено вино с нотки на тъмни плодове, подправки и фин дъб. Балансирано тяло и дълъг, кадифен финал.",
+     "descEn": "Full-bodied and elegant red wine with notes of dark fruits, spices, and subtle oak. Balanced structure with a long, velvety finish.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 7500
+      }
+     ]
+    },
+    {
+     "id": "moet-chandon-brut-imperial",
+     "bg": "Моет Шандон Брут Империал",
+     "en": "Moët & Chandon Brut Impérial",
+     "descBg": "Свежо и фино шампанско с цитрусови нотки и нежни мехурчета. Леко, елегантно и празнично. Наздраве!",
+     "descEn": "Fresh and refined champagne with citrus notes and delicate bubbles. Light, elegant, and celebratory. Cheers!",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "",
+       "price": 9990
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "rakia",
+   "bg": "Ракия",
+   "en": "Rakiya",
+   "items": [
+    {
+     "id": "golden-hands-chardonnay-rakia",
+     "bg": "Златни ръце – специална ракия от Шардоне",
+     "en": "Golden Hands – special rakia from Chardonnay",
+     "descBg": "Специална гроздова ракия от Шардоне, без сулфити и с продължителен контакт с ципите, дестилирана в меден казан за чист сортов аромат, е бистра и силна, идеална за специални моменти.",
+     "descEn": "A special Chardonnay grape brandy, sulphite-free and with prolonged contact with the skins, distilled in a copper still for a pure varietal aroma, is clear and strong, perfect for special moments.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 490
+      }
+     ]
+    },
+    {
+     "id": "burgaska-muscat",
+     "bg": "Бургаска Мускатова",
+     "en": "Burgaska Muscat",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "pomoriiska-muscat",
+     "bg": "Поморийска Мускатова",
+     "en": "Pomoriiska Muscat",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "troyan-slivova-3",
+     "bg": "Троянска сливова 3 г.",
+     "en": "Slivova aged Troyan",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "straldjanska-muscat",
+     "bg": "Стралджанска Мускатова",
+     "en": "Straldjanska Muscat",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 310
+      }
+     ]
+    },
+    {
+     "id": "burgas-63",
+     "bg": "Бургас 63",
+     "en": "Burgas 63",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 310
+      }
+     ]
+    },
+    {
+     "id": "old-slivova-troyan",
+     "bg": "Стара сливова Троян",
+     "en": "Old slivova from Troyan",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 310
+      }
+     ]
+    },
+    {
+     "id": "pear-rakiya",
+     "bg": "Крушова ракия",
+     "en": "Pear rakiya from Troyan",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "burgas-63-barrel",
+     "bg": "Бургас 63 Барел",
+     "en": "Burgas 63 Barrel",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "starosel-thracian-gold",
+     "bg": "Старосел Тракийско злато",
+     "en": "Starosel Thracian Gold",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 450
+      }
+     ]
+    },
+    {
+     "id": "troyanska-slivova-25",
+     "bg": "Троянска сливова 25 г.",
+     "en": "Troyanska rakiya 25 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 720
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "vodka",
+   "bg": "Водка",
+   "en": "Vodka",
+   "items": [
+    {
+     "id": "finlandia",
+     "bg": "Финландия",
+     "en": "Finlandia",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "absolut-blue",
+     "bg": "Абсолют син",
+     "en": "Absolut Blue",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "smirnoff",
+     "bg": "Смирноф",
+     "en": "Smirnoff",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "ostoya",
+     "bg": "Остоя",
+     "en": "Ostoya",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "reyka",
+     "bg": "Рейка",
+     "en": "Reyka",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 490
+      }
+     ]
+    },
+    {
+     "id": "grey-goose",
+     "bg": "Грей Гуус",
+     "en": "Grey Goose",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 750
+      }
+     ]
+    },
+    {
+     "id": "beluga-vodka",
+     "bg": "Белуга",
+     "en": "Beluga",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 750
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "gin",
+   "bg": "Джин",
+   "en": "Gin",
+   "items": [
+    {
+     "id": "beefeater",
+     "bg": "Бийфитър",
+     "en": "Beefeater",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 480
+      }
+     ]
+    },
+    {
+     "id": "bombay-sapphire",
+     "bg": "Бомбай Сапфир",
+     "en": "Bombay Sapphire",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 480
+      }
+     ]
+    },
+    {
+     "id": "hendricks",
+     "bg": "Хендрикс",
+     "en": "Hendrick's",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 590
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "aniseed",
+   "bg": "Анасонови",
+   "en": "Aniseed",
+   "items": [
+    {
+     "id": "plomari",
+     "bg": "Пломари",
+     "en": "Plomari",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "babadzim",
+     "bg": "Бабадзим",
+     "en": "Babadzim",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    },
+    {
+     "id": "pernod",
+     "bg": "Перно",
+     "en": "Pernod",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 290
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "whisky",
+   "bg": "Уиски",
+   "en": "Whiskey",
+   "items": [
+    {
+     "id": "bushmills",
+     "bg": "Бушмилс",
+     "en": "Bushmills",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "jameson",
+     "bg": "Джеймсън",
+     "en": "Jameson",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 380
+      }
+     ]
+    },
+    {
+     "id": "johnnie-walker",
+     "bg": "Джони Уокър",
+     "en": "Johnnie Walker",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "jim-beam",
+     "bg": "Джим Бийм",
+     "en": "Jim Beam",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "jack-daniels",
+     "bg": "Джак Даниелс",
+     "en": "Jack Daniel's",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 480
+      }
+     ]
+    },
+    {
+     "id": "glenfiddich-12",
+     "bg": "Гленфидих 12 г.",
+     "en": "Glenfiddich 12 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 690
+      }
+     ]
+    },
+    {
+     "id": "chivas-12",
+     "bg": "Чивас Регал 12 г.",
+     "en": "Chivas Regal 12 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 590
+      }
+     ]
+    },
+    {
+     "id": "dimple-15",
+     "bg": "Дъмпъл 15 г.",
+     "en": "Dimple 15 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 800
+      }
+     ]
+    },
+    {
+     "id": "johnnie-walker-12",
+     "bg": "Джони Уокър 12 г.",
+     "en": "Johnnie Walker 12 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 680
+      }
+     ]
+    },
+    {
+     "id": "chivas-18",
+     "bg": "Чивас Регал 18 г.",
+     "en": "Chivas Regal 18 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 1250
+      }
+     ]
+    },
+    {
+     "id": "bushmills-10",
+     "bg": "Бушмилс 10 г.",
+     "en": "Bushmills 10 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 690
+      }
+     ]
+    },
+    {
+     "id": "talisker-10",
+     "bg": "Талискер 10 г.",
+     "en": "Talisker 10 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 900
+      }
+     ]
+    },
+    {
+     "id": "glenlivet-15",
+     "bg": "Гленливет 15 г.",
+     "en": "The Glenlivet 15 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 950
+      }
+     ]
+    },
+    {
+     "id": "glenfiddich-18",
+     "bg": "Гленфидих 18 г.",
+     "en": "Glenfiddich 18 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 1250
+      }
+     ]
+    },
+    {
+     "id": "ballantines-21",
+     "bg": "Балантайнс 21 г.",
+     "en": "Ballantine's 21 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 2410
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "cognac",
+   "bg": "Коняк",
+   "en": "Cognac",
+   "items": [
+    {
+     "id": "metaxa-5",
+     "bg": "Метакса 5*",
+     "en": "Metaxa 5*",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "hennessy",
+     "bg": "Хенеси",
+     "en": "Hennessy",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 750
+      }
+     ]
+    },
+    {
+     "id": "courvoisier",
+     "bg": "Курвоазие",
+     "en": "Courvoisier",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 750
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "digestive",
+   "bg": "Дижестиви",
+   "en": "Digestive",
+   "items": [
+    {
+     "id": "baileys",
+     "bg": "Бейлис",
+     "en": "Baileys",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 380
+      }
+     ]
+    },
+    {
+     "id": "martini",
+     "bg": "Мартини",
+     "en": "Martini",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "100 ml",
+       "price": 390
+      }
+     ]
+    },
+    {
+     "id": "marie-brizard-menthe",
+     "bg": "Мента Мари Бризар",
+     "en": "Marie Brizard",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 310
+      }
+     ]
+    },
+    {
+     "id": "jagermeister",
+     "bg": "Йегермайстер",
+     "en": "Jägermeister",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 400
+      }
+     ]
+    },
+    {
+     "id": "limoncello",
+     "bg": "Лимончело",
+     "en": "Limoncello",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 400
+      }
+     ]
+    },
+    {
+     "id": "branca-menta",
+     "bg": "Бранка Мента",
+     "en": "Branca Menta",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 400
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "rum",
+   "bg": "Ром",
+   "en": "Rum",
+   "items": [
+    {
+     "id": "barcelo-imperial-10",
+     "bg": "Барсело Империал 10 г.",
+     "en": "Barceló Imperial 10 y.o.",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 390
+      }
+     ]
+    },
+    {
+     "id": "captain-morgan",
+     "bg": "Капитан Морган",
+     "en": "Captain Morgan",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "50 ml",
+       "price": 320
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "beer",
+   "bg": "Бира",
+   "en": "Beer",
+   "items": [
+    {
+     "id": "stella-artois-draft",
+     "bg": "Стела Артоа наливна",
+     "en": "Stella Artois draft",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "330ml",
+       "bg": "330 ml",
+       "en": "330 ml",
+       "size": "330 ml",
+       "price": 310
+      },
+      {
+       "id": "500ml",
+       "bg": "500 ml",
+       "en": "500 ml",
+       "size": "500 ml",
+       "price": 390
+      }
+     ]
+    },
+    {
+     "id": "staropramen-draft",
+     "bg": "Старопрамен наливна",
+     "en": "Staropramen draft",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "330ml",
+       "bg": "330 ml",
+       "en": "330 ml",
+       "size": "330 ml",
+       "price": 290
+      },
+      {
+       "id": "500ml",
+       "bg": "500 ml",
+       "en": "500 ml",
+       "size": "500 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "becks",
+     "bg": "Бекс",
+     "en": "Beck's",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "500 ml",
+       "price": 310
+      }
+     ]
+    },
+    {
+     "id": "staropramen-non-alcohol",
+     "bg": "Старопрамен безалкохолен",
+     "en": "Staropramen non-alcoholic",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "330 ml",
+       "price": 320
+      }
+     ]
+    },
+    {
+     "id": "staropramen",
+     "bg": "Старопрамен",
+     "en": "Staropramen",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "500 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "madri",
+     "bg": "Мадри",
+     "en": "Madri",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "500 ml",
+       "price": 320
+      }
+     ]
+    },
+    {
+     "id": "leffe-blond",
+     "bg": "Лефе светло",
+     "en": "Leffe Blond",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "330 ml",
+       "price": 480
+      }
+     ]
+    },
+    {
+     "id": "corona-extra",
+     "bg": "Корона",
+     "en": "Corona Extra",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "355 ml",
+       "price": 420
+      }
+     ]
+    },
+    {
+     "id": "heineken",
+     "bg": "Хайнекен",
+     "en": "Heineken",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "330 ml",
+       "price": 350
+      }
+     ]
+    },
+    {
+     "id": "franziskaner",
+     "bg": "Францисканер",
+     "en": "Franziskaner",
+     "allergens": [],
+     "variants": [
+      {
+       "id": "std",
+       "size": "500 ml",
+       "price": 550
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

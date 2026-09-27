@@ -34,3 +34,6 @@ pnpm-debug.log*
 
 # Build artifacts for manual upload
 *.zip
+
+# PHP dev tooling (composer install)
+vendor/

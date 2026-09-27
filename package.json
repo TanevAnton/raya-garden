@@ -17,8 +17,9 @@
     "seed:winery-gallery": "node scripts/seed-winery-gallery.mjs",
     "studio:dev": "sanity dev",
     "studio:deploy": "sanity deploy",
-    "test:qr": "node --test tests/qr/",
-    "qr:php-check": "vendor/bin/phpcs -q --standard=PHPCompatibility --runtime-set testVersion 7.3 --extensions=php public/api"
+    "test:qr": "node --test tests/qr/api.test.mjs",
+    "qr:php-check": "vendor/bin/phpcs -q --standard=PHPCompatibility --runtime-set testVersion 7.3 --extensions=php public/api",
+    "test:qr:e2e": "node --test --test-concurrency=1 tests/qr/e2e.test.mjs"
   },
   "dependencies": {
     "@sanity/client": "^7.22.0",

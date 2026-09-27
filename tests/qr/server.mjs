@@ -28,7 +28,7 @@ export async function startServer({ docroot = "public", withPassword = true } = 
   const root = path.join(work, "www");
   cpSync(path.join(docroot, "api"), path.join(root, "api"), { recursive: true });
   // A built site (dist) also has the page itself; copy it when present.
-  for (const extra of ["index.html", "menu", "admin", "assets"]) {
+  for (const extra of ["index.html", "menu", "admin", "assets", "img"]) {
     if (existsSync(path.join(docroot, extra))) cpSync(path.join(docroot, extra), path.join(root, extra), { recursive: true });
   }
   const config = path.join(work, "raya-qr-config.php");

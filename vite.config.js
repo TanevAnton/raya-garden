@@ -3,6 +3,18 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  // Three pages: the site, and the QR ordering system's guest menu (/menu)
+  // and staff screen (/admin). Separate entries, so a guest at a table loads
+  // neither the site's tracking and booking scripts nor the admin code.
+  build: {
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        menu: "menu/index.html",
+        admin: "admin/index.html",
+      },
+    },
+  },
   server: {
     host: true,
     port: 5173,

@@ -1,0 +1,55 @@
+/* The QR menu and the admin screen: the site's colours and type, without
+   its page-wide effects. Built by the same Tailwind config. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background-color: #0a0908;
+    color: #faf7f0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :focus-visible {
+    outline: 2px solid #d7b85f;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* 16px or more, or iOS zooms the page when a field is focused. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .btn-gold {
+    background: linear-gradient(135deg, #d7b85f, #a87f28);
+    color: #0a0908;
+  }
+  .btn-gold:disabled {
+    background: #3a3228;
+    color: rgba(250, 247, 240, 0.4);
+  }
+  .btn-ghost {
+    border: 1px solid rgba(214, 184, 95, 0.5);
+    color: #f2e6c0;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

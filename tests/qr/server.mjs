@@ -25,7 +25,8 @@ const freePort = () =>
 
 /**
  * stripe: { key, webhookSecret, api, publicUrl } adds payments to the config
- * and points the API at a fake Stripe (tests/qr/fake-stripe.mjs).
+ * and points the API at a fake Stripe (tests/qr/fake-stripe.mjs). publicUrl
+ * "self" sends the guest back to this test server after paying.
  */
 export async function startServer({ docroot = "public", withPassword = true, stripe = null } = {}) {
   const work = mkdtempSync(path.join(tmpdir(), "raya-qr-"));
@@ -39,13 +40,15 @@ export async function startServer({ docroot = "public", withPassword = true, str
   const hash = withPassword
     ? execFileSync("php", ["-r", `echo password_hash(${JSON.stringify(ADMIN_PASSWORD)}, PASSWORD_DEFAULT);`]).toString()
     : "";
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const publicUrl = stripe?.publicUrl === "self" ? base : stripe?.publicUrl || "";
   const settings = {
     ...(withPassword ? { admin_password_hash: hash } : {}),
-    ...(stripe ? { stripe_secret_key: stripe.key, stripe_webhook_secret: stripe.webhookSecret, public_url: stripe.publicUrl || "" } : {}),
+    ...(stripe ? { stripe_secret_key: stripe.key, stripe_webhook_secret: stripe.webhookSecret, public_url: publicUrl } : {}),
   };
   const php = Object.entries(settings).map(([k, v]) => `'${k}' => ${JSON.stringify(v).replace(/\$/g, "\\$")}`);
   writeFileSync(config, `<?php return [${php.join(", ")}];\n`);
-  const port = await freePort();
   const proc = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", root], {
     env: {
       ...process.env,
@@ -59,7 +62,6 @@ export async function startServer({ docroot = "public", withPassword = true, str
   });
   let log = "";
   proc.stderr.on("data", (d) => (log += d));
-  const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 50; i++) {
     try {
       await fetch(`${base}/api/qr/state.php`);

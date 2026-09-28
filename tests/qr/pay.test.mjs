@@ -61,8 +61,8 @@ describe("paying on the phone: placing an order", () => {
     assert.equal(p.mode, "payment");
     assert.equal(p.client_reference_id, String(res.body.order.id));
     assert.equal(p.metadata.order_code, res.body.order.code);
-    assert.equal(p.success_url, `https://rayagarden.bg/menu/?paid=${res.body.order.code}`);
-    assert.equal(p.cancel_url, `https://rayagarden.bg/menu/?unpaid=${res.body.order.code}`);
+    assert.equal(p.success_url, `https://rayagarden.bg/menu/?lang=bg&paid=${res.body.order.code}`);
+    assert.equal(p.cancel_url, `https://rayagarden.bg/menu/?lang=bg&unpaid=${res.body.order.code}`);
     assert.equal(p.payment_method_types, undefined, "payment methods come from the Dashboard");
     assert.match(p.integration_identifier, /^raya_qr_menu_[a-z]{8}$/);
     assert.equal(call.headers["stripe-version"], "2026-08-26.dahlia");

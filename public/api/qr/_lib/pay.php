@@ -123,8 +123,8 @@ function qr_checkout_for(int $orderId, int $now): string
         'client_reference_id' => (string) $orderId,
         'locale' => $lang,
         'expires_at' => (int) $order['created_at'] + QR_PAY_WINDOW,
-        'success_url' => qr_public_url() . '/menu/?paid=' . rawurlencode((string) $order['code']),
-        'cancel_url' => qr_public_url() . '/menu/?unpaid=' . rawurlencode((string) $order['code']),
+        'success_url' => qr_public_url() . '/menu/?lang=' . $lang . '&paid=' . rawurlencode((string) $order['code']),
+        'cancel_url' => qr_public_url() . '/menu/?lang=' . $lang . '&unpaid=' . rawurlencode((string) $order['code']),
         'integration_identifier' => QR_STRIPE_FLOW,
         'metadata' => ['order_id' => (string) $orderId, 'order_code' => (string) $order['code'], 'table' => (string) $order['table_no']],
         'payment_intent_data' => [

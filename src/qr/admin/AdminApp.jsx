@@ -11,6 +11,11 @@ import { api } from "../shared/api.js";
 // last change number seen. If the connection drops, the next successful
 // poll asks with that same number and gets everything that happened in
 // between — nothing is lost, and nothing needs a page reload.
+//
+// When guests pay on the phone, an order only arrives here once it is paid
+// ("Платена"); cancelling it refunds the guest. "За касата" lists the paid
+// orders still to be entered in the till (Clock) — this system cannot reach
+// it — and refunded ones to void there.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -212,13 +217,28 @@ function Dashboard({ onSignedOut }) {
       if (res.status === 401) return onSignedOut();
       if (res.order) merge([res.order], false);
       if (res.error === "stale") say("Поръчката вече е променена от друго устройство — показвам я както е сега.");
+      else if (res.error === "refund_failed") say("Връщането на парите не успя, затова поръчката НЕ е отказана. Опитайте отново след малко.");
       else if (!res.ok) say("Не успях да променя поръчката. Опитайте отново.");
+      else if (action === "cancel" && res.order?.payStatus === "refunded") say(`${res.order.code} е отказана, ${money(res.order.total)} са върнати на госта.`);
     } catch {
       say("Няма връзка — промяната не е записана. Опитайте отново.");
     }
   }
 
+  async function till(order, change) {
+    try {
+      const res = await adminApi("till.php", { id: order.id, ...change });
+      if (res.status === 401) return onSignedOut();
+      if (res.order) merge([res.order], false);
+      if (!res.ok) say("Не успях да запиша. Опитайте отново.");
+    } catch {
+      say("Няма връзка — отметката не е записана. Опитайте отново.");
+    }
+  }
+
   const newCount = [...orders.values()].filter((o) => o.status === "new").length;
+  const tillCount = [...orders.values()].filter(needsTill).length;
+  const showTill = Boolean(state?.paymentsConfigured) || [...orders.values()].some((o) => o.payStatus);
 
   return (
     <div className="min-h-screen pb-16">
@@ -255,6 +275,7 @@ function Dashboard({ onSignedOut }) {
             ["orders", `Поръчки${newCount ? ` (${newCount} нови)` : ""}`],
             ["service", "Вечерта"],
             ["soldout", `Изчерпани${soldOut.length ? ` (${soldOut.length})` : ""}`],
+            ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} className={`px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
               {label}
@@ -273,6 +294,7 @@ function Dashboard({ onSignedOut }) {
         {tab === "orders" && <Orders orders={orders} flash={flash} state={state} onMove={move} />}
         {tab === "service" && <Service state={state} onSaved={(s) => setState(s)} say={say} onSignedOut={onSignedOut} />}
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
+        {tab === "till" && <Till orders={orders} onTill={till} />}
       </main>
 
       {toast && (
@@ -282,6 +304,17 @@ function Dashboard({ onSignedOut }) {
       )}
     </div>
   );
+}
+
+/** On the "За касата" list: paid on the phone and not yet in the till, or refunded after it was. */
+function needsTill(o) {
+  return (o.payStatus === "paid" && !o.tillAt) || (o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt);
+}
+
+function PayChip({ order }) {
+  if (order.payStatus === "paid") return <span className="text-xs px-2 py-1 rounded-sm bg-sage-500/30 text-sage-100">Платена онлайн</span>;
+  if (order.payStatus === "refunded") return <span className="text-xs px-2 py-1 rounded-sm bg-gold-300/20 text-gold-100">Сумата е върната</span>;
+  return null;
 }
 
 function ServiceChip({ state }) {
@@ -390,8 +423,11 @@ function OrderCard({ order, flash, onMove, onCancel }) {
         ))}
       </ul>
       <div className="flex items-center justify-between mt-3 border-t border-gold-300/15 pt-3">
-        <span className="text-cream-50">
-          Общо <span className="font-semibold">{money(order.total)}</span>
+        <span className="text-cream-50 flex items-center gap-2 flex-wrap">
+          <span>
+            Общо <span className="font-semibold">{money(order.total)}</span>
+          </span>
+          <PayChip order={order} />
         </span>
         <span className={`text-xs px-3 py-1 border rounded-full ${s.tone}`}>{s.label}</span>
       </div>
@@ -422,6 +458,11 @@ function CancelDialog({ order, onClose, onConfirm }) {
           Откажи {order.code} · маса {order.table}
         </h2>
         <p className="text-sm text-cream-100/60 mt-1">Причината се вижда и от госта.</p>
+        {order.payStatus === "paid" && (
+          <p className="text-sm text-gold-100 mt-3 border border-gold-300/30 rounded-sm px-3 py-2">
+            Гостът е платил {money(order.total)} онлайн. Сумата ще му бъде върната автоматично.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2 mt-4">
           {REASONS.map((r) => (
             <button key={r} type="button" onClick={() => setReason(r)} className={`px-3 py-2 rounded-full text-sm border ${reason === r ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/80"}`}>
@@ -449,6 +490,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
     closes: state?.closes || "23:00",
     tables: state?.tables || 10,
     disabled: new Set(state?.disabledTables || []),
+    payment: state?.paymentMode === "online" && state?.paymentsConfigured ? "online" : "on_site",
   }));
   const [busy, setBusy] = useState(false);
   const nextDay = form.closes <= form.opens;
@@ -465,12 +507,22 @@ function Service({ state, onSaved, say, onSignedOut }) {
         tables: count,
         disabledTables: [...form.disabled].filter((n) => n <= count),
         paused: false,
+        paymentMode: form.payment,
       });
       if (res.status === 401) return onSignedOut();
       if (res.ok) {
         onSaved(res.state);
         say("Записано. Приемането на поръчки следва новите настройки.");
-      } else say(res.field === "window" ? "Невалидна дата или час." : res.field === "tables" ? "Броят маси трябва да е между 1 и 300." : "Не успях да запиша.");
+      } else
+        say(
+          res.field === "window"
+            ? "Невалидна дата или час."
+            : res.field === "tables"
+              ? "Броят маси трябва да е между 1 и 300."
+              : res.error === "payments_not_configured"
+                ? "Плащането с карта не е настроено на сървъра (Stripe) — виж docs/qr-ordering/SETUP.md."
+                : "Не успях да запиша."
+        );
     } catch {
       say("Няма връзка — настройките не са записани.");
     } finally {
@@ -496,7 +548,12 @@ function Service({ state, onSaved, say, onSignedOut }) {
             {" · "}
             {state.serviceDate} от {state.opens} до {state.closes}
             {state.closes <= state.opens ? " (следващия ден)" : ""} · {state.tables} маси
+            {" · "}
+            {state.payment === "online" ? "плащане с карта в телефона" : "плащане при сервитьора"}
           </p>
+          {state.payment === "online" && state.paymentsTest && (
+            <p className="text-sm text-amber-300 mt-2">ТЕСТОВ РЕЖИМ: плащанията не са истински (тестов ключ на Stripe).</p>
+          )}
           <button
             type="button"
             onClick={togglePause}
@@ -552,9 +609,103 @@ function Service({ state, onSaved, say, onSignedOut }) {
           </div>
         </div>
       )}
+      <div className="mt-6">
+        <div className="text-xs tracking-[0.2em] uppercase text-gold-300/80">Плащане</div>
+        <div className="grid sm:grid-cols-2 gap-2 mt-2">
+          {[
+            ["on_site", "При сервитьора", "Поръчката идва веднага; плаща се на място."],
+            ["online", "С карта в телефона", "Поръчката идва, щом гостът плати. Отказ = автоматично връщане на парите."],
+          ].map(([id, label, hint]) => {
+            const unavailable = id === "online" && !state?.paymentsConfigured;
+            return (
+              <button
+                key={id}
+                type="button"
+                disabled={unavailable}
+                aria-pressed={form.payment === id}
+                onClick={() => setForm((f) => ({ ...f, payment: id }))}
+                className={`text-left rounded-sm p-3 border ${form.payment === id ? "border-gold-300 bg-gold-300/15" : "border-gold-300/25"} disabled:opacity-40`}
+              >
+                <span className="block text-cream-50">{label}</span>
+                <span className="block text-xs text-cream-100/60 mt-1">{unavailable ? "Stripe не е настроен на сървъра — виж SETUP.md." : hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <button type="button" onClick={save} disabled={busy || count < 1} className="btn-gold mt-6 w-full h-14 rounded-sm text-sm tracking-[0.2em] uppercase font-semibold">
         {busy ? "Записване…" : "Запази и активирай"}
       </button>
+    </div>
+  );
+}
+
+/**
+ * "За касата": what guests paid on the phone still has to be entered in the
+ * till (Clock) by hand; refunds of orders already entered have to be voided
+ * there. Oldest first. Ticks sync to every tablet.
+ */
+function Till({ orders, onTill }) {
+  const all = [...orders.values()].filter((o) => o.payStatus === "paid" || o.payStatus === "refunded");
+  const toEnter = all.filter((o) => o.payStatus === "paid" && !o.tillAt).sort((a, b) => a.paidAt - b.paidAt);
+  const toVoid = all.filter((o) => o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt).sort((a, b) => a.updatedAt - b.updatedAt);
+  const done = all.filter((o) => o.tillAt > 0 && !toVoid.includes(o)).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
+  const Row = ({ order, children }) => (
+    <li className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-till={order.code}>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-lg text-gold-100">{order.code}</span>
+          <span className="text-cream-100/70">маса {order.table}</span>
+          <span className="text-cream-100/50 text-sm">{clock(order.paidAt || order.createdAt)}</span>
+        </div>
+        <div className="text-sm text-cream-100/80 mt-1">{order.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}</div>
+      </div>
+      <div className="font-semibold text-cream-50 text-lg">{money(order.total)}</div>
+      {children}
+    </li>
+  );
+  return (
+    <div className="max-w-3xl">
+      <p className="text-sm text-cream-100/60">
+        Платените онлайн поръчки се въвеждат в Clock ръчно, с плащане „карта“. Отметнете всяка, след като я въведете.
+      </p>
+      {toVoid.length > 0 && (
+        <>
+          <h2 className="font-display text-2xl text-red-300 mt-6">Сторнирай в Clock</h2>
+          <p className="text-sm text-cream-100/60 mt-1">Върнати на госта, след като вече са въведени.</p>
+          <ul className="space-y-3 mt-3">
+            {toVoid.map((o) => (
+              <Row key={o.id} order={o}>
+                <button type="button" onClick={() => onTill(o, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm">Сторнирана ✓</button>
+              </Row>
+            ))}
+          </ul>
+        </>
+      )}
+      <h2 className="font-display text-2xl text-cream-50 mt-6">За въвеждане {toEnter.length ? `(${toEnter.length})` : ""}</h2>
+      {toEnter.length === 0 ? (
+        <p className="text-cream-100/50 py-6">Всичко е въведено.</p>
+      ) : (
+        <ul className="space-y-3 mt-3">
+          {toEnter.map((o) => (
+            <Row key={o.id} order={o}>
+              <button type="button" onClick={() => onTill(o, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm">Въведена в Clock ✓</button>
+            </Row>
+          ))}
+        </ul>
+      )}
+      {done.length > 0 && (
+        <details className="mt-8">
+          <summary className="text-sm text-cream-100/60 cursor-pointer">Въведени ({done.length})</summary>
+          <ul className="space-y-2 mt-3 opacity-80">
+            {done.map((o) => (
+              <Row key={o.id} order={o}>
+                <button type="button" onClick={() => onTill(o, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
+              </Row>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

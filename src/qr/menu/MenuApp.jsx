@@ -15,10 +15,32 @@ import { api, newIdempotencyKey, session } from "../shared/api.js";
 // Table, cart and this phone's orders live in sessionStorage: a reload keeps
 // them, a new visit starts clean. The server decides everything that
 // matters (prices, availability, the table); this page only reflects it.
+//
+// On evenings when guests pay on the phone (state.payment === "online") the
+// order is sent to Stripe's payment page and comes back to
+// /menu/?paid=<code> or ?unpaid=<code>. Coming back proves nothing: the
+// order counts as paid only when the server says so, after Stripe's own
+// signed confirmation.
 
 const ITEMS = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
 const lineKey = (l) => `${l.itemId}|${l.variantId}|${l.choiceId || ""}`;
-const FINAL = new Set(["served", "cancelled"]);
+const FINAL = new Set(["served", "cancelled", "expired"]);
+
+/** ?paid=CODE / ?unpaid=CODE from Stripe's return — read once, then removed from the address. */
+function takeReturn() {
+  try {
+    const url = new URL(window.location.href);
+    const paid = url.searchParams.get("paid");
+    const unpaid = url.searchParams.get("unpaid");
+    if (!paid && !unpaid) return null;
+    url.searchParams.delete("paid");
+    url.searchParams.delete("unpaid");
+    window.history.replaceState(null, "", url);
+    return { kind: paid ? "paid" : "unpaid", code: paid || unpaid, at: Date.now() };
+  } catch {
+    return null;
+  }
+}
 
 function initialLang() {
   const fromUrl = new URLSearchParams(window.location.search).get("lang");
@@ -67,8 +89,12 @@ function useServiceState() {
   return { state, failed, reload };
 }
 
-/** This phone's orders, as the server sees them; polled while any is still open. */
-function useOrderStatuses(orders) {
+/**
+ * This phone's orders, as the server sees them; polled while any is still
+ * open — every 3 s for two minutes after coming back from paying, when the
+ * guest is waiting to see the payment confirmed.
+ */
+function useOrderStatuses(orders, returned) {
   const [byToken, setByToken] = useState({});
   const tokens = orders.map((o) => o.token).join(",");
   const refresh = useCallback(async () => {
@@ -81,12 +107,22 @@ function useOrderStatuses(orders) {
     }
   }, [tokens]);
   const open = orders.some((o) => !FINAL.has(byToken[o.token]?.status));
+  const eager = returned?.kind === "paid" && orders.some((o) => byToken[o.token]?.status === "pending_payment" || !byToken[o.token]);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!returned) return undefined;
+    const left = returned.at + 120000 - Date.now();
+    if (left <= 0) return undefined;
+    const timer = setTimeout(() => tick((n) => n + 1), left);
+    return () => clearTimeout(timer);
+  }, [returned]);
+  const fast = eager && Date.now() - returned.at < 120000;
   useEffect(() => {
     refresh();
     if (!open) return undefined;
-    const timer = setInterval(refresh, 10000);
+    const timer = setInterval(refresh, fast ? 3000 : 10000);
     return () => clearInterval(timer);
-  }, [refresh, open]);
+  }, [refresh, open, fast]);
   return { byToken, refresh };
 }
 
@@ -102,11 +138,22 @@ export default function MenuApp() {
   const [choiceFor, setChoiceFor] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [problem, setProblem] = useState(null);
   const [sentOrder, setSentOrder] = useState(null);
+  const [returned] = useState(takeReturn);
   const attempt = useRef({ key: null, sig: null });
   const honeypot = useRef(null);
-  const { byToken, refresh: refreshOrders } = useOrderStatuses(orders);
+  const { byToken, refresh: refreshOrders } = useOrderStatuses(orders, returned);
+
+  // Back from Stripe's page: show that order, and what became of it.
+  useEffect(() => {
+    if (!returned) return;
+    if (returned.kind === "paid") {
+      setSentOrder({ code: returned.code });
+      setSheet("sent");
+    } else setSheet("orders");
+  }, [returned]);
 
   const setLang = (next) => {
     setLangState(next);
@@ -189,9 +236,21 @@ export default function MenuApp() {
         setCart([]);
         setConfirmed(false);
         attempt.current = { key: null, sig: null };
+        if (res.checkoutUrl) {
+          // To Stripe's page. The order is saved on this phone first, so
+          // coming back — paid or not — finds it.
+          setRedirecting(true);
+          session.set("raya.qr.orders", [...orders.filter((o) => o.token !== entry.token), entry]);
+          window.location.assign(res.checkoutUrl);
+          return;
+        }
         setSentOrder(res.order);
         setSheet("sent");
         refreshOrders();
+      } else if (res.error === "payment_unavailable") {
+        // The order exists but Stripe could not be reached. Keep the same
+        // attempt: pressing Pay again finishes this order, never a second one.
+        setProblem({ kind: "payment" });
       } else if (res.error === "changed") {
         const drop = new Set([...res.removed, ...res.soldOut].map((r) => r.line));
         const now = new Map(res.priceChanged.map((p) => [p.line, p.now]));
@@ -300,7 +359,8 @@ export default function MenuApp() {
             open={open}
             confirmed={confirmed}
             setConfirmed={setConfirmed}
-            submitting={submitting}
+            submitting={submitting || redirecting}
+            redirecting={redirecting}
             problem={problem}
             onQty={setQty}
             onNote={setNote}
@@ -313,17 +373,18 @@ export default function MenuApp() {
       )}
 
       {sheet === "sent" && sentOrder && (
-        <Sheet title={t.sent} onClose={() => setSheet(null)} closeLabel={t.close}>
-          <p className="text-sm text-cream-100/60">{t.sentLead}</p>
-          <OrderCard t={t} lang={lang} order={byToken[orders.find((o) => o.code === sentOrder.code)?.token] || sentOrder} big />
+        <SentSheet t={t} lang={lang} order={byToken[orders.find((o) => o.code === sentOrder.code)?.token] || sentOrder} onClose={() => setSheet(null)}>
           <button type="button" onClick={() => setSheet(null)} className="btn-gold w-full mt-6 py-4 rounded-sm text-sm tracking-[0.15em] uppercase font-medium">
             {t.orderMore}
           </button>
-        </Sheet>
+        </SentSheet>
       )}
 
       {sheet === "orders" && (
         <Sheet title={t.myOrders} onClose={() => setSheet(null)} closeLabel={t.close}>
+          {returned?.kind === "unpaid" && byToken[orders.find((o) => o.code === returned.code)?.token]?.status === "pending_payment" && (
+            <p role="status" className="border border-gold-300/25 bg-ink-950 rounded-sm px-4 py-3 text-sm text-cream-50">{t.unpaidReturn}</p>
+          )}
           <div className="space-y-4">
             {[...orders].reverse().map((o) => (
               <OrderCard key={o.token} t={t} lang={lang} order={byToken[o.token] || { code: o.code, createdAt: o.createdAt, status: "new", lines: [], total: null }} />
@@ -383,9 +444,11 @@ function Header({ t, lang, setLang, table, open, orders, onTable, onOrders }) {
     <header className="sticky top-0 z-20 bg-ink-950/95 backdrop-blur border-b border-gold-300/10">
       <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
         <img src="/img/logo.png" alt="" width="32" height="32" className="w-8 h-8" />
-        <div className="leading-tight min-w-0">
+        {/* With all three buttons a narrow phone has no room for the name:
+            the subtitle goes first, then (below 380 px) the title — the logo stays. */}
+        <div className={`leading-tight min-w-0 ${orders.length ? "hidden min-[380px]:block" : ""}`}>
           <div className="font-display text-xl text-cream-50">{t.title}</div>
-          <div className="text-[10px] tracking-[0.25em] uppercase text-gold-300/70 whitespace-nowrap">{t.restaurant}</div>
+          <div className={`text-[10px] tracking-[0.25em] uppercase text-gold-300/70 whitespace-nowrap ${orders.length ? "hidden min-[480px]:block" : ""}`}>{t.restaurant}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {orders.length > 0 && (
@@ -565,8 +628,9 @@ function Stepper({ value, onChange, t }) {
   );
 }
 
-function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, problem, onQty, onNote, onTable, onSubmit, honeypot, state }) {
+function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state }) {
   const closedNow = state && !state.open;
+  const online = state?.payment === "online";
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
       {/* invisible to people; bots fill it and are refused */}
@@ -613,7 +677,7 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
         <span className="text-cream-100/70">{t.total}</span>
         <span className="font-display text-3xl text-gold-100">{money(total, lang)}</span>
       </div>
-      <p className="text-sm text-cream-100/60 mt-2">{t.payment}</p>
+      <p className="text-sm text-cream-100/60 mt-2">{online ? t.payOnline : t.payment}</p>
 
       {table && cart.length > 0 && (
         <label className="flex items-start gap-3 mt-5 cursor-pointer">
@@ -627,7 +691,7 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
         disabled={!table || !confirmed || submitting || !cart.length || !open || closedNow}
         className="btn-gold w-full mt-5 py-4 rounded-sm text-sm tracking-[0.15em] uppercase font-medium"
       >
-        {submitting ? t.sending : t.send}
+        {redirecting ? t.toPayment : submitting ? t.sending : online ? fill(t.payButton, { total: money(total, lang) }) : t.send}
       </button>
     </form>
   );
@@ -639,6 +703,7 @@ function Problem({ t, problem }) {
     rate: t.rateLimited,
     network: t.network,
     error: t.error,
+    payment: t.paymentUnavailable,
     table: fill(t.tableInvalid, { n: problem.n }),
   }[problem.kind];
   return (
@@ -658,9 +723,25 @@ function Problem({ t, problem }) {
   );
 }
 
+/**
+ * "Поръчката е изпратена" — or, back from paying and until the server has
+ * Stripe's confirmation, "Потвърждаваме плащането…".
+ */
+function SentSheet({ t, lang, order, onClose, children }) {
+  const waiting = !order.status || order.status === "pending_payment";
+  const title = waiting ? t.confirmingPayment : order.status === "expired" ? t.status.expired : t.sent;
+  return (
+    <Sheet title={title} onClose={onClose} closeLabel={t.close}>
+      {!waiting && order.status !== "expired" && <p className="text-sm text-cream-100/60">{t.sentLead}</p>}
+      <OrderCard t={t} lang={lang} order={order} big />
+      {children}
+    </Sheet>
+  );
+}
+
 function OrderCard({ t, lang, order, big = false }) {
   const status = order.status || "new";
-  const tone = { new: "text-gold-200", accepted: "text-sage-200", served: "text-cream-100/60", cancelled: "text-red-300" }[status];
+  const tone = { pending_payment: "text-gold-200", expired: "text-cream-100/50", new: "text-gold-200", accepted: "text-sage-200", served: "text-cream-100/60", cancelled: "text-red-300" }[status];
   return (
     <div className="border border-gold-300/20 rounded-sm p-4 mt-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -674,6 +755,16 @@ function OrderCard({ t, lang, order, big = false }) {
         {t.status[status]}
         {status === "cancelled" && order.cancelReason ? ` — ${order.cancelReason}` : ""}
       </p>
+      {(order.payStatus === "paid" || order.payStatus === "refunded") && (
+        <p className={`mt-1 text-xs tracking-[0.15em] uppercase ${order.payStatus === "paid" ? "text-sage-200" : "text-gold-200"}`}>
+          {order.payStatus === "paid" ? t.paid : t.refunded}
+        </p>
+      )}
+      {status === "pending_payment" && order.payUrl && (
+        <a href={order.payUrl} className="btn-gold block text-center w-full mt-3 py-3 rounded-sm text-sm tracking-[0.15em] uppercase font-medium">
+          {order.total != null ? fill(t.payButton, { total: money(order.total, lang) }) : t.payNow}
+        </a>
+      )}
       {order.createdAt && <p className="text-xs text-cream-100/40 mt-1">{fill(t.orderedAt, { time: clock(order.createdAt) })}</p>}
       {order.lines?.length > 0 && (
         <ul className="mt-3 text-sm text-cream-100/80 space-y-1">

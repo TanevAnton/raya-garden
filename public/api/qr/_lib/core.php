@@ -22,7 +22,10 @@ if (!defined('RAYA_QR')) {
 }
 
 const QR_TZ = 'Europe/Sofia';
-const QR_STATUSES = ['new', 'accepted', 'served', 'cancelled'];
+// pending_payment and expired exist only when guests pay on the phone: an
+// order waiting for its payment, and one whose payment never came. Staff
+// never see either — an order reaches them as 'new' once it is paid.
+const QR_STATUSES = ['pending_payment', 'expired', 'new', 'accepted', 'served', 'cancelled'];
 const QR_MAX_LINES = 50;
 const QR_MAX_QTY = 20;
 const QR_MAX_NOTE = 200;
@@ -141,7 +144,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 1;
+const QR_SCHEMA_VERSION = 2;
 
 function qr_db(): PDO
 {
@@ -250,6 +253,32 @@ function qr_migrate(PDO $pdo)
             $insert = $pdo->prepare('INSERT OR IGNORE INTO settings (id, secret) VALUES (1, ?)');
             $insert->execute([bin2hex(random_bytes(32))]);
         }
+        if ($version < 2) {
+            // Paying on the phone (Stripe Checkout). An order's pay_status is
+            // '' when it is paid to staff, else pending → paid → refunded, or
+            // pending → failed / expired. till_at: when staff entered a paid
+            // order in the till (Clock); till_void_at: when they voided it
+            // there after a refund.
+            $pdo->exec("
+                ALTER TABLE settings ADD COLUMN payment_mode TEXT NOT NULL DEFAULT 'on_site';
+                ALTER TABLE orders ADD COLUMN pay_status TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN checkout_session TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN checkout_url TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN checkout_expires INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN payment_intent TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN paid_at INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN refund_id TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN till_at INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN till_void_at INTEGER NOT NULL DEFAULT 0;
+                CREATE INDEX IF NOT EXISTS orders_checkout ON orders (checkout_session);
+                CREATE INDEX IF NOT EXISTS orders_payment_intent ON orders (payment_intent);
+                CREATE TABLE IF NOT EXISTS stripe_events (
+                    id TEXT PRIMARY KEY,
+                    type TEXT NOT NULL,
+                    at INTEGER NOT NULL
+                );
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -258,7 +287,16 @@ function qr_migrate(PDO $pdo)
     }
 }
 
-/** Run $fn inside BEGIN IMMEDIATE; commit on return, roll back on anything thrown. */
+/**
+ * Run $fn inside BEGIN IMMEDIATE; commit on return, roll back on anything thrown.
+ *
+ * ⚠ A statement read outside a transaction keeps SQLite's read lock until
+ * its cursor is closed. Close it (closeCursor()) before calling this, or
+ * before anything slow such as a call to Stripe: a connection that holds the
+ * read lock while waiting for the write lock deadlocks with a writer waiting
+ * to commit, and SQLite answers one of them "database is locked" at once,
+ * without waiting.
+ */
 function qr_write(callable $fn)
 {
     $pdo = qr_db();
@@ -362,8 +400,29 @@ function qr_state(array $settings, int $now): array
         'opensAt' => $opensAt,
         'closesAt' => $closesAt,
         'paused' => (int) $settings['paused'] === 1,
+        // How guests pay tonight. 'online' only while Stripe is configured:
+        // with the keys gone, ordering falls back to paying staff.
+        'payment' => ($settings['payment_mode'] ?? '') === 'online' && qr_stripe_configured() ? 'online' : 'on_site',
+        'paymentMode' => (string) ($settings['payment_mode'] ?? 'on_site'),
+        'paymentsConfigured' => qr_stripe_configured(),
+        'paymentsTest' => qr_stripe_test_mode(),
         'now' => $now,
     ];
+}
+
+// ── payments configured? (the calls themselves are in _lib/pay.php) ──
+
+function qr_stripe_configured(): bool
+{
+    $config = qr_config();
+    return !empty($config['stripe_secret_key']) && !empty($config['stripe_webhook_secret']);
+}
+
+/** A test-mode key (sk_test_ / rk_test_): no real money moves. */
+function qr_stripe_test_mode(): bool
+{
+    $config = qr_config();
+    return (bool) preg_match('/^[sr]k_test_/', (string) ($config['stripe_secret_key'] ?? ''));
 }
 
 function qr_int_list(string $json): array
@@ -436,6 +495,10 @@ function qr_order_json(array $order, bool $withLines = true): array
         'createdAt' => (int) $order['created_at'],
         'updatedAt' => (int) $order['updated_at'],
         'seq' => (int) $order['seq'],
+        'payStatus' => (string) ($order['pay_status'] ?? ''),
+        'paidAt' => (int) ($order['paid_at'] ?? 0),
+        'tillAt' => (int) ($order['till_at'] ?? 0),
+        'tillVoidAt' => (int) ($order['till_void_at'] ?? 0),
     ];
     if ($withLines) {
         $stmt = qr_db()->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');

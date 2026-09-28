@@ -103,7 +103,9 @@ function qr_admin_login(string $password, int $now): array
     $ipHash = qr_ip_hash();
     $recent = qr_db()->prepare('SELECT COUNT(*) FROM login_attempts WHERE ip_hash = ? AND at > ?');
     $recent->execute([$ipHash, $now - QR_LOGIN_WINDOW]);
-    if ((int) $recent->fetchColumn() >= QR_LOGIN_ATTEMPTS) {
+    $failures = (int) $recent->fetchColumn();
+    $recent->closeCursor(); // before the write below — see qr_write()
+    if ($failures >= QR_LOGIN_ATTEMPTS) {
         return [429, ['ok' => false, 'error' => 'rate_limited', 'retryAfter' => QR_LOGIN_WINDOW]];
     }
     if (!password_verify($password, $hash)) {

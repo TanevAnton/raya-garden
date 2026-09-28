@@ -27,8 +27,11 @@ foreach ($tokens as $token) {
     $row = $find->fetch();
     if (is_array($row)) {
         $order = qr_order_json($row);
-        unset($order['seq'], $order['id']);
+        unset($order['seq'], $order['id'], $order['tillAt'], $order['tillVoidAt']);
         $order['token'] = $token;
+        // Still waiting for the phone payment: where to finish it.
+        $order['payUrl'] = $row['status'] === 'pending_payment' && (int) $row['checkout_expires'] > qr_now()
+            ? (string) $row['checkout_url'] : '';
         $orders[] = $order;
     }
 }

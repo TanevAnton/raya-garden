@@ -4,6 +4,8 @@
 //        time; a closing time at or before the opening time is the next day)
 //   {"tables": 24, "disabledTables": [7, 13]}
 //   {"paused": true}                                             stop / resume
+//   {"paymentMode": "on_site"|"online"}    guests pay staff, or on the phone
+//        (Stripe) — "online" only once Stripe is configured, else 409
 // Keys left out keep their value, so the pause button sends only "paused".
 //
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
@@ -68,6 +70,15 @@ if (array_key_exists('paused', $body)) {
         qr_fail(400, 'invalid', ['field' => 'paused']);
     }
     $update['paused'] = $body['paused'] ? 1 : 0;
+}
+if (array_key_exists('paymentMode', $body)) {
+    if (!in_array($body['paymentMode'], ['on_site', 'online'], true)) {
+        qr_fail(400, 'invalid', ['field' => 'paymentMode']);
+    }
+    if ($body['paymentMode'] === 'online' && !qr_stripe_configured()) {
+        qr_fail(409, 'payments_not_configured');
+    }
+    $update['payment_mode'] = $body['paymentMode'];
 }
 if (!$update) {
     qr_fail(400, 'invalid', ['field' => 'body']);

@@ -23,7 +23,11 @@ const freePort = () =>
     });
   });
 
-export async function startServer({ docroot = "public", withPassword = true } = {}) {
+/**
+ * stripe: { key, webhookSecret, api, publicUrl } adds payments to the config
+ * and points the API at a fake Stripe (tests/qr/fake-stripe.mjs).
+ */
+export async function startServer({ docroot = "public", withPassword = true, stripe = null } = {}) {
   const work = mkdtempSync(path.join(tmpdir(), "raya-qr-"));
   const root = path.join(work, "www");
   cpSync(path.join(docroot, "api"), path.join(root, "api"), { recursive: true });
@@ -35,7 +39,12 @@ export async function startServer({ docroot = "public", withPassword = true } = 
   const hash = withPassword
     ? execFileSync("php", ["-r", `echo password_hash(${JSON.stringify(ADMIN_PASSWORD)}, PASSWORD_DEFAULT);`]).toString()
     : "";
-  writeFileSync(config, `<?php return ${withPassword ? `['admin_password_hash' => '${hash}']` : "[]"};\n`);
+  const settings = {
+    ...(withPassword ? { admin_password_hash: hash } : {}),
+    ...(stripe ? { stripe_secret_key: stripe.key, stripe_webhook_secret: stripe.webhookSecret, public_url: stripe.publicUrl || "" } : {}),
+  };
+  const php = Object.entries(settings).map(([k, v]) => `'${k}' => ${JSON.stringify(v).replace(/\$/g, "\\$")}`);
+  writeFileSync(config, `<?php return [${php.join(", ")}];\n`);
   const port = await freePort();
   const proc = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", root], {
     env: {
@@ -44,6 +53,7 @@ export async function startServer({ docroot = "public", withPassword = true } = 
       RAYA_QR_CONFIG: config,
       RAYA_QR_DATA_DIR: path.join(work, "data"),
       PHP_CLI_SERVER_WORKERS: "10",
+      ...(stripe ? { RAYA_QR_STRIPE_API: stripe.api } : {}),
     },
     stdio: ["ignore", "ignore", "pipe"],
   });

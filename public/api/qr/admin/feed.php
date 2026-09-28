@@ -6,6 +6,10 @@
 // commit order and "everything after N" can never skip one. since=0 is the
 // first load: every open order, and everything from the last two days.
 //
+// Orders still waiting for (or never given) a phone payment are not staff
+// business and are left out. Paid orders still to be entered in the till —
+// or voided there after a refund — are always included, however old.
+//
 // The read is one snapshot (BEGIN … COMMIT), so the counter and the rows
 // agree. A screen that was offline for a minute simply asks with its old
 // number and gets everything it missed.
@@ -27,10 +31,15 @@ $pdo->exec('BEGIN');
 try {
     $settings = qr_settings();
     if ($since === 0) {
-        $stmt = $pdo->prepare("SELECT * FROM orders WHERE created_at > ? OR status IN ('new', 'accepted') ORDER BY created_at");
+        $stmt = $pdo->prepare("SELECT * FROM orders
+            WHERE status NOT IN ('pending_payment', 'expired')
+              AND (created_at > ? OR status IN ('new', 'accepted')
+                   OR (pay_status = 'paid' AND till_at = 0)
+                   OR (pay_status = 'refunded' AND till_at > 0 AND till_void_at = 0))
+            ORDER BY created_at");
         $stmt->execute([$now - 172800]);
     } else {
-        $stmt = $pdo->prepare('SELECT * FROM orders WHERE seq > ? ORDER BY seq');
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE seq > ? AND status NOT IN ('pending_payment', 'expired') ORDER BY seq");
         $stmt->execute([$since]);
     }
     $orders = [];

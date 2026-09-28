@@ -139,13 +139,17 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $pdo->prepare("UPDATE orders SET ip_hash = '' WHERE ip_hash <> '' AND created_at <= ?")->execute([$since]);
 
         // 6. Store it, with names and prices copied in: a menu edited later
-        //    never changes an order already placed.
+        //    never changes an order already placed. When guests pay on the
+        //    phone it waits, unseen by staff, until Stripe confirms the
+        //    payment (_lib/pay.php).
+        $status = $state['payment'] === 'online' ? 'pending_payment' : 'new';
         $seq = qr_bump_seq($pdo);
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
-            (code, token_hash, idem_key, payload_hash, table_no, status, total_cents, lang, ip_hash, created_at, updated_at, seq)
-            VALUES (?, ?, ?, ?, ?, \'new\', ?, ?, ?, ?, ?, ?)');
-        $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $total, $lang, $ipHash, $now, $now, $seq]);
+            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
+            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq]);
         $orderId = (int) $pdo->lastInsertId();
         $insertLine = $pdo->prepare('INSERT INTO order_items
             (order_id, line, item_id, variant_id, choice_id, name_bg, name_en, detail_bg, detail_en, size, unit_cents, qty, note)
@@ -160,8 +164,8 @@ function qr_place_order(array $body, string $idemKey, int $now): array
                 (int) $variant['price'], $line['qty'], $line['note'],
             ]);
         }
-        $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, at) VALUES (?, \'\', \'new\', ?)')
-            ->execute([$orderId, $now]);
+        $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, at) VALUES (?, \'\', ?, ?)')
+            ->execute([$orderId, $status, $now]);
 
         $stmt = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
         $stmt->execute([$orderId]);

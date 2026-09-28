@@ -160,9 +160,89 @@ comes from one consistent read.
 - **A test clock** (`X-Test-Now`) works only when the server runs with
   `RAYA_QR_TEST=1`, which the live site never sets.
 
+## Paying on the phone (Stripe), added 28.09.2026
+
+**Why.** At big events there are too many guests for the waiters to reach
+everyone. Ordering from the phone already saves the trip to take an order;
+paying on the phone saves the trip to collect the money.
+
+**Why it's per evening, and why paying staff is the default.** On normal
+restaurant nights a waiter is at the table anyway, and a card fee on a coffee
+is a poor trade. The staff screen switches it per evening. It can only be
+switched on while Stripe is configured, and without keys everything falls back
+to paying staff.
+
+### Stripe, and how much of it
+
+- **Why Stripe:** Checkout is Stripe's own hosted page, so no card data touches
+  our shared host. Apple Pay and Google Pay come with it, test mode lets us
+  rehearse with fake cards, and Stripe works in Bulgaria. The alternatives
+  were myPOS (only worth it if its terminals were already in use) or a bank's
+  online terminal through Borica (cheaper per payment, more paperwork and a
+  clumsier integration).
+- **No Connect.** Connect is for platforms passing money between businesses.
+  RAYA Garden sells its own services, so one account is enough. If the hotel
+  and the restaurant are separate companies, the simpler answer is one Stripe
+  account per company, not Connect.
+- **Hotel bookings stay in Clock** (its booking engine takes the payment).
+  **Event deposits** need no code: an invoice or payment link from the Stripe
+  Dashboard. Whether a Stripe invoice can serve as the Bulgarian фактура is
+  the accountant's call.
+- **No SDK.** The host runs PHP 7.3 without Composer, so `_lib/pay.php` calls
+  the REST API with cURL. That is three calls, pinned to API version
+  `2026-08-26.dahlia`.
+- **A restricted key** (Checkout Sessions and Refunds, write), never the full
+  secret key. It is stored like the staff password: a GitHub secret, written
+  above the web root by the deploy, and never in the code.
+
+### Rules the code keeps
+
+- **Only Stripe's signed webhook marks an order paid**, never the guest
+  returning to `?paid=`. A guest can pay and then lose signal before the page
+  loads.
+  - The signature (HMAC-SHA256) and its age (5 minutes) are checked.
+  - The amount paid must equal the order's total.
+  - Each event is applied once: its id is stored in the same transaction as
+    its effect.
+- **Staff never see an unpaid order.** It waits as `pending_payment`, so
+  nobody cooks what nobody paid for. If the payment never comes (1 hour), it
+  ends as `expired`.
+- **One Checkout Session per order.** It uses a Stripe idempotency key per
+  order and an expiry fixed from the order's own time. A retry after a lost
+  answer therefore sends identical parameters and gets the same session, and
+  pressing *Плати* twice charges once.
+- **Prices come from the stored order**, not the phone, with line items so the
+  guest sees what they are paying for. No `payment_method_types`: the methods
+  are chosen in the Stripe Dashboard.
+- **A refund comes before the cancellation, not after.** If the refund fails,
+  the order stays uncancelled and staff retry; nobody is left believing a
+  guest was refunded. One refund per order, even when two tablets press at
+  once.
+- **A slow Stripe must not stall other orders.** The Stripe call happens
+  outside the database's write lock, and every read closes its cursor before
+  anything slow.
+  - Found in testing: an open read cursor made two tablets deadlock ("database
+    is locked").
+  - Left in, it would also have let a slow Stripe answer hold up every other
+    table's order.
+  - Both cases are tested, and the tests fail without the fix.
+- **The till (Clock) can't be reached**, so "За касата" is a shared checklist.
+  Paid orders are entered by hand; refunds of already-entered orders are
+  flagged for voiding there.
+
+### Not done, on purpose
+
+- **A per-order choice** between paying on the phone and paying staff. The
+  evening decides, which keeps the staff screen unambiguous.
+- **Tips and splitting a bill on the phone.**
+- **Checking the payment path against real Stripe** was left to the owner's
+  own test mode, not a throwaway sandbox. Creating one needs an email address
+  to register it under, and none was right to use without asking. The fake
+  Stripe in `tests/qr/fake-stripe.mjs` follows Stripe's documented behaviour,
+  including idempotency, signatures and async payments.
+
 ## Left out on purpose
 
-- **Online payment.** Payment stays with staff, as today.
 - **Kitchen printer or kitchen display.** The staff page is the one place.
 - **Per-person accounts, reports and exports.** Orders are kept in the
   SQLite file, which can be downloaded over FTP if a report is ever needed.

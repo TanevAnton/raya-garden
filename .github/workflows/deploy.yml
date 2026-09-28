@@ -27,7 +27,7 @@ jobs:
     # push (before secrets exist) still builds green instead of failing red.
     env:
       HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
-      HAS_QR_PASSWORD: ${{ secrets.QR_ADMIN_PASSWORD != '' }}
+      HAS_QR_SETTINGS: ${{ secrets.QR_ADMIN_PASSWORD != '' || secrets.QR_STRIPE_SECRET_KEY != '' || secrets.QR_STRIPE_WEBHOOK_SECRET != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -131,20 +131,24 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq lftp
           node scripts/deploy-ftp.mjs
 
-      # The staff password for rayagarden.bg/admin (QR table ordering), from
-      # the secret QR_ADMIN_PASSWORD. Only its bcrypt hash reaches the server,
-      # in raya-qr-config.php one folder above the web root, and the file is
-      # left alone while the password still matches — so staff stay signed in
-      # across deploys. Runs after the site is live: it can never hold up or
-      # break a deploy of the site itself. scripts/qr-admin-password.mjs.
-      - name: Staff password for /admin
-        if: ${{ env.HAS_FTP == 'true' && env.HAS_QR_PASSWORD == 'true' }}
+      # QR table ordering's server settings, from secrets: the staff password
+      # for rayagarden.bg/admin (QR_ADMIN_PASSWORD — only its bcrypt hash
+      # reaches the server) and, for paying on the phone, the Stripe keys
+      # (QR_STRIPE_SECRET_KEY, a restricted key; QR_STRIPE_WEBHOOK_SECRET).
+      # They go into raya-qr-config.php one folder above the web root, and the
+      # file is only rewritten when something changed — so staff stay signed
+      # in across deploys. Runs after the site is live: it can never hold up
+      # or break a deploy of the site itself. scripts/qr-server-config.mjs.
+      - name: QR ordering settings (staff password, Stripe keys)
+        if: ${{ env.HAS_FTP == 'true' && env.HAS_QR_SETTINGS == 'true' }}
         env:
           FTP_SERVER: ${{ secrets.FTP_SERVER }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           FTP_DIR: ${{ vars.FTP_SERVER_DIR || 'rayagarden.bg/' }}
           QR_ADMIN_PASSWORD: ${{ secrets.QR_ADMIN_PASSWORD }}
+          QR_STRIPE_SECRET_KEY: ${{ secrets.QR_STRIPE_SECRET_KEY }}
+          QR_STRIPE_WEBHOOK_SECRET: ${{ secrets.QR_STRIPE_WEBHOOK_SECRET }}
         run: |
           command -v php >/dev/null || sudo apt-get install -y -qq php-cli
-          node scripts/qr-admin-password.mjs
+          node scripts/qr-server-config.mjs

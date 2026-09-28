@@ -35,7 +35,8 @@ $out['parses'] = array();
 if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
     $files = array(
         'wedding-enquiry.php', '_lib/quote.php', '_lib/smtp.php',
-        'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/order.php',
+        'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/_lib/pay.php',
+        'qr/order.php', 'qr/stripe-webhook.php',
     );
     foreach ($files as $rel) {
         $path = $here . '/' . $rel;
@@ -86,7 +87,27 @@ $out['qr'] = array(
     'data_folder' => is_dir($dataDir)
         ? (is_writable($dataDir) ? 'exists, writable' : 'exists, NOT writable')
         : (is_writable(dirname($dataDir)) ? 'not created yet, can be' : 'NOT creatable'),
+    // Paying on the phone: which kind of key is set — never the key itself.
+    'stripe_key' => empty($qrConfig['stripe_secret_key']) ? 'not set'
+        : (preg_match('/^([rs]k)_(test|live)_/', $qrConfig['stripe_secret_key'], $m)
+            ? ($m[2] === 'test' ? 'TEST ' : 'LIVE ') . ($m[1] === 'rk' ? 'restricted key' : 'full secret key — use a restricted one')
+            : 'not a Stripe key'),
+    'stripe_webhook_secret_set' => !empty($qrConfig['stripe_webhook_secret']),
+    'curl_reaches_stripe' => 'not tested',
 );
+if (function_exists('curl_init') && !empty($qrConfig['stripe_secret_key'])) {
+    // Connection only: no key is sent, so Stripe answers 401.
+    $ch = curl_init('https://api.stripe.com/v1/checkout/sessions');
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 6);
+    $ok = curl_exec($ch);
+    $out['qr']['curl_reaches_stripe'] = ($ok === false)
+        ? 'NO: ' . curl_error($ch)
+        : 'yes (HTTP ' . (int) curl_getinfo($ch, CURLINFO_HTTP_CODE) . ')';
+    curl_close($ch);
+}
 
 // Can this host reach Formspree at all? Connection only; nothing is submitted.
 $out['formspree_reachable'] = 'not tested';

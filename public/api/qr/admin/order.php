@@ -13,6 +13,11 @@
 // NOT cancelled — staff try again. Two tablets cancelling at once still make
 // one refund (Stripe idempotency); the second gets the usual 409 stale.
 //
+// An order on a table's bill ("Сметка накрая") is cancelled at once; any of
+// its lines already paid on a phone are owed back to whoever paid them and
+// refunded right after (_lib/bill.php). A refund that fails then is shown on
+// "Сметки" with a retry, and the answer says so (refundPending).
+//
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
 
 declare(strict_types=1);
@@ -21,6 +26,7 @@ define('RAYA_QR', true);
 require dirname(__DIR__) . '/_lib/core.php';
 require dirname(__DIR__) . '/_lib/auth.php';
 require dirname(__DIR__) . '/_lib/pay.php';
+require dirname(__DIR__) . '/_lib/bill.php';
 
 const QR_MOVES = [
     'accept' => [['new'], 'accepted'],
@@ -56,20 +62,21 @@ if ($action === 'cancel') {
         }
     }
 }
-list($status, $response) = qr_write(function (PDO $pdo) use ($id, $action, $from, $reason, $now, $refundId) {
+list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action, $from, $reason, $now, $refundId) {
     $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
     $find->execute([$id]);
     $order = $find->fetch();
+    $find->closeCursor();
     if (!is_array($order)) {
-        return [404, ['ok' => false, 'error' => 'not_found']];
+        return [404, ['ok' => false, 'error' => 'not_found'], []];
     }
     list($allowedFrom, $to) = QR_MOVES[$action];
     if ($order['status'] !== $from || !in_array($from, $allowedFrom, true)) {
-        return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)]];
+        return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], []];
     }
     if ($action === 'cancel' && $order['pay_status'] === 'paid' && $refundId === null) {
         // Paid after the check above: go round again rather than cancel unrefunded.
-        return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)]];
+        return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], []];
     }
     $seq = qr_bump_seq($pdo);
     $pdo->prepare('UPDATE orders SET status = ?, cancel_reason = ?, updated_at = ?, seq = ? WHERE id = ?')
@@ -80,7 +87,17 @@ list($status, $response) = qr_write(function (PDO $pdo) use ($id, $action, $from
     }
     $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)')
         ->execute([$id, $from, $to, $reason, $now]);
+    $owed = [];
+    if ((int) $order['tab_id'] > 0) {
+        $owed = $action === 'cancel' ? qr_bill_cancel_order($pdo, $order, $seq) : [];
+        qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
+    }
     $find->execute([$id]);
-    return [200, ['ok' => true, 'order' => qr_order_json($find->fetch())]];
+    return [200, ['ok' => true, 'order' => qr_order_json($find->fetch())], $owed];
 });
+foreach ($owed as $paymentId) {
+    if (!qr_bill_refund_due($paymentId)) {
+        $response['refundPending'] = true;
+    }
+}
 qr_json($status, $response);

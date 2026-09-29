@@ -42,7 +42,8 @@ export async function startFakeStripe({ webhookSecret }) {
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const sessions = new Map();
-  const refunds = new Map(); // payment_intent → refund
+  const refunds = new Map(); // payment_intent → [refund, …]
+  const charged = new Map(); // payment_intent → amount paid
   const idem = new Map(); // key → { params, status, body }
   const requests = [];
   const failures = []; // queued [pathPrefix, status, body]
@@ -80,6 +81,7 @@ export async function startFakeStripe({ webhookSecret }) {
     s.status = "complete";
     s.payment_status = paymentStatus;
     s.payment_intent ??= `pi_test_${++n}`;
+    charged.set(s.payment_intent, s.amount_total);
     const object = { ...s, ...(amount !== undefined ? { amount_total: amount } : {}) };
     return deliver(event(type, object));
   }
@@ -160,11 +162,17 @@ export async function startFakeStripe({ webhookSecret }) {
       return remember(200, s);
     }
     if (req.method === "POST" && url.pathname === "/v1/refunds") {
-      if (refunds.has(params.payment_intent)) {
+      // Full by default; with "amount", partial — as long as the total
+      // refunded stays within what was paid, like Stripe.
+      const pi = params.payment_intent;
+      const done = (refunds.get(pi) || []).reduce((sum, r) => sum + r.amount, 0);
+      const paid = charged.get(pi) ?? Infinity;
+      const amount = params.amount !== undefined ? Number(params.amount) : paid - done;
+      if (done >= paid || amount > paid - done) {
         return remember(400, { error: { type: "invalid_request_error", code: "charge_already_refunded" } });
       }
-      const refund = { id: `re_test_${++n}`, object: "refund", payment_intent: params.payment_intent, status: "succeeded" };
-      refunds.set(params.payment_intent, refund);
+      const refund = { id: `re_test_${++n}`, object: "refund", payment_intent: pi, amount, status: "succeeded" };
+      refunds.set(pi, [...(refunds.get(pi) || []), refund]);
       return remember(200, refund);
     }
     return json(res, 404, { error: { type: "invalid_request_error", message: `no fake for ${url.pathname}` } });
@@ -176,6 +184,7 @@ export async function startFakeStripe({ webhookSecret }) {
     requests,
     sessions,
     refunds,
+    refunded: (pi) => (refunds.get(pi) || []).reduce((sum, r) => sum + r.amount, 0),
     setWebhook: (url) => (webhookUrl = url),
     failNext: (prefix, status, body) => failures.push([prefix, status, body]),
     delayNext: (prefix, ms) => delays.push([prefix, ms]),
@@ -186,6 +195,7 @@ export async function startFakeStripe({ webhookSecret }) {
     reset: () => {
       sessions.clear();
       refunds.clear();
+      charged.clear();
       idem.clear();
       requests.length = 0;
       failures.length = 0;

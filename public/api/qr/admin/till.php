@@ -6,7 +6,11 @@
 //   {"id": 12, "entered": true|false}   entered in the till (or undo)
 //   {"id": 12, "voided": true|false}    voided there after a refund (or undo)
 //
-// Only for orders paid on the phone. Every tick takes a change number, so
+//   {"paymentId": 9, "entered": true|false}  a payment from a table's bill,
+//                                           entered for its net amount
+//   {"paymentId": 9, "voided": true|false}   a refund after that, voided
+//
+// Only for what was paid on the phone. Every tick takes a change number, so
 // every tablet's list agrees.
 //
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
@@ -16,6 +20,8 @@ declare(strict_types=1);
 define('RAYA_QR', true);
 require dirname(__DIR__) . '/_lib/core.php';
 require dirname(__DIR__) . '/_lib/auth.php';
+require dirname(__DIR__) . '/_lib/pay.php';
+require dirname(__DIR__) . '/_lib/bill.php';
 
 qr_require_method('POST');
 qr_require_admin(true);
@@ -23,10 +29,41 @@ $body = qr_body();
 $id = $body['id'] ?? null;
 $column = array_key_exists('voided', $body) ? 'till_void_at' : (array_key_exists('entered', $body) ? 'till_at' : null);
 $value = $body['voided'] ?? $body['entered'] ?? null;
-if (!is_int($id) || $column === null || !is_bool($value)) {
+if (!array_key_exists('paymentId', $body) && (!is_int($id) || $column === null || !is_bool($value))) {
     qr_fail(400, 'invalid');
 }
 $now = qr_now();
+if (array_key_exists('paymentId', $body)) {
+    $paymentId = $body['paymentId'];
+    if (!is_int($paymentId) || $column === null || !is_bool($value)) {
+        qr_fail(400, 'invalid');
+    }
+    list($status, $response) = qr_write(function (PDO $pdo) use ($paymentId, $column, $value, $now) {
+        $find = $pdo->prepare("SELECT * FROM bill_payments WHERE id = ? AND status = 'paid'");
+        $find->execute([$paymentId]);
+        $p = $find->fetch();
+        $find->closeCursor();
+        if (!is_array($p)) {
+            return [404, ['ok' => false, 'error' => 'not_found']];
+        }
+        $net = (int) $p['amount_cents'] - (int) $p['refund_due_cents'];
+        if ($column === 'till_void_at' && ((int) $p['till_at'] === 0 || $net >= (int) $p['till_cents'])) {
+            return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_json($p)]];
+        }
+        $seq = qr_bump_seq($pdo);
+        if ($column === 'till_at') {
+            $pdo->prepare('UPDATE bill_payments SET till_at = ?, till_cents = ?, seq = ? WHERE id = ?')
+                ->execute([$value ? $now : 0, $value ? $net : 0, $seq, $paymentId]);
+        } else {
+            $pdo->prepare('UPDATE bill_payments SET till_void_at = ?, seq = ? WHERE id = ?')->execute([$value ? $now : 0, $seq, $paymentId]);
+        }
+        $find->execute([$paymentId]);
+        $p = $find->fetch();
+        $find->closeCursor();
+        return [200, ['ok' => true, 'payment' => qr_bill_payment_json($p)]];
+    });
+    qr_json($status, $response);
+}
 list($status, $response) = qr_write(function (PDO $pdo) use ($id, $column, $value, $now) {
     $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
     $find->execute([$id]);

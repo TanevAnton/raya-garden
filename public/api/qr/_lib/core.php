@@ -144,7 +144,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 2;
+const QR_SCHEMA_VERSION = 3;
 
 function qr_db(): PDO
 {
@@ -279,6 +279,69 @@ function qr_migrate(PDO $pdo)
                 );
             ");
         }
+        if ($version < 3) {
+            // The table's bill ("Сметка накрая", see bill.php): a tab per table
+            // and evening collects the orders; guests pay chosen lines of it
+            // on the phone (bill_payments), staff settle the rest on the spot.
+            // A line's paid_via: '' unpaid, 'online' (bill_payment_id),
+            // 'staff' (cash or terminal), 'refunded' (its order was cancelled
+            // after it was paid online). A payment's refund_due_cents is what
+            // we owe back — lines paid twice in a race, or cancelled after
+            // payment — and refunded_cents what Stripe has returned so far.
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS tabs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    table_no INTEGER NOT NULL,
+                    evening TEXT NOT NULL,
+                    opened_at INTEGER NOT NULL,
+                    closed_at INTEGER NOT NULL DEFAULT 0,
+                    seq INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS tabs_open ON tabs (table_no, evening, closed_at);
+                CREATE INDEX IF NOT EXISTS tabs_seq ON tabs (seq);
+                ALTER TABLE orders ADD COLUMN tab_id INTEGER NOT NULL DEFAULT 0;
+                CREATE INDEX IF NOT EXISTS orders_tab ON orders (tab_id);
+                ALTER TABLE order_items ADD COLUMN paid_via TEXT NOT NULL DEFAULT '';
+                ALTER TABLE order_items ADD COLUMN bill_payment_id INTEGER NOT NULL DEFAULT 0;
+                CREATE TABLE IF NOT EXISTS bill_payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL,
+                    tab_id INTEGER NOT NULL,
+                    table_no INTEGER NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    idem_key TEXT NOT NULL UNIQUE,
+                    payload_hash TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    amount_cents INTEGER NOT NULL,
+                    overlap_cents INTEGER NOT NULL DEFAULT 0,
+                    refund_due_cents INTEGER NOT NULL DEFAULT 0,
+                    refunded_cents INTEGER NOT NULL DEFAULT 0,
+                    refund_error INTEGER NOT NULL DEFAULT 0,
+                    lang TEXT NOT NULL DEFAULT 'bg',
+                    ip_hash TEXT NOT NULL DEFAULT '',
+                    checkout_session TEXT NOT NULL DEFAULT '',
+                    checkout_url TEXT NOT NULL DEFAULT '',
+                    checkout_expires INTEGER NOT NULL DEFAULT 0,
+                    payment_intent TEXT NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL,
+                    paid_at INTEGER NOT NULL DEFAULT 0,
+                    till_at INTEGER NOT NULL DEFAULT 0,
+                    till_cents INTEGER NOT NULL DEFAULT 0,
+                    till_void_at INTEGER NOT NULL DEFAULT 0,
+                    seq INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS bill_payments_tab ON bill_payments (tab_id);
+                CREATE INDEX IF NOT EXISTS bill_payments_checkout ON bill_payments (checkout_session);
+                CREATE INDEX IF NOT EXISTS bill_payments_seq ON bill_payments (seq);
+                CREATE TABLE IF NOT EXISTS bill_payment_items (
+                    payment_id INTEGER NOT NULL,
+                    order_id INTEGER NOT NULL,
+                    line INTEGER NOT NULL,
+                    amount_cents INTEGER NOT NULL,
+                    PRIMARY KEY (payment_id, order_id, line)
+                );
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -400,9 +463,13 @@ function qr_state(array $settings, int $now): array
         'opensAt' => $opensAt,
         'closesAt' => $closesAt,
         'paused' => (int) $settings['paused'] === 1,
-        // How guests pay tonight. 'online' only while Stripe is configured:
-        // with the keys gone, ordering falls back to paying staff.
-        'payment' => ($settings['payment_mode'] ?? '') === 'online' && qr_stripe_configured() ? 'online' : 'on_site',
+        // How guests pay tonight: 'on_site' (staff), 'online' (on the phone,
+        // before the order goes out) or 'tab' (orders collect on the table's
+        // bill; anyone at the table pays chosen items on the phone at the
+        // end). The last two only while Stripe is configured: with the keys
+        // gone, ordering falls back to paying staff.
+        'payment' => in_array($settings['payment_mode'] ?? '', ['online', 'tab'], true) && qr_stripe_configured()
+            ? (string) $settings['payment_mode'] : 'on_site',
         'paymentMode' => (string) ($settings['payment_mode'] ?? 'on_site'),
         'paymentsConfigured' => qr_stripe_configured(),
         'paymentsTest' => qr_stripe_test_mode(),
@@ -497,6 +564,7 @@ function qr_order_json(array $order, bool $withLines = true): array
         'seq' => (int) $order['seq'],
         'payStatus' => (string) ($order['pay_status'] ?? ''),
         'paidAt' => (int) ($order['paid_at'] ?? 0),
+        'tabId' => (int) ($order['tab_id'] ?? 0),
         'tillAt' => (int) ($order['till_at'] ?? 0),
         'tillVoidAt' => (int) ($order['till_void_at'] ?? 0),
     ];
@@ -517,7 +585,19 @@ function qr_order_json(array $order, bool $withLines = true): array
                 'price' => (int) $line['unit_cents'],
                 'qty' => (int) $line['qty'],
                 'note' => (string) $line['note'],
+                'paidVia' => (string) ($line['paid_via'] ?? ''),
             ];
+        }
+        if ($out['tabId'] > 0) {
+            // On a table's bill: how much of this order is paid so far.
+            $paid = 0;
+            $refunded = false;
+            foreach ($out['lines'] as $line) {
+                $paid += $line['paidVia'] === 'online' || $line['paidVia'] === 'staff' ? 1 : 0;
+                $refunded = $refunded || $line['paidVia'] === 'refunded';
+            }
+            $out['payStatus'] = $refunded ? 'refunded'
+                : ($paid === 0 ? 'tab' : ($paid === count($out['lines']) ? 'tab_paid' : 'tab_partial'));
         }
     }
     return $out;

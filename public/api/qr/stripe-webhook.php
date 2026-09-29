@@ -20,6 +20,7 @@ declare(strict_types=1);
 define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
 require __DIR__ . '/_lib/pay.php';
+require __DIR__ . '/_lib/bill.php';
 
 qr_require_method('POST');
 $config = qr_config();
@@ -38,5 +39,9 @@ $event = json_decode($payload, true);
 if (!is_array($event)) {
     qr_fail(400, 'invalid');
 }
-qr_stripe_event($event, qr_now());
+foreach (qr_stripe_event($event, qr_now()) as $paymentId) {
+    // Lines of a table's bill that someone else had paid first: give this
+    // payer their share back. If Stripe refuses now, staff see it and retry.
+    qr_bill_refund_due($paymentId);
+}
 qr_json(200, ['ok' => true]);

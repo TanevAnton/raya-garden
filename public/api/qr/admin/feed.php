@@ -21,6 +21,8 @@ declare(strict_types=1);
 define('RAYA_QR', true);
 require dirname(__DIR__) . '/_lib/core.php';
 require dirname(__DIR__) . '/_lib/auth.php';
+require dirname(__DIR__) . '/_lib/pay.php';
+require dirname(__DIR__) . '/_lib/bill.php';
 
 qr_require_method('GET');
 qr_require_admin(false);
@@ -46,6 +48,37 @@ try {
     foreach ($stmt->fetchAll() as $row) {
         $orders[] = qr_order_json($row);
     }
+    // Tables' bills ("Сметка накрая"): open ones, and ones closed today;
+    // after that, any bill that changed. Payments from bills for the till
+    // list: still to enter, to void, or owed a refund, and anything recent.
+    if ($since === 0) {
+        $stmt = $pdo->prepare('SELECT * FROM tabs WHERE closed_at = 0 OR closed_at > ? ORDER BY table_no');
+        $stmt->execute([$now - 43200]);
+    } else {
+        $stmt = $pdo->prepare('SELECT * FROM tabs WHERE seq > ? ORDER BY table_no');
+        $stmt->execute([$since]);
+    }
+    $tabs = [];
+    foreach ($stmt->fetchAll() as $tab) {
+        $tabs[] = qr_tab_json($pdo, $tab, $now, true);
+    }
+    if ($since === 0) {
+        $stmt = $pdo->prepare("SELECT * FROM bill_payments WHERE status = 'paid'
+            AND (paid_at > ? OR till_at = 0 OR refund_due_cents > refunded_cents
+                 OR (till_at > 0 AND till_void_at = 0 AND amount_cents - refund_due_cents < till_cents)) ORDER BY paid_at");
+        $stmt->execute([$now - 172800]);
+    } else {
+        $stmt = $pdo->prepare("SELECT * FROM bill_payments WHERE status = 'paid' AND seq > ? ORDER BY paid_at");
+        $stmt->execute([$since]);
+    }
+    $billPayments = [];
+    foreach ($stmt->fetchAll() as $p) {
+        $json = qr_bill_payment_json($p);
+        $json['lines'] = array_map(function ($l) {
+            return ['qty' => (int) $l['qty'], 'nameBg' => (string) $l['name_bg'], 'detailBg' => (string) $l['detail_bg'], 'code' => (string) $l['code']];
+        }, qr_bill_payment_lines($pdo, (int) $p['id']));
+        $billPayments[] = $json;
+    }
     $soldOut = qr_sold_out();
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
@@ -59,5 +92,7 @@ qr_json(200, [
     'orders' => $orders,
     'state' => qr_state($settings, $now),
     'soldOut' => $soldOut,
+    'tabs' => $tabs,
+    'billPayments' => $billPayments,
     'now' => $now,
 ]);

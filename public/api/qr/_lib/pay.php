@@ -206,20 +206,23 @@ function qr_stripe_signature_ok(string $payload, string $header, string $secret,
  * Apply one verified Stripe event, exactly once: the event id is recorded in
  * the same transaction as its effect, so a redelivery changes nothing, and a
  * failure rolls both back for Stripe to retry.
+ *
+ * Returns the ids of bill payments that are now owed money back (see
+ * bill.php) — refunded by the caller after the commit.
  */
-function qr_stripe_event(array $event, int $now)
+function qr_stripe_event(array $event, int $now): array
 {
     $id = (string) ($event['id'] ?? '');
     $type = (string) ($event['type'] ?? '');
     $object = $event['data']['object'] ?? null;
     if ($id === '' || !is_array($object)) {
-        return;
+        return [];
     }
-    qr_write(function (PDO $pdo) use ($id, $type, $object, $now) {
+    return qr_write(function (PDO $pdo) use ($id, $type, $object, $now) {
         $seen = $pdo->prepare('INSERT OR IGNORE INTO stripe_events (id, type, at) VALUES (?, ?, ?)');
         $seen->execute([$id, $type, $now]);
         if ($seen->rowCount() === 0) {
-            return; // already applied
+            return []; // already applied
         }
         $pdo->prepare('DELETE FROM stripe_events WHERE at < ?')->execute([$now - 30 * 86400]);
 
@@ -235,16 +238,20 @@ function qr_stripe_event(array $event, int $now)
                         ->execute([$now, $seq, $order['id']]);
                 }
             }
-            return;
+            return [];
         }
         if (strpos($type, 'checkout.session.') !== 0 || empty($object['id'])) {
-            return;
+            return [];
         }
         $find = $pdo->prepare('SELECT * FROM orders WHERE checkout_session = ?');
         $find->execute([(string) $object['id']]);
         $order = $find->fetch();
+        $find->closeCursor();
         if (!is_array($order)) {
-            return; // not one of ours (another integration on the same account)
+            // A payment from a table's bill — or not one of ours at all
+            // (another integration on the same account).
+            $owed = function_exists('qr_bill_event') ? qr_bill_event($pdo, $type, $object, $now) : null;
+            return $owed ? [$owed] : [];
         }
         $orderId = (int) $order['id'];
 
@@ -253,11 +260,11 @@ function qr_stripe_event(array $event, int $now)
             // is still on its way ('unpaid'); the order waits for
             // async_payment_succeeded.
             if (($object['payment_status'] ?? '') !== 'paid' || $order['pay_status'] === 'paid' || $order['pay_status'] === 'refunded') {
-                return;
+                return [];
             }
             if ((int) ($object['amount_total'] ?? -1) !== (int) $order['total_cents'] || ($object['currency'] ?? '') !== 'eur') {
                 error_log('raya-qr: paid session ' . $object['id'] . ' does not match order ' . $orderId);
-                return;
+                return [];
             }
             $seq = qr_bump_seq($pdo);
             // A payment that lands after we gave up on it still counts: the
@@ -267,11 +274,11 @@ function qr_stripe_event(array $event, int $now)
                 ->execute([$now, (string) ($object['payment_intent'] ?? ''), $now, $seq, $orderId]);
             $pdo->prepare("INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, 'new', 'paid', ?)")
                 ->execute([$orderId, $order['status'], $now]);
-            return;
+            return [];
         }
         if ($type === 'checkout.session.async_payment_failed' || $type === 'checkout.session.expired') {
             if ($order['status'] !== 'pending_payment') {
-                return;
+                return [];
             }
             $seq = qr_bump_seq($pdo);
             $payStatus = $type === 'checkout.session.expired' ? 'expired' : 'failed';
@@ -280,6 +287,7 @@ function qr_stripe_event(array $event, int $now)
             $pdo->prepare("INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, 'pending_payment', 'expired', ?, ?)")
                 ->execute([$orderId, $payStatus, $now]);
         }
+        return [];
     });
 }
 

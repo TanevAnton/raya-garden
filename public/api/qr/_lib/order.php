@@ -142,14 +142,19 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         //    never changes an order already placed. When guests pay on the
         //    phone it waits, unseen by staff, until Stripe confirms the
         //    payment (_lib/pay.php).
+        //    On a "pay at the end" evening it joins its table's bill.
         $status = $state['payment'] === 'online' ? 'pending_payment' : 'new';
+        $tab = $state['payment'] === 'tab' ? qr_open_tab($pdo, $table, (string) $settings['service_date'], true, $now) : null;
         $seq = qr_bump_seq($pdo);
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
-            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
-            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq]);
+            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0]);
+        if ($tab) {
+            qr_touch_tab($pdo, (int) $tab['id'], $seq);
+        }
         $orderId = (int) $pdo->lastInsertId();
         $insertLine = $pdo->prepare('INSERT INTO order_items
             (order_id, line, item_id, variant_id, choice_id, name_bg, name_en, detail_bg, detail_en, size, unit_cents, qty, note)

@@ -16,6 +16,11 @@ import { api } from "../shared/api.js";
 // ("Платена"); cancelling it refunds the guest. "За касата" lists the paid
 // orders still to be entered in the till (Clock) — this system cannot reach
 // it — and refunded ones to void there.
+//
+// On "pay at the end" evenings orders arrive at once and collect on their
+// table's bill. "Сметки" shows each table's bill: what is paid on phones,
+// what staff took on the spot, what is left; staff settle the rest and close
+// the bill. Payments from bills go on "За касата" too, at their net amount.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -135,6 +140,8 @@ function useChime() {
 
 function Dashboard({ onSignedOut }) {
   const [orders, setOrders] = useState(() => new Map());
+  const [tabs, setTabs] = useState(() => new Map());
+  const [billPayments, setBillPayments] = useState(() => new Map());
   const [state, setState] = useState(null);
   const [soldOut, setSoldOut] = useState([]);
   const [offline, setOffline] = useState(false);
@@ -143,6 +150,14 @@ function Dashboard({ onSignedOut }) {
   const [toast, setToast] = useState("");
   const [, tick] = useState(0);
   const seq = useRef(0);
+  // The change number the shown settings belong to. A poll that was already
+  // on its way when staff pressed Pause must not put the old state back.
+  const stateSeq = useRef(0);
+  const applyState = useCallback((next, at) => {
+    if (at < stateSeq.current) return;
+    stateSeq.current = at;
+    setState(next);
+  }, []);
   const loaded = useRef(false);
   const chime = useChime();
   const chimeRef = useRef(chime);
@@ -161,6 +176,18 @@ function Dashboard({ onSignedOut }) {
       return next;
     });
   }, []);
+  /** Tabs and bill payments come whole: newest version by change number wins. */
+  const mergeBy = (setter) => (list, full) =>
+    setter((prev) => {
+      const next = full ? new Map() : new Map(prev);
+      for (const x of list || []) {
+        const old = next.get(x.id);
+        if (!old || old.seq <= x.seq) next.set(x.id, x);
+      }
+      return next;
+    });
+  const mergeTabs = useCallback(mergeBy(setTabs), []);
+  const mergeBillPayments = useCallback(mergeBy(setBillPayments), []);
 
   // The poll loop: ask for everything after the last change number.
   useEffect(() => {
@@ -179,8 +206,10 @@ function Dashboard({ onSignedOut }) {
         setOffline(false);
         const isNew = res.orders.filter((o) => o.status === "new" && loaded.current && !ordersRef.current.has(o.id));
         merge(res.orders, res.full);
+        mergeTabs(res.tabs, res.full);
+        mergeBillPayments(res.billPayments, res.full);
         seq.current = res.seq;
-        setState(res.state);
+        applyState(res.state, res.seq);
         setSoldOut(res.soldOut);
         if (isNew.length) {
           setFlash((f) => new Set([...f, ...isNew.map((o) => o.id)]));
@@ -199,7 +228,7 @@ function Dashboard({ onSignedOut }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [merge, onSignedOut]);
+  }, [merge, mergeTabs, mergeBillPayments, applyState, onSignedOut]);
   // "преди 7 мин" moves on by itself.
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
@@ -219,26 +248,48 @@ function Dashboard({ onSignedOut }) {
       if (res.error === "stale") say("Поръчката вече е променена от друго устройство — показвам я както е сега.");
       else if (res.error === "refund_failed") say("Връщането на парите не успя, затова поръчката НЕ е отказана. Опитайте отново след малко.");
       else if (!res.ok) say("Не успях да променя поръчката. Опитайте отново.");
-      else if (action === "cancel" && res.order?.payStatus === "refunded") say(`${res.order.code} е отказана, ${money(res.order.total)} са върнати на госта.`);
+      else if (action === "cancel" && res.refundPending) say(`${res.order.code} е отказана, но връщането на парите не успя — опитайте пак от „Сметки“.`);
+      else if (action === "cancel" && res.order?.payStatus === "refunded")
+        say(res.order.tabId ? `${res.order.code} е отказана, платеното за нея е върнато на госта.` : `${res.order.code} е отказана, ${money(res.order.total)} са върнати на госта.`);
     } catch {
       say("Няма връзка — промяната не е записана. Опитайте отново.");
     }
   }
 
-  async function till(order, change) {
+  async function till(entry, change) {
     try {
-      const res = await adminApi("till.php", { id: order.id, ...change });
+      const res = await adminApi("till.php", { ...(entry.kind === "bill" ? { paymentId: entry.id } : { id: entry.id }), ...change });
       if (res.status === 401) return onSignedOut();
       if (res.order) merge([res.order], false);
+      if (res.payment) mergeBillPayments([res.payment], false);
       if (!res.ok) say("Не успях да запиша. Опитайте отново.");
     } catch {
       say("Няма връзка — отметката не е записана. Опитайте отново.");
     }
   }
 
+  async function billAction(body, done) {
+    try {
+      const res = await adminApi("bill.php", body);
+      if (res.status === 401) return onSignedOut();
+      if (res.tab) mergeTabs([res.tab], false);
+      if (res.payment) mergeBillPayments([res.payment], false);
+      if (res.ok) say(done);
+      else if (res.error === "unpaid") say(`Сметката не може да се затвори: остават ${money(res.unpaid)} неплатени.`);
+      else if (res.error === "refund_failed") say("Stripe отново отказа връщането. Опитайте след малко.");
+      else say("Не успях да запиша. Опитайте отново.");
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    }
+  }
+
   const newCount = [...orders.values()].filter((o) => o.status === "new").length;
-  const tillCount = [...orders.values()].filter(needsTill).length;
-  const showTill = Boolean(state?.paymentsConfigured) || [...orders.values()].some((o) => o.payStatus);
+  const tillEntries = tillList(orders, billPayments);
+  const tillCount = tillEntries.filter((e) => e.todo).length;
+  const showTill = Boolean(state?.paymentsConfigured) || tillEntries.length > 0;
+  const openTabs = [...tabs.values()].filter((x) => !x.closedAt);
+  const owedTabs = openTabs.filter((x) => x.totals.unpaid > 0 || x.payments.some((p) => p.refundDue > 0)).length;
+  const showTabs = state?.payment === "tab" || tabs.size > 0;
 
   return (
     <div className="min-h-screen pb-16">
@@ -275,6 +326,7 @@ function Dashboard({ onSignedOut }) {
             ["orders", `Поръчки${newCount ? ` (${newCount} нови)` : ""}`],
             ["service", "Вечерта"],
             ["soldout", `Изчерпани${soldOut.length ? ` (${soldOut.length})` : ""}`],
+            ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} className={`px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
@@ -292,9 +344,10 @@ function Dashboard({ onSignedOut }) {
 
       <main className="max-w-7xl mx-auto px-4 pt-4">
         {tab === "orders" && <Orders orders={orders} flash={flash} state={state} onMove={move} />}
-        {tab === "service" && <Service state={state} onSaved={(s) => setState(s)} say={say} onSignedOut={onSignedOut} />}
+        {tab === "service" && <Service state={state} onSaved={applyState} say={say} onSignedOut={onSignedOut} />}
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
-        {tab === "till" && <Till orders={orders} onTill={till} />}
+        {tab === "tabs" && <Tabs tabs={tabs} onAction={billAction} />}
+        {tab === "till" && <Till entries={tillEntries} onTill={till} />}
       </main>
 
       {toast && (
@@ -306,14 +359,12 @@ function Dashboard({ onSignedOut }) {
   );
 }
 
-/** On the "За касата" list: paid on the phone and not yet in the till, or refunded after it was. */
-function needsTill(o) {
-  return (o.payStatus === "paid" && !o.tillAt) || (o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt);
-}
-
 function PayChip({ order }) {
   if (order.payStatus === "paid") return <span className="text-xs px-2 py-1 rounded-sm bg-sage-500/30 text-sage-100">Платена онлайн</span>;
   if (order.payStatus === "refunded") return <span className="text-xs px-2 py-1 rounded-sm bg-gold-300/20 text-gold-100">Сумата е върната</span>;
+  if (order.payStatus === "tab") return <span className="text-xs px-2 py-1 rounded-sm border border-cream-100/20 text-cream-100/70">По сметка</span>;
+  if (order.payStatus === "tab_partial") return <span className="text-xs px-2 py-1 rounded-sm bg-gold-300/20 text-gold-100">Частично платена</span>;
+  if (order.payStatus === "tab_paid") return <span className="text-xs px-2 py-1 rounded-sm bg-sage-500/30 text-sage-100">Платена</span>;
   return null;
 }
 
@@ -463,6 +514,11 @@ function CancelDialog({ order, onClose, onConfirm }) {
             Гостът е платил {money(order.total)} онлайн. Сумата ще му бъде върната автоматично.
           </p>
         )}
+        {(order.payStatus === "tab_paid" || order.payStatus === "tab_partial") && (
+          <p className="text-sm text-gold-100 mt-3 border border-gold-300/30 rounded-sm px-3 py-2">
+            Част от поръчката е платена от сметката на масата. Платеното онлайн ще бъде върнато автоматично на платилия.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2 mt-4">
           {REASONS.map((r) => (
             <button key={r} type="button" onClick={() => setReason(r)} className={`px-3 py-2 rounded-full text-sm border ${reason === r ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/80"}`}>
@@ -490,7 +546,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
     closes: state?.closes || "23:00",
     tables: state?.tables || 10,
     disabled: new Set(state?.disabledTables || []),
-    payment: state?.paymentMode === "online" && state?.paymentsConfigured ? "online" : "on_site",
+    payment: state?.paymentsConfigured && ["online", "tab"].includes(state?.paymentMode) ? state.paymentMode : "on_site",
   }));
   const [busy, setBusy] = useState(false);
   const nextDay = form.closes <= form.opens;
@@ -511,7 +567,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
       });
       if (res.status === 401) return onSignedOut();
       if (res.ok) {
-        onSaved(res.state);
+        onSaved(res.state, res.seq);
         say("Записано. Приемането на поръчки следва новите настройки.");
       } else
         say(
@@ -533,7 +589,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
     try {
       const res = await adminApi("settings.php", { paused: !state?.paused });
       if (res.status === 401) return onSignedOut();
-      if (res.ok) onSaved(res.state);
+      if (res.ok) onSaved(res.state, res.seq);
     } catch {
       say("Няма връзка — опитайте отново.");
     }
@@ -549,7 +605,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
             {state.serviceDate} от {state.opens} до {state.closes}
             {state.closes <= state.opens ? " (следващия ден)" : ""} · {state.tables} маси
             {" · "}
-            {state.payment === "online" ? "плащане с карта в телефона" : "плащане при сервитьора"}
+            {state.payment === "online" ? "плащане с карта в телефона" : state.payment === "tab" ? "сметка накрая, плащане от телефона" : "плащане при сервитьора"}
           </p>
           {state.payment === "online" && state.paymentsTest && (
             <p className="text-sm text-amber-300 mt-2">ТЕСТОВ РЕЖИМ: плащанията не са истински (тестов ключ на Stripe).</p>
@@ -615,8 +671,9 @@ function Service({ state, onSaved, say, onSignedOut }) {
           {[
             ["on_site", "При сервитьора", "Поръчката идва веднага; плаща се на място."],
             ["online", "С карта в телефона", "Поръчката идва, щом гостът плати. Отказ = автоматично връщане на парите."],
+            ["tab", "Сметка накрая", "Поръчките идват веднага и се трупат по масата. Накрая всеки плаща от телефона — цялата сметка или своето."],
           ].map(([id, label, hint]) => {
-            const unavailable = id === "online" && !state?.paymentsConfigured;
+            const unavailable = id !== "on_site" && !state?.paymentsConfigured;
             return (
               <button
                 key={id}
@@ -641,42 +698,75 @@ function Service({ state, onSaved, say, onSignedOut }) {
 }
 
 /**
- * "За касата": what guests paid on the phone still has to be entered in the
- * till (Clock) by hand; refunds of orders already entered have to be voided
- * there. Oldest first. Ticks sync to every tablet.
+ * Everything paid on a phone that the till (Clock) has to hear about:
+ * orders paid before they went out, and payments from tables' bills (at
+ * their net amount — what was owed back is not a sale). "todo": still to be
+ * entered, or refunded after it was entered and still to be voided.
  */
-function Till({ orders, onTill }) {
-  const all = [...orders.values()].filter((o) => o.payStatus === "paid" || o.payStatus === "refunded");
-  const toEnter = all.filter((o) => o.payStatus === "paid" && !o.tillAt).sort((a, b) => a.paidAt - b.paidAt);
-  const toVoid = all.filter((o) => o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt).sort((a, b) => a.updatedAt - b.updatedAt);
-  const done = all.filter((o) => o.tillAt > 0 && !toVoid.includes(o)).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
-  const Row = ({ order, children }) => (
-    <li className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-till={order.code}>
+function tillList(orders, billPayments) {
+  const entries = [];
+  for (const o of orders.values()) {
+    if (o.payStatus !== "paid" && o.payStatus !== "refunded") continue;
+    const toVoid = o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt;
+    if (o.payStatus === "refunded" && !o.tillAt) continue; // refunded before it was entered: nothing to do
+    entries.push({
+      kind: "order", id: o.id, code: o.code, table: o.table, at: o.paidAt || o.createdAt,
+      text: o.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", "),
+      amount: o.total, voidAmount: o.total, tillAt: o.tillAt,
+      toEnter: o.payStatus === "paid" && !o.tillAt, toVoid,
+    });
+  }
+  for (const p of billPayments.values()) {
+    if (p.status !== "paid") continue;
+    const toVoid = p.tillAt > 0 && !p.tillVoidAt && p.net < p.tillCents;
+    if (!p.tillAt && p.net <= 0) continue; // all of it owed back before it was entered
+    entries.push({
+      kind: "bill", id: p.id, code: p.code, table: p.table, at: p.paidAt,
+      text: `сметка · ${p.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}`,
+      amount: p.tillAt ? p.tillCents : p.net, voidAmount: p.tillCents - p.net, tillAt: p.tillAt,
+      toEnter: !p.tillAt && p.net > 0, toVoid,
+    });
+  }
+  for (const e of entries) e.todo = e.toEnter || e.toVoid;
+  return entries;
+}
+
+/**
+ * "За касата": what guests paid on the phone still has to be entered in the
+ * till (Clock) by hand; refunds of what was already entered have to be
+ * voided there. Oldest first. Ticks sync to every tablet.
+ */
+function Till({ entries, onTill }) {
+  const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
+  const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
+  const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
+  const Row = ({ entry, amount, children }) => (
+    <li className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-till={entry.code}>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3">
-          <span className="font-mono text-lg text-gold-100">{order.code}</span>
-          <span className="text-cream-100/70">маса {order.table}</span>
-          <span className="text-cream-100/50 text-sm">{clock(order.paidAt || order.createdAt)}</span>
+          <span className="font-mono text-lg text-gold-100">{entry.code}</span>
+          <span className="text-cream-100/70">маса {entry.table}</span>
+          <span className="text-cream-100/50 text-sm">{clock(entry.at)}</span>
         </div>
-        <div className="text-sm text-cream-100/80 mt-1">{order.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}</div>
+        <div className="text-sm text-cream-100/80 mt-1">{entry.text}</div>
       </div>
-      <div className="font-semibold text-cream-50 text-lg">{money(order.total)}</div>
+      <div className="font-semibold text-cream-50 text-lg">{money(amount)}</div>
       {children}
     </li>
   );
   return (
     <div className="max-w-3xl">
       <p className="text-sm text-cream-100/60">
-        Платените онлайн поръчки се въвеждат в Clock ръчно, с плащане „карта“. Отметнете всяка, след като я въведете.
+        Платеното онлайн се въвежда в Clock ръчно, с плащане „карта“. Отметнете всяко, след като го въведете. Кодовете „P-…“ са плащания от сметка на маса.
       </p>
       {toVoid.length > 0 && (
         <>
           <h2 className="font-display text-2xl text-red-300 mt-6">Сторнирай в Clock</h2>
           <p className="text-sm text-cream-100/60 mt-1">Върнати на госта, след като вече са въведени.</p>
           <ul className="space-y-3 mt-3">
-            {toVoid.map((o) => (
-              <Row key={o.id} order={o}>
-                <button type="button" onClick={() => onTill(o, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm">Сторнирана ✓</button>
+            {toVoid.map((e) => (
+              <Row key={`${e.kind}${e.id}`} entry={e} amount={e.voidAmount}>
+                <button type="button" onClick={() => onTill(e, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm">Сторнирана ✓</button>
               </Row>
             ))}
           </ul>
@@ -687,9 +777,9 @@ function Till({ orders, onTill }) {
         <p className="text-cream-100/50 py-6">Всичко е въведено.</p>
       ) : (
         <ul className="space-y-3 mt-3">
-          {toEnter.map((o) => (
-            <Row key={o.id} order={o}>
-              <button type="button" onClick={() => onTill(o, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm">Въведена в Clock ✓</button>
+          {toEnter.map((e) => (
+            <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount}>
+              <button type="button" onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm">Въведена в Clock ✓</button>
             </Row>
           ))}
         </ul>
@@ -698,13 +788,126 @@ function Till({ orders, onTill }) {
         <details className="mt-8">
           <summary className="text-sm text-cream-100/60 cursor-pointer">Въведени ({done.length})</summary>
           <ul className="space-y-2 mt-3 opacity-80">
-            {done.map((o) => (
-              <Row key={o.id} order={o}>
-                <button type="button" onClick={() => onTill(o, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
+            {done.map((e) => (
+              <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount}>
+                <button type="button" onClick={() => onTill(e, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
               </Row>
             ))}
           </ul>
         </details>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Сметки": each table's bill on a "pay at the end" evening — paid on
+ * phones, paid on the spot, left to pay — with money owed back to a guest
+ * shown until it is refunded. Staff settle what is left (cash or terminal)
+ * and close the bill; the table's next order starts a new one.
+ */
+function Tabs({ tabs, onAction }) {
+  const [settling, setSettling] = useState(null);
+  const open = [...tabs.values()].filter((x) => !x.closedAt).sort((a, b) => a.table - b.table);
+  const closed = [...tabs.values()].filter((x) => x.closedAt).sort((a, b) => b.closedAt - a.closedAt);
+  const state = { online: ["платено онлайн", "text-sage-200"], staff: ["платено на място", "text-sage-200"], pending: ["плаща се…", "text-gold-200"], unpaid: ["", ""] };
+  return (
+    <div className="max-w-5xl">
+      <p className="text-sm text-cream-100/60">
+        Сметката на всяка маса: какво е платено от телефоните и какво остава. Когато гостите платят остатъка на място (в брой или на терминала), натиснете „Платено на място“. Затворете сметката, когато масата си тръгне.
+      </p>
+      {open.length === 0 && <p className="text-cream-100/50 py-10 text-center">Няма отворени сметки.</p>}
+      <div className="grid gap-4 md:grid-cols-2 mt-4">
+        {open.map((x) => {
+          const owed = x.payments.filter((p) => p.refundDue > 0);
+          return (
+            <article key={x.id} className={`border-2 rounded-sm bg-ink-900 p-4 ${x.totals.unpaid > 0 ? "border-gold-300/60" : "border-sage-400/50"}`} data-tab={x.table}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] tracking-[0.25em] uppercase text-cream-100/50">Маса</div>
+                  <div className="font-sans font-semibold tabular-nums text-5xl leading-none text-cream-50">{x.table}</div>
+                </div>
+                <dl className="text-right text-sm space-y-0.5">
+                  <div><dt className="inline text-cream-100/60">Общо </dt><dd className="inline text-cream-50">{money(x.totals.total)}</dd></div>
+                  {x.totals.paidOnline > 0 && <div><dt className="inline text-cream-100/60">Онлайн </dt><dd className="inline text-sage-200">{money(x.totals.paidOnline)}</dd></div>}
+                  {x.totals.paidStaff > 0 && <div><dt className="inline text-cream-100/60">На място </dt><dd className="inline text-sage-200">{money(x.totals.paidStaff)}</dd></div>}
+                  <div><dt className="inline text-cream-100/60">Остава </dt><dd className={`inline font-semibold text-lg ${x.totals.unpaid ? "text-gold-100" : "text-sage-200"}`}>{money(x.totals.unpaid)}</dd></div>
+                </dl>
+              </div>
+              <details className="mt-3">
+                <summary className="text-sm text-cream-100/60 cursor-pointer">{x.lines.length} реда</summary>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {x.lines.map((l) => (
+                    <li key={`${l.code}:${l.line}`} className="flex justify-between gap-3">
+                      <span className="text-cream-50">
+                        {l.qty} × {l.nameBg}
+                        {l.detailBg ? <span className="text-cream-100/60"> · {l.detailBg}</span> : null}
+                        <span className="text-xs text-cream-100/40"> {l.code}</span>
+                        {state[l.state][0] && <span className={`text-xs ${state[l.state][1]}`}> · {state[l.state][0]}</span>}
+                      </span>
+                      <span className="shrink-0 text-cream-100/80">{money(l.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+              {owed.map((p) => (
+                <div key={p.id} className="mt-3 border border-red-400/40 bg-red-950/30 rounded-sm px-3 py-2 text-sm flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-cream-50">
+                    Дължим на госта {money(p.refundDue)} ({p.code}){p.refundError ? " — връщането не успя" : " — връща се…"}
+                  </span>
+                  <button type="button" onClick={() => onAction({ action: "refund", paymentId: p.id }, `${money(p.refundDue)} са върнати.`)} className="h-10 px-3 rounded-sm border border-red-300/50 text-red-200 text-xs">
+                    Върни сега
+                  </button>
+                </div>
+              ))}
+              <div className="flex gap-2 mt-4">
+                {x.totals.unpaid > 0 ? (
+                  <button type="button" onClick={() => setSettling(x)} className="btn-gold flex-1 h-12 rounded-sm text-sm">
+                    Платено на място ({money(x.totals.unpaid)})
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => onAction({ action: "close", tabId: x.id }, `Сметката на маса ${x.table} е затворена.`)} className="btn-gold flex-1 h-12 rounded-sm text-sm">
+                    Затвори сметката
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      {closed.length > 0 && (
+        <details className="mt-8">
+          <summary className="text-sm text-cream-100/60 cursor-pointer">Затворени днес ({closed.length})</summary>
+          <ul className="mt-2 space-y-1 text-sm text-cream-100/70">
+            {closed.map((x) => (
+              <li key={x.id}>Маса {x.table} · {money(x.totals.total)} · затворена в {clock(x.closedAt)}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {settling && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Платено на място">
+          <button type="button" aria-label="Затвори" onClick={() => setSettling(null)} className="absolute inset-0 bg-black/70" />
+          <div className="relative w-full max-w-md bg-ink-900 border border-gold-300/25 rounded-sm p-6">
+            <h2 className="font-display text-2xl text-cream-50">Маса {settling.table}: платено на място</h2>
+            <p className="text-cream-100/80 mt-3">
+              Остатъкът от <span className="font-semibold text-gold-100">{money(settling.totals.unpaid)}</span> е платен в брой или на терминала и е маркиран в Clock?
+            </p>
+            <div className="flex gap-2 mt-5">
+              <button type="button" onClick={() => setSettling(null)} className="flex-1 h-12 rounded-sm border border-gold-300/25 text-cream-100/80">Назад</button>
+              <button
+                type="button"
+                onClick={() => {
+                  onAction({ action: "settle", tabId: settling.id }, `Маса ${settling.table}: остатъкът е маркиран като платен на място.`);
+                  setSettling(null);
+                }}
+                className="btn-gold flex-1 h-12 rounded-sm font-medium"
+              >
+                Да, платено
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

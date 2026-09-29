@@ -9,6 +9,10 @@ Payment is chosen per evening:
 - **Pay staff** (the default): orders arrive at once and are paid on the spot.
 - **Pay on the phone**: the guest pays with Stripe before the order reaches
   staff. It needs the Stripe setup below.
+- **Pay at the end** ("Сметка накрая"): orders arrive at once and collect on
+  their table's bill, from every phone at the table. At the end anyone pays
+  the whole bill, or just their part, on the phone. Staff settle what is left.
+  It needs the same Stripe setup; see "Pay at the end" below.
 
 | Page | Who | What |
 | --- | --- | --- |
@@ -24,8 +28,9 @@ Both pages are `noindex` and carry no tracking.
 public/api/qr-menu.json          the menu: names, sizes, prices (euro cents), allergens
 public/api/qr/                   the PHP API (runs on the host's PHP 7.3)
   state.php, order.php, order-status.php, stripe-webhook.php
-  admin/  login, logout, session, feed, order, settings, sold-out, till
-  _lib/   core.php, order.php, auth.php, pay.php (not reachable from the web)
+  bill.php, bill-pay.php, bill-abandon.php   the table's bill ("pay at the end")
+  admin/  login, logout, session, feed, order, settings, sold-out, till, bill
+  _lib/   core.php, order.php, auth.php, pay.php, bill.php (not reachable from the web)
 src/qr/menu/, menu/index.html    the guest page
 src/qr/admin/, admin/index.html  the staff page
 scripts/qr-server-config.mjs     puts the password and Stripe keys on the server (run by the deploy)
@@ -179,6 +184,38 @@ exactly that. The payment page shows each line.
 - **For good:** set both Stripe secrets to `off` and deploy. Without keys, every
   evening falls back to paying staff, whatever was chosen.
 
+### Pay at the end ("Сметка накрая")
+
+It uses the same keys, webhook and events; nothing more needs setting up.
+Choose *Сметка накрая* in `/admin` → **Вечерта**.
+
+- **Orders go straight to staff** and onto their table's bill (one per table
+  and evening), from every phone that orders for that table.
+- **Guests pay from "Сметка"** in the menu's header. It lists every line
+  ordered for the table; each phone's own lines are marked and ticked
+  first. "Избери всичко" covers the birthday case of one person paying for
+  everyone.
+  - One line is the unit: "2 × beer" can't be split between two people.
+  - Paying works after ordering has closed.
+- **Nothing is locked while someone pays.** The first payment Stripe
+  confirms gets a line. Anyone who paid for the same line at the same moment
+  gets that share back automatically, as a partial refund.
+- **Cancelling an order** refunds its already-paid lines to whoever paid
+  them.
+- **Refunds that fail** stay on the table's card in **Сметки**
+  ("Дължим на госта …") with *Върни сега* until they succeed.
+- **Staff, in Сметки:**
+  - *Платено на място* marks what is left as paid in cash or at the
+    terminal.
+  - *Затвори сметката* (only when nothing is left) closes the bill; the
+    table's next order starts a new one.
+  - A new evening starts new bills too.
+- **For the till:** each payment from a bill (code `P-…`) goes on
+  **За касата** at its net amount. A refund made after it was entered shows
+  up there to void.
+- **Anyone who picks table 7 can see table 7's bill**: items and prices,
+  never notes. That is the same trust as picking the table itself.
+
 ### Keys: rules that matter
 
 - **Never put a key in the code, a chat or an email.** It goes in GitHub
@@ -213,8 +250,8 @@ the phone.
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 47 tests, 17 of them paying against a fake Stripe (needs php with pdo_sqlite)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 14 tests
+npm run test:qr            # API: 60 tests, 30 of them paying against a fake Stripe (needs php with pdo_sqlite)
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 16 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

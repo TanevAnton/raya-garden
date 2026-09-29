@@ -3,6 +3,8 @@ import menu from "../../../public/api/qr-menu.json";
 import { strings, fill } from "./strings.js";
 import { money, size, clock, sofiaDate, pick } from "../shared/format.js";
 import { api, newIdempotencyKey, session } from "../shared/api.js";
+import Sheet from "./Sheet.jsx";
+import BillSheet, { abandonBillPayment } from "./BillSheet.jsx";
 
 // The guest page at /menu, opened from the QR code on the tables.
 //
@@ -21,6 +23,11 @@ import { api, newIdempotencyKey, session } from "../shared/api.js";
 // /menu/?paid=<code> or ?unpaid=<code>. Coming back proves nothing: the
 // order counts as paid only when the server says so, after Stripe's own
 // signed confirmation.
+//
+// On "pay at the end" evenings (state.payment === "tab") orders go straight
+// to the kitchen and onto the table's bill; "Сметка" (BillSheet.jsx) is
+// where anyone at the table pays — all of it or their part — coming back
+// to ?billpaid= / ?billunpaid=.
 
 const ITEMS = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
 const lineKey = (l) => `${l.itemId}|${l.variantId}|${l.choiceId || ""}`;
@@ -30,13 +37,12 @@ const FINAL = new Set(["served", "cancelled", "expired"]);
 function takeReturn() {
   try {
     const url = new URL(window.location.href);
-    const paid = url.searchParams.get("paid");
-    const unpaid = url.searchParams.get("unpaid");
-    if (!paid && !unpaid) return null;
-    url.searchParams.delete("paid");
-    url.searchParams.delete("unpaid");
+    const found = ["paid", "unpaid", "billpaid", "billunpaid"].find((k) => url.searchParams.get(k));
+    if (!found) return null;
+    const code = url.searchParams.get(found);
+    ["paid", "unpaid", "billpaid", "billunpaid"].forEach((k) => url.searchParams.delete(k));
     window.history.replaceState(null, "", url);
-    return { kind: paid ? "paid" : "unpaid", code: paid || unpaid, at: Date.now() };
+    return { kind: found, code, at: Date.now() };
   } catch {
     return null;
   }
@@ -146,14 +152,19 @@ export default function MenuApp() {
   const honeypot = useRef(null);
   const { byToken, refresh: refreshOrders } = useOrderStatuses(orders, returned);
 
-  // Back from Stripe's page: show that order, and what became of it.
+  // Back from Stripe's page: show that order, or the bill, and what became of it.
   useEffect(() => {
     if (!returned) return;
     if (returned.kind === "paid") {
       setSentOrder({ code: returned.code });
       setSheet("sent");
-    } else setSheet("orders");
+    } else if (returned.kind === "unpaid") setSheet("orders");
+    else {
+      if (returned.kind === "billunpaid") abandonBillPayment(returned.code);
+      setSheet("bill");
+    }
   }, [returned]);
+  const myCodes = useMemo(() => new Set(orders.map((o) => o.code)), [orders]);
 
   const setLang = (next) => {
     setLangState(next);
@@ -178,6 +189,7 @@ export default function MenuApp() {
   }, [lang]);
 
   const open = Boolean(state?.open);
+  const tabMode = state?.payment === "tab";
   const soldOut = useMemo(() => new Set(state?.soldOut || []), [state]);
   const tables = useMemo(() => {
     if (!state) return [];
@@ -288,7 +300,17 @@ export default function MenuApp() {
 
   return (
     <div className="min-h-screen pb-28">
-      <Header t={t} lang={lang} setLang={setLang} table={table} open={open} orders={orders} onTable={() => setSheet("table")} onOrders={() => setSheet("orders")} />
+      <Header
+        t={t}
+        lang={lang}
+        setLang={setLang}
+        table={table}
+        open={open}
+        orders={orders}
+        onTable={() => setSheet("table")}
+        onOrders={() => setSheet("orders")}
+        onBill={tabMode && table ? () => setSheet("bill") : null}
+      />
       <StatusBanner t={t} lang={lang} state={state} failed={failed} reload={reload} />
       <CategoryTabs lang={lang} label={t.categories} />
       <main className="max-w-2xl mx-auto px-4">
@@ -372,8 +394,12 @@ export default function MenuApp() {
         </Sheet>
       )}
 
+      {sheet === "bill" && (
+        <BillSheet t={t} lang={lang} table={table} myCodes={myCodes} returned={returned?.kind.startsWith("bill") ? returned : null} onClose={() => setSheet(null)} onOrders={orders.length ? () => setSheet("orders") : null} />
+      )}
+
       {sheet === "sent" && sentOrder && (
-        <SentSheet t={t} lang={lang} order={byToken[orders.find((o) => o.code === sentOrder.code)?.token] || sentOrder} onClose={() => setSheet(null)}>
+        <SentSheet t={t} lang={lang} order={byToken[orders.find((o) => o.code === sentOrder.code)?.token] || sentOrder} onClose={() => setSheet(null)} onBill={tabMode ? () => setSheet("bill") : null}>
           <button type="button" onClick={() => setSheet(null)} className="btn-gold w-full mt-6 py-4 rounded-sm text-sm tracking-[0.15em] uppercase font-medium">
             {t.orderMore}
           </button>
@@ -439,22 +465,29 @@ function lineName(line, lang) {
   return [pick(item, lang), variant && item.variants.length > 1 ? pick(variant, lang) : "", choice ? pick(choice, lang) : ""].filter(Boolean).join(" · ");
 }
 
-function Header({ t, lang, setLang, table, open, orders, onTable, onOrders }) {
+function Header({ t, lang, setLang, table, open, orders, onTable, onOrders, onBill }) {
   return (
     <header className="sticky top-0 z-20 bg-ink-950/95 backdrop-blur border-b border-gold-300/10">
       <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
         <img src="/img/logo.png" alt="" width="32" height="32" className="w-8 h-8" />
         {/* With all three buttons a narrow phone has no room for the name:
             the subtitle goes first, then (below 380 px) the title — the logo stays. */}
-        <div className={`leading-tight min-w-0 ${orders.length ? "hidden min-[380px]:block" : ""}`}>
+        <div className={`leading-tight min-w-0 ${orders.length || onBill ? "hidden min-[380px]:block" : ""}`}>
           <div className="font-display text-xl text-cream-50">{t.title}</div>
-          <div className={`text-[10px] tracking-[0.25em] uppercase text-gold-300/70 whitespace-nowrap ${orders.length ? "hidden min-[480px]:block" : ""}`}>{t.restaurant}</div>
+          <div className={`text-[10px] tracking-[0.25em] uppercase text-gold-300/70 whitespace-nowrap ${orders.length || onBill ? "hidden min-[480px]:block" : ""}`}>{t.restaurant}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {orders.length > 0 && (
-            <button type="button" onClick={onOrders} aria-label={`${t.myOrders} (${orders.length})`} className="h-10 px-3 text-xs text-gold-200 border border-gold-300/30 rounded-sm whitespace-nowrap">
-              {t.ordersShort} {orders.length}
+          {/* On "pay at the end" evenings the bill takes this place; "my orders" is inside it. */}
+          {onBill ? (
+            <button type="button" onClick={onBill} className="h-10 px-3 text-xs text-gold-200 border border-gold-300/30 rounded-sm whitespace-nowrap">
+              {t.bill}
             </button>
+          ) : (
+            orders.length > 0 && (
+              <button type="button" onClick={onOrders} aria-label={`${t.myOrders} (${orders.length})`} className="h-10 px-3 text-xs text-gold-200 border border-gold-300/30 rounded-sm whitespace-nowrap">
+                {t.ordersShort} {orders.length}
+              </button>
+            )
           )}
           {open && (
             <button type="button" onClick={onTable} aria-label={table ? fill(t.tableN, { n: table }) : t.chooseTable} className="h-10 px-3 text-xs border border-gold-300/30 rounded-sm text-cream-50 whitespace-nowrap">
@@ -631,6 +664,7 @@ function Stepper({ value, onChange, t }) {
 function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state }) {
   const closedNow = state && !state.open;
   const online = state?.payment === "online";
+  const onTab = state?.payment === "tab";
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
       {/* invisible to people; bots fill it and are refused */}
@@ -677,7 +711,7 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
         <span className="text-cream-100/70">{t.total}</span>
         <span className="font-display text-3xl text-gold-100">{money(total, lang)}</span>
       </div>
-      <p className="text-sm text-cream-100/60 mt-2">{online ? t.payOnline : t.payment}</p>
+      <p className="text-sm text-cream-100/60 mt-2">{online ? t.payOnline : onTab && table ? fill(t.payTab, { n: table }) : t.payment}</p>
 
       {table && cart.length > 0 && (
         <label className="flex items-start gap-3 mt-5 cursor-pointer">
@@ -727,13 +761,19 @@ function Problem({ t, problem }) {
  * "Поръчката е изпратена" — or, back from paying and until the server has
  * Stripe's confirmation, "Потвърждаваме плащането…".
  */
-function SentSheet({ t, lang, order, onClose, children }) {
-  const waiting = !order.status || order.status === "pending_payment";
+function SentSheet({ t, lang, order, onClose, onBill, children }) {
+  const onTab = order.tabId > 0 || (order.payStatus || "").startsWith("tab");
+  const waiting = !onTab && (!order.status || order.status === "pending_payment");
   const title = waiting ? t.confirmingPayment : order.status === "expired" ? t.status.expired : t.sent;
   return (
     <Sheet title={title} onClose={onClose} closeLabel={t.close}>
-      {!waiting && order.status !== "expired" && <p className="text-sm text-cream-100/60">{t.sentLead}</p>}
+      {!waiting && order.status !== "expired" && <p className="text-sm text-cream-100/60">{onTab ? t.sentTab : t.sentLead}</p>}
       <OrderCard t={t} lang={lang} order={order} big />
+      {onTab && onBill && (
+        <button type="button" onClick={onBill} className="btn-ghost w-full mt-4 py-3 rounded-sm text-sm tracking-[0.15em] uppercase">
+          {t.bill}
+        </button>
+      )}
       {children}
     </Sheet>
   );
@@ -758,6 +798,11 @@ function OrderCard({ t, lang, order, big = false }) {
       {(order.payStatus === "paid" || order.payStatus === "refunded") && (
         <p className={`mt-1 text-xs tracking-[0.15em] uppercase ${order.payStatus === "paid" ? "text-sage-200" : "text-gold-200"}`}>
           {order.payStatus === "paid" ? t.paid : t.refunded}
+        </p>
+      )}
+      {t.orderPay[order.payStatus] && status !== "cancelled" && (
+        <p className={`mt-1 text-xs tracking-[0.15em] uppercase ${order.payStatus === "tab_paid" ? "text-sage-200" : "text-cream-100/60"}`}>
+          {t.orderPay[order.payStatus]}
         </p>
       )}
       {status === "pending_payment" && order.payUrl && (
@@ -786,31 +831,6 @@ function OrderCard({ t, lang, order, big = false }) {
           <span>{money(order.total, lang)}</span>
         </div>
       )}
-    </div>
-  );
-}
-
-function Sheet({ title, onClose, closeLabel, children }) {
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
-    };
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label={title}>
-      <button type="button" aria-label={closeLabel} onClick={onClose} className="absolute inset-0 bg-black/70" />
-      <div className="relative w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-ink-900 border-t sm:border border-gold-300/20 rounded-t-lg sm:rounded-lg px-5 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <h2 className="font-display text-2xl text-cream-50">{title}</h2>
-          <button type="button" onClick={onClose} className="text-cream-100/60 text-sm underline underline-offset-4 shrink-0 h-10">{closeLabel}</button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

@@ -234,12 +234,70 @@ to paying staff.
 
 - **A per-order choice** between paying on the phone and paying staff. The
   evening decides, which keeps the staff screen unambiguous.
-- **Tips and splitting a bill on the phone.**
+- **Tips.** Splitting a bill came later, by line: see "Pay at the end".
 - **Checking the payment path against real Stripe** was left to the owner's
   own test mode, not a throwaway sandbox. Creating one needs an email address
   to register it under, and none was right to use without asking. The fake
   Stripe in `tests/qr/fake-stripe.mjs` follows Stripe's documented behaviour,
   including idempotency, signatures and async payments.
+
+## Pay at the end: the table's bill, added 29.09.2026
+
+**Why.** Birthdays and parties: everyone orders from their own phone during
+the evening, and at the end one person pays for everyone, or each pays their
+own. Paying before each order (the "on the phone" mode) does not fit that.
+Paying staff does, but costs the waiter the trip.
+
+**How.** A third mode per evening, `tab`.
+
+- **One bill per table and evening.** Orders go straight to staff and join
+  their table's bill.
+- **Guests pay from the bill.** "Сметка" in the menu lists the whole table's
+  lines; the guest ticks some and pays them with Stripe Checkout.
+- **Staff mark the rest.** Whatever is paid in cash or at the terminal, staff
+  mark "Платено на място", then close the bill.
+
+### Choices made
+
+- **The bill is visible to anyone who picks the table.** The table itself is
+  self-declared, so a stricter gate would only lock out the birthday host who
+  didn't order on their own phone.
+  - The bill shows items, quantities and prices, never notes or internal ids.
+  - Paying for someone else's line harms nobody.
+- **A line is the unit.** "2 × beer" is paid by one person. Splitting a line
+  would need quantities per payer and a much busier screen for a rare case.
+- **"Yours" = ordered from this phone.** The phone knows its own order codes.
+  Its own unpaid lines are ticked when the bill opens; "Избери всичко" is one
+  tap.
+- **No locks; the first confirmed payment wins.** Locking a line while
+  someone is on Stripe's page would block others: for 30 minutes at least,
+  Stripe's shortest session. Anyone could also lock a table's bill by starting
+  a payment and walking away.
+  - Instead, a line being paid shows "плаща се от друг телефон", and nothing
+    stops a second person.
+  - Whichever payment Stripe confirms first gets the line; the other payment's
+    share is owed back and refunded at once (a partial refund).
+  - A real double payment needs two people paying the same line within
+    seconds, and even then costs nobody anything.
+- **Money owed back is tracked, never assumed.** A bill payment keeps
+  `refund_due` (lines paid twice, or cancelled after payment) and `refunded`
+  (what Stripe returned). A refund that fails stays owed and visible on
+  **Сметки** until *Върни сега* succeeds.
+  - Each refund's idempotency key names the amount already refunded. A retry,
+    or two tablets pressing at once, therefore makes one refund, and the
+    stored total only moves if nobody moved it meanwhile.
+- **Cancelling an order on a bill cancels at once, then refunds.** This
+  differs from the "on the phone" mode, where the refund comes first. An
+  order on a bill can be paid in parts by several people, so its refunds are
+  owed and retried rather than all-or-nothing.
+- **Paying works after ordering closes.** People pay at the end, sometimes
+  after the kitchen has stopped taking orders. Bills belong to an evening
+  (the service date), so tomorrow's table 7 starts clean.
+- **Closing needs nothing left to pay.** "Платено на място" first, then
+  "Затвори сметката". An unpaid remainder can't be closed away by accident.
+- **The till gets payments, not lines.** Each bill payment (`P-…`) is entered
+  in Clock at its net amount, after what was owed back. A refund after entry
+  is listed to void, for the difference.
 
 ## Left out on purpose
 

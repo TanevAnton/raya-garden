@@ -97,12 +97,20 @@ in place. The schema version is kept in SQLite's `user_version`, and each step
 runs once, inside a transaction.
 
 **A deploy that stops at "1/4 assets/".** Nothing is switched: the site keeps
-running the previous build, whole. If the log says files are on the server
-but **EMPTY (0 bytes)**, the server took the names and refused the contents:
-the hosting account is out of disk space (deploy #91, 01.10.2026). Free space
-in SPanel (disk usage: mailboxes, backups, logs), then re-run the deploy in
-GitHub → Actions. A full disk can also stop the QR database from saving
-orders, so check that first.
+running the previous build, whole. A file the server will not take whole is
+retried file by file, each resumed where it stopped, as long as anything
+still grows. If it still stops, the log quotes **the server's own answer**
+for one of the files. Read it:
+
+- "Quota exceeded" / "552": the **FTP account's quota** is full (SPanel → FTP
+  accounts: raise it or set it to unlimited). It is separate from the disk,
+  and files deleted in the file manager may not lower it.
+- "Disk full" / "Insufficient storage" / "452": the account's disk is full.
+  Free space in SPanel (mailboxes, backups, logs). A full disk can also stop
+  the QR database from saving orders, so check that first.
+- Timeouts or closed connections with no reply: the connection itself fails.
+
+Then re-run the deploy in GitHub → Actions.
 
 ## Paying on the phone (Stripe)
 

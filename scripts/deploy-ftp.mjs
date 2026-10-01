@@ -50,7 +50,17 @@
 // FTPS: SuperHosting's Pure-FTPd uses a self-signed cert (CN
 // cloud.theadmin.net), so strict verification fails — lftp keeps the
 // transfer encrypted but skips cert verification. Serial, with generous
-// retries: parallel transfers had a data channel die mid-file. One lftp
+// retries: parallel transfers had a data channel die mid-file.
+//
+// File by file, resuming: whatever a step could not get up whole is sent
+// again one file at a time, each picked up where it stopped (put -c), round
+// after round while anything still grows (sendResuming) — so a connection
+// cut part-way through every upload still gets each file up in pieces. If a
+// round moves nothing, the server is refusing rather than dropping: the
+// deploy stops and prints the server's own answer for one of the files
+// (serverSays) — "Quota exceeded", "Disk full", a dropped connection — never
+// what was sent. Deploys #91–#93 (01.10.2026) left files on the server with
+// their names but not their contents; this is the way through, or the reason. One lftp
 // session per step: `set cmd:fail-exit` hangs lftp 4.9 after a failed
 // command, so instead of trusting exit codes every step is checked against a
 // fresh listing of the server.
@@ -70,6 +80,14 @@ const DIR = (process.env.FTP_DIR || "rayagarden.bg/").replace(/\/+$/, "");
 const CHUNK_LIST = "assets/.deployed"; // this build's chunk names, for the next deploy
 const MANIFEST = ".deploy-manifest.json"; // SHA-256 and size of every step-2 file
 const TEMP = ".up."; // prefix of a file still being uploaded
+// This run's own temporary names: ".up.<run>.<name>". A half-sent temporary
+// file found later can then only be this run's, so it is safe to resume onto;
+// an earlier run's leftovers are cleaned up in step 4 like any stray file.
+const RUN = `${process.env.GITHUB_RUN_ID || Date.now().toString(36)}-${process.env.GITHUB_RUN_ATTEMPT || "1"}`;
+const tempOf = (p) => {
+  const d = path.posix.dirname(p);
+  return `${d === "." ? "" : `${d}/`}${TEMP}${RUN}.${path.posix.basename(p)}`;
+};
 
 const SETTINGS = [
   "set ftp:ssl-force true",
@@ -173,14 +191,48 @@ function uploadAtomically(paths, fromDir) {
   const dirs = [...new Set(paths.map((p) => path.posix.dirname(p)).filter((d) => d !== "."))].sort();
   const cmds = dirs.map((d) => `mkdir -p -f ${q(remote(d))}`);
   for (const p of paths) {
-    const d = path.posix.dirname(p);
-    const tmp = remote(`${d === "." ? "" : `${d}/`}${TEMP}${path.posix.basename(p)}`);
-    // The rename only runs if the whole file went up. If either fails, the
-    // old file is untouched and the temporary one is left for step 2's check
-    // to find.
-    cmds.push(`put ${q(path.join(fromDir, p))} -o ${q(tmp)} && mv ${q(tmp)} ${q(remote(p))}`);
+    // The rename only runs if the whole file went up, and "DONE" is only
+    // printed after both: the one sure sign a file is in place (its size
+    // alone is not — a changed file can be as long as the old one).
+    cmds.push(`put ${q(path.join(fromDir, p))} -o ${q(remote(tempOf(p)))} && mv ${q(remote(tempOf(p)))} ${q(remote(p))} && echo ${q(`DONE ${p}`)}`);
   }
-  return lftp(cmds) != null;
+  const missed = paths.filter((p) => !doneIn(lftp([...cmds, "echo END"])).has(p));
+  if (!missed.length) return [];
+  // Some did not make it: pick each up where it stopped, file by file.
+  return sendResuming(missed.map((p) => ({ from: path.join(fromDir, p), to: p, via: tempOf(p) })));
+}
+
+const doneIn = (out) => new Set((out || "").split("\n").filter((l) => l.startsWith("DONE ")).map((l) => l.slice(5)));
+
+/**
+ * Send files that did not get up whole, each resumed from where it stopped
+ * (put -c) rather than from the start, round after round — so a connection
+ * that drops part-way through every upload still gets each file up, a piece
+ * at a time. Each item goes to `via` (this run's temporary name) and is then
+ * renamed to `to`, or straight to `to` when it has no `via` (assets/, whose
+ * content-hash names make a shorter file of that name the start of this very
+ * one). A round in which nothing grew ends it: the server is refusing, not
+ * dropping, and resuming will not help. Returns the ones still not in place.
+ */
+function sendResuming(items) {
+  let todo = items;
+  const sizeOf = (it, listing) => Number(listing?.get(it.via || it.to)) || 0;
+  for (let round = 1; round <= 20 && todo.length; round++) {
+    log(`   ${todo.length} file(s) not whole yet — round ${round}, picking up where each stopped`);
+    const before = listRemote();
+    const done = new Set();
+    // One short session per file: a connection that breaks mid-file costs
+    // that file's turn, not everyone else's.
+    for (const it of todo) {
+      const send = `put -c ${q(it.from)} -o ${q(remote(it.via || it.to))}` + (it.via ? ` && mv ${q(remote(it.via))} ${q(remote(it.to))}` : "");
+      for (const d of doneIn(lftp(["set net:max-retries 3", `${send} && echo ${q(`DONE ${it.to}`)}`, "echo END"]))) done.add(d);
+    }
+    const after = listRemote();
+    const moved = todo.some((it) => done.has(it.to) || sizeOf(it, after) > sizeOf(it, before));
+    todo = todo.filter((it) => !done.has(it.to));
+    if (!moved) break; // nothing grew: the server refuses rather than drops
+  }
+  return todo;
 }
 
 /** Write a record to the server, atomically, or stop the deploy. */
@@ -190,7 +242,7 @@ function putJson(name, value, failure) {
   const file = path.join(dir, name);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, typeof value === "string" ? value : JSON.stringify(value, null, 1) + "\n");
-  if (!uploadAtomically([name], dir)) die(`Could not write ${name}. ${failure}`);
+  if (uploadAtomically([name], dir).length) die(`Could not write ${name}. ${failure}`);
 }
 
 // ── the build ────────────────────────────────────────────────────────
@@ -206,17 +258,47 @@ const hashes = new Map(rest.map((p) => [p, sha256(path.join(SRC, p))]));
 // ── 1/4 assets/ ──────────────────────────────────────────────────────
 log(`── 1/4 assets/ (${chunks.length} files), nothing deleted`);
 if (lftp([`mkdir -p -f ${q(remote("assets"))}`, `mirror -R --ignore-time --verbose ${q(`${SRC}/assets/`)} ${q(remote("assets/"))}`]) == null) {
-  // lftp only says "max-retries exceeded". A file the server created but
-  // left empty says more: it took the name and refused the bytes, which on
-  // shared hosting means the account's disk space is used up (deploy #91).
+  // The mirror gave up on some (lftp: "max-retries exceeded"). Finish them
+  // file by file, each resumed from where it stopped.
   const seen = listRemote();
-  const empty = seen ? chunks.filter((p) => seen.get(p) === 0 && local.get(p) > 0) : [];
-  if (empty.length) {
-    console.error(`\n${empty.length} file(s) are on the server but EMPTY (0 bytes), e.g. ${empty[0]}.`);
-    console.error("The server accepts a file's name and refuses its contents: the hosting account is most likely out of disk space.");
-    console.error("Free space in SPanel (disk usage: mailboxes, backups, logs), then run this deploy again.");
+  const todo = seen ? chunks.filter((p) => seen.get(p) !== local.get(p)) : chunks;
+  const left = sendResuming(todo.map((p) => ({ from: path.join(SRC, p), to: p })));
+  if (left.length) {
+    const now = listRemote();
+    console.error(`\n${left.length} file(s) are still not whole on the server, e.g. ${left[0].to} (${now?.get(left[0].to) ?? "missing"} of ${local.get(left[0].to)} bytes).`);
+    const why = serverSays(left[0].to);
+    if (why.length) console.error(`What the server answers when it is sent again:\n${why.map((l) => `   ${l}`).join("\n")}`);
+    console.error(
+      "The server takes a file's name but not all of its contents. Usual causes: the FTP account's own quota is full " +
+        "(SPanel → FTP accounts: raise it or set it to unlimited — separate from the disk), the disk is full, or the " +
+        "connection is cut part-way. The server's answer above says which."
+    );
+    die("Uploading assets/ failed — index.html NOT switched.");
   }
-  die("Uploading assets/ failed — index.html NOT switched.");
+}
+
+/**
+ * Send one of the files again (to `target`: its own name in assets/, a
+ * temporary name anywhere else, so never over a live file), with lftp's
+ * protocol log on, and return the server's replies and lftp's own notes about
+ * the connection (timeouts, resets). Only those lines: never what was sent,
+ * so never the password.
+ */
+function serverSays(file, target = file) {
+  if (!file) return [];
+  const debugLog = path.join(work, "debug.log");
+  lftp([`debug -o ${q(debugLog)} 3`, "set net:max-retries 2", `put ${q(`${SRC}/${file}`)} -o ${q(remote(target))}`]);
+  let text = "";
+  try {
+    text = readFileSync(debugLog, "utf8");
+  } catch {
+    return [];
+  }
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => /^(<--- [1-5]\d\d|\*\*\*\* )/.test(l) && !/^<--- (1|2[23]0|33[01])/.test(l))
+    .slice(-12);
 }
 
 // ── 2/4 everything except assets/ and index.html ─────────────────────
@@ -244,13 +326,17 @@ if (changed.length) {
   for (const p of changed) delete pending[p];
   putJson(MANIFEST, { files: pending }, "Nothing sent — index.html NOT switched.");
   for (const p of changed) log(`   → ${p}`);
-  uploadAtomically(changed, SRC);
+  const missed = uploadAtomically(changed, SRC);
+  if (missed.length) {
+    const why = serverSays(missed[0].to, tempOf(missed[0].to)); // never over a live file
+    if (why.length) console.error(`What the server answers when ${missed[0].to} is sent again:\n${why.map((l) => `   ${l}`).join("\n")}`);
+  }
 }
 
 const after = listRemote();
 if (!after) die("Could not list the server after uploading — index.html NOT switched.");
 const wrong = [...chunks, ...rest].filter((p) => after.get(p) !== local.get(p));
-const leftover = [...after.keys()].filter((p) => changed.some((c) => p === path.posix.join(path.posix.dirname(c), TEMP + path.posix.basename(c))));
+const leftover = [...after.keys()].filter((p) => changed.some((c) => p === tempOf(c)));
 if (wrong.length || leftover.length) {
   die(
     "On the server but wrong, or not there — index.html NOT switched:\n" +
@@ -267,9 +353,9 @@ log(`   all ${chunks.length + rest.length} files present at the right size`);
 
 // ── 3/4 index.html ───────────────────────────────────────────────────
 log("── 3/4 index.html");
-uploadAtomically(["index.html"], SRC);
+const switched = uploadAtomically(["index.html"], SRC).length === 0;
 const live = listRemote();
-if (!live || live.get("index.html") !== local.get("index.html") || live.has(`${TEMP}index.html`)) {
+if (!switched || !live || live.get("index.html") !== local.get("index.html") || live.has(tempOf("index.html"))) {
   die("index.html did not switch — the previous build is still live, whole.");
 }
 

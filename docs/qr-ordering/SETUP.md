@@ -108,6 +108,9 @@ for one of the files. Read it:
 - "Disk full" / "Insufficient storage" / "452": the account's disk is full.
   Free space in SPanel (mailboxes, backups, logs). A full disk can also stop
   the QR database from saving orders, so check that first.
+- "451-Error during read from data connection" with 0 bytes stored: the
+  upload connection broke at once. Deploys #91–#94 hit this; uploads over
+  TLS 1.3 were dropped, so the deploy now uses TLS 1.2 (still encrypted).
 - Timeouts or closed connections with no reply: the connection itself fails.
 
 Then re-run the deploy in GitHub → Actions.

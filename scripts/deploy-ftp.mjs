@@ -93,6 +93,12 @@ const SETTINGS = [
   "set ftp:ssl-force true",
   "set ftp:ssl-protect-data true",
   "set ssl:verify-certificate no",
+  // TLS 1.2, not 1.3: from deploy #91 on (01.10.2026) every upload over TLS
+  // 1.3 was dropped at once — the server answered "451-Error during read from
+  // data connection" with 0 bytes stored — while listings, which come the
+  // other way, still worked. A known clash between lftp/GnuTLS and FTP
+  // servers on TLS 1.3 data connections; 1.2 is still fully encrypted.
+  'set ssl:priority "NORMAL:-VERS-TLS1.3"',
   "set net:timeout 40",
   "set net:max-retries 6",
   "set net:reconnect-interval-base 5",

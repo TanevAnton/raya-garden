@@ -322,6 +322,46 @@ describe("rate limits", () => {
   });
 });
 
+describe("the guest's name on an order", () => {
+  it("is optional, cleaned, and shown to staff", async () => {
+    const admin = await setUp();
+    const guest = client(srv.base, { now: AT_20H });
+    const named = await order(guest, 3, [["tiramisu"]], { extra: { name: "  Мария​ \n П. " } });
+    assert.equal(named.status, 201, named.text);
+    assert.equal(named.body.order.guestName, "Мария П.", "invisible characters and extra spaces go");
+    const plain = await order(guest, 4, [["tiramisu"]]);
+    assert.equal(plain.body.order.guestName, "");
+    const feed = (await admin.get("/api/qr/admin/feed.php?since=0")).body.orders;
+    assert.deepEqual(feed.map((o) => o.guestName).sort(), ["", "Мария П."]);
+    const mine = (await guest.get(`/api/qr/order-status.php?t=${named.body.token}`)).body.orders[0];
+    assert.equal(mine.guestName, "Мария П.");
+    assert.equal(mine.payerName, undefined, "guests are not sent the payer field");
+  });
+
+  it("is refused when too long or not text", async () => {
+    await setUp();
+    const guest = client(srv.base, { now: AT_20H });
+    const long = await order(guest, 3, [["tiramisu"]], { extra: { name: "М".repeat(41) } });
+    assert.deepEqual([long.status, long.body.field], [400, "name"]);
+    const odd = await order(guest, 3, [["tiramisu"]], { extra: { name: 7 } });
+    assert.deepEqual([odd.status, odd.body.field], [400, "name"]);
+    assert.equal((await order(guest, 3, [["tiramisu"]], { extra: { name: "М".repeat(40) } })).status, 201);
+  });
+
+  it("is erased three days later", async () => {
+    await setUp();
+    const named = await order(client(srv.base, { now: AT_20H }), 3, [["tiramisu"]], { extra: { name: "Мария" } });
+    const later = sofia("2026-10-07T20:00", 3);
+    const admin = client(srv.base, { now: later });
+    assert.equal((await admin.login()).status, 200);
+    await admin.admin("/api/qr/admin/settings.php", { date: "2026-10-07", opens: "18:00", closes: "23:00", tables: 12, disabledTables: [] });
+    assert.equal((await order(client(srv.base, { now: later }), 5, [["tiramisu"]], { extra: { name: "Иван" } })).status, 201);
+    const rows = JSON.parse(srv.sqlite("SELECT id, guest_name FROM orders ORDER BY id"));
+    assert.deepEqual(rows.map((r) => r.guest_name), ["", "Иван"]);
+    assert.equal(rows[0].id, named.body.order.id);
+  });
+});
+
 describe("a guest's order page", () => {
   it("shows an order only to its own token; codes and guesses show nothing", async () => {
     await setUp();

@@ -262,7 +262,8 @@ Paying staff does, but costs the waiter the trip.
 - **The bill is visible to anyone who picks the table.** The table itself is
   self-declared, so a stricter gate would only lock out the birthday host who
   didn't order on their own phone.
-  - The bill shows items, quantities and prices, never notes or internal ids.
+  - The bill shows items, quantities, prices and the name a guest chose to
+    give when ordering; never notes, payers' names or internal ids.
   - Paying for someone else's line harms nobody.
 - **A line is the unit.** "2 × beer" is paid by one person. Splitting a line
   would need quantities per payer and a much busier screen for a rare case.
@@ -298,6 +299,44 @@ Paying staff does, but costs the waiter the trip.
 - **The till gets payments, not lines.** Each bill payment (`P-…`) is entered
   in Clock at its net amount, after what was owed back. A refund after entry
   is listed to void, for the difference.
+
+## Names on orders, added 01.10.2026
+
+**Why.** At a busy event, "R-7K3M for table 4" doesn't tell the waiter which
+of eight people it is for, or who paid.
+
+**How.** Two names, both optional, both shown only where they help:
+
+- **The guest's own name.** An optional field "Вашето име" when sending an
+  order (40 characters; the phone remembers it for the tab). It goes on the
+  order card on the staff screen and, on a "pay at the end" evening, next to
+  each line of the table's bill, so everyone finds their own.
+- **The payer's name from Stripe.** Stripe's payment page asks for the
+  cardholder's name. The webhook copies `customer_details.name` onto the paid
+  order or bill payment; staff see "платил: …" and the till list carries it.
+
+### Choices made
+
+- **Nothing is required.** A guest who gives no name orders exactly as
+  before. A payment usually carries a name (the name on the card or in the
+  wallet); when Stripe has none, the card simply shows none.
+- **The payer's name stays with staff.** Guests' pages never return it
+  (`order-status.php`, `bill.php` drop it), so another phone at the table
+  can't learn who paid with which card.
+- **Names are erased after 3 days** (`QR_NAME_DAYS`). The orders and amounts
+  stay for the accounts. The erasing runs on the busy write paths (placing
+  an order, starting a bill payment), so it needs no cron job.
+- **The email Stripe collects is never stored.** Stripe keeps it for its
+  receipt; the venue doesn't need it.
+- **Names are cleaned, not trusted.** Control and formatting characters are
+  removed and spaces collapsed; a name over 40 characters is refused rather
+  than cut silently. React escapes it on every screen.
+- **The name is not part of the order's fingerprint.** A resend under the
+  same idempotency key returns the original order, name and all, instead of
+  being refused as a different order.
+- **The privacy policy says so.** It lists orders from the table, the two
+  names, the 3 days and Stripe as a recipient; the cookie policy lists the
+  menu's tab storage and the staff cookie.
 
 ## Left out on purpose
 

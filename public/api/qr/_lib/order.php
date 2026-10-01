@@ -26,10 +26,21 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'table']];
     }
     $lang = ($body['lang'] ?? 'bg') === 'en' ? 'en' : 'bg';
+    // The guest's own name, optional — for staff, and on the table's bill.
+    // Not part of the payload hash: a retry with the name edited is still
+    // the same order.
+    $rawName = $body['name'] ?? '';
+    if (!is_string($rawName)) {
+        return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'name']];
+    }
+    $guestName = qr_clean_name($rawName, QR_MAX_NAME + 1);
+    if (mb_strlen($guestName) > QR_MAX_NAME) {
+        return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'name']];
+    }
     $payloadHash = hash('sha256', json_encode([$table, $lines], JSON_UNESCAPED_UNICODE));
     $expectedTotal = $body['expectedTotal'] ?? null;
 
-    return qr_write(function (PDO $pdo) use ($lines, $table, $lang, $payloadHash, $idemKey, $now, $expectedTotal) {
+    return qr_write(function (PDO $pdo) use ($lines, $table, $lang, $guestName, $payloadHash, $idemKey, $now, $expectedTotal) {
         $secret = qr_secret();
         $token = hash_hmac('sha256', 'order|' . $idemKey, $secret);
 
@@ -137,6 +148,7 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         // The address stand-in is only needed for the limit above, so it is
         // not kept once an order is older than the window.
         $pdo->prepare("UPDATE orders SET ip_hash = '' WHERE ip_hash <> '' AND created_at <= ?")->execute([$since]);
+        qr_forget_names($pdo, $now);
 
         // 6. Store it, with names and prices copied in: a menu edited later
         //    never changes an order already placed. When guests pay on the
@@ -148,10 +160,10 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $seq = qr_bump_seq($pdo);
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
-            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
-            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0]);
+            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName]);
         if ($tab) {
             qr_touch_tab($pdo, (int) $tab['id'], $seq);
         }

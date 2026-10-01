@@ -63,7 +63,7 @@ function qr_touch_tab(PDO $pdo, int $tabId, int $seq = 0)
  */
 function qr_tab_lines(PDO $pdo, int $tabId, int $now): array
 {
-    $stmt = $pdo->prepare("SELECT o.id AS order_id, o.code, o.created_at, i.*
+    $stmt = $pdo->prepare("SELECT o.id AS order_id, o.code, o.created_at, o.guest_name, i.*
         FROM orders o JOIN order_items i ON i.order_id = o.id
         WHERE o.tab_id = ? AND o.status IN ('new', 'accepted', 'served')
         ORDER BY o.created_at, o.id, i.line");
@@ -97,6 +97,8 @@ function qr_tab_lines(PDO $pdo, int $tabId, int $now): array
             'amount' => (int) $r['unit_cents'] * (int) $r['qty'],
             'state' => $state,
             'orderedAt' => (int) $r['created_at'],
+            // The name the guest gave when ordering, if any: "Мария: 2 × бира".
+            'name' => (string) $r['guest_name'],
         ];
     }
     return $lines;
@@ -155,6 +157,7 @@ function qr_bill_payment_json(array $p): array
         'refundError' => (int) $p['refund_error'] === 1,
         'createdAt' => (int) $p['created_at'],
         'paidAt' => (int) $p['paid_at'],
+        'payerName' => (string) ($p['payer_name'] ?? ''),
         // For the till: what the payment comes to after what is owed back,
         // and what was entered in Clock.
         'net' => (int) $p['amount_cents'] - (int) $p['refund_due_cents'],
@@ -254,6 +257,7 @@ function qr_bill_pay(array $body, string $idemKey, int $now): array
             return [429, ['ok' => false, 'error' => 'rate_limited', 'retryAfter' => QR_LIMIT_WINDOW]];
         }
 
+        qr_forget_names($pdo, $now);
         $seq = qr_bump_seq($pdo);
         $code = qr_bill_code($pdo, $now);
         $pdo->prepare('INSERT INTO bill_payments
@@ -438,9 +442,9 @@ function qr_bill_event(PDO $pdo, string $type, array $object, int $now)
             $mark->execute([$id, $item['order_id'], $item['line']]);
             $touchOrder->execute([$seq, $now, $item['order_id']]);
         }
-        $pdo->prepare("UPDATE bill_payments SET status = 'paid', paid_at = ?, payment_intent = ?, checkout_url = '',
+        $pdo->prepare("UPDATE bill_payments SET status = 'paid', paid_at = ?, payment_intent = ?, payer_name = ?, checkout_url = '',
             overlap_cents = ?, refund_due_cents = refund_due_cents + ?, seq = ? WHERE id = ?")
-            ->execute([$now, (string) ($object['payment_intent'] ?? ''), $overlap, $overlap, $seq, $id]);
+            ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $overlap, $overlap, $seq, $id]);
         qr_touch_tab($pdo, (int) $p['tab_id'], $seq);
         return $overlap > 0 ? $id : null;
     }

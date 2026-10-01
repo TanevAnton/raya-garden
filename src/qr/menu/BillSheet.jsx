@@ -187,6 +187,7 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
                             {detail ? <span className="text-cream-100/60"> · {detail}</span> : null}
                           </span>
                           <span className="block text-xs text-cream-100/45 mt-0.5">
+                            {l.name && <span className="text-cream-100/80">{l.name} · </span>}
                             {l.code}
                             {mine(l) && <span className="text-gold-200"> · {t.mine}</span>}
                             {l.state === "pending" && <span className="text-gold-200"> · {t.linePending}</span>}

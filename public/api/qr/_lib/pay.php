@@ -270,8 +270,8 @@ function qr_stripe_event(array $event, int $now): array
             // A payment that lands after we gave up on it still counts: the
             // guest paid, so the order goes to staff.
             $pdo->prepare("UPDATE orders SET status = 'new', pay_status = 'paid', paid_at = ?, payment_intent = ?,
-                checkout_url = '', updated_at = ?, seq = ? WHERE id = ?")
-                ->execute([$now, (string) ($object['payment_intent'] ?? ''), $now, $seq, $orderId]);
+                payer_name = ?, checkout_url = '', updated_at = ?, seq = ? WHERE id = ?")
+                ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $now, $seq, $orderId]);
             $pdo->prepare("INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, 'new', 'paid', ?)")
                 ->execute([$orderId, $order['status'], $now]);
             return [];
@@ -289,6 +289,17 @@ function qr_stripe_event(array $event, int $now): array
         }
         return [];
     });
+}
+
+/**
+ * The name the guest gave on Stripe's payment page — the cardholder, or the
+ * Apple Pay / Google Pay account — from a Checkout Session. Only the name:
+ * email and card details are never kept here.
+ */
+function qr_payer_name(array $session): string
+{
+    $name = $session['customer_details']['name'] ?? '';
+    return is_string($name) ? qr_clean_name($name, 80) : '';
 }
 
 /**

@@ -101,6 +101,7 @@ describe("a guest orders from a phone", () => {
     await clickText(page, "[role=dialog]", /^Sprite$/);
     await checkout(page);
     await page.type("[role=dialog] input[placeholder]", "без крутони");
+    await page.type('[role=dialog] input[autocomplete="given-name"]', "Мария");
     const sending = page.waitForResponse((r) => r.url().includes("/api/qr/order.php"));
     await clickText(page, "[role=dialog]", /Изпрати поръчката/);
     assert.equal((await sending).status(), 201);
@@ -111,6 +112,7 @@ describe("a guest orders from a phone", () => {
     const [o] = orders;
     assert.equal(o.code, code);
     assert.equal(o.table, 8);
+    assert.equal(o.guestName, "Мария", "the optional name reaches staff");
     assert.equal(o.total, 2 * 1090 + 250);
     assert.deepEqual(o.lines.map((l) => [l.itemId, l.variantId, l.choiceId, l.qty, l.note]), [
       ["caesar", "shrimps", "", 2, "без крутони"],

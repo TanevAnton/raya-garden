@@ -148,6 +148,16 @@ describe("paying on the phone: Stripe's webhook", () => {
     assert.equal(stripe.sessions.get(id).status, "open");
   });
 
+  it("staff see the name given on Stripe's payment page; the guest's own name too", async () => {
+    const admin = await setUp();
+    const res = await guest().post("/api/qr/order.php", orderBody(menu, 5, [["tiramisu"]], { name: "Мими" }), { headers: { "Idempotency-Key": newKey() } });
+    await stripe.pay(sessionOf(res).id, { name: "Мария Петрова\u0007" });
+    const [o] = (await feed(admin)).orders;
+    assert.deepEqual([o.guestName, o.payerName], ["Мими", "Мария Петрова"]);
+    assert.equal((await status(guest(), res.body.token)).payerName, undefined);
+    assert.ok(!srv.sqlite("SELECT * FROM orders").includes("guest@example.com"), "the email Stripe collected is not kept");
+  });
+
   it("a paid session sends the order to staff, once, however often Stripe repeats it", async () => {
     const admin = await setUp();
     const before = (await feed(admin)).seq;

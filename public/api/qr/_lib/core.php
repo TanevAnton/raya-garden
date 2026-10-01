@@ -33,6 +33,8 @@ const QR_MAX_TABLES = 300;
 const QR_TABLE_LIMIT = 5;    // orders per table …
 const QR_IP_LIMIT = 60;      // … and per network address (a whole restaurant can share one Wi-Fi address) …
 const QR_LIMIT_WINDOW = 300; // … per 5 minutes
+const QR_MAX_NAME = 40;      // the guest's own name on an order, optional
+const QR_NAME_DAYS = 3;      // names (the guest's, the payer's) are erased after this
 
 /** Send JSON and stop. */
 function qr_json(int $status, array $body)
@@ -144,7 +146,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 3;
+const QR_SCHEMA_VERSION = 4;
 
 function qr_db(): PDO
 {
@@ -342,6 +344,17 @@ function qr_migrate(PDO $pdo)
                 );
             ");
         }
+        if ($version < 4) {
+            // Names, for staff: guest_name is what the guest typed when
+            // ordering (optional); payer_name is the name Stripe's payment page
+            // took (the cardholder, or the Apple/Google Pay account). Both are
+            // erased QR_NAME_DAYS after the order (qr_forget_names).
+            $pdo->exec("
+                ALTER TABLE orders ADD COLUMN guest_name TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN payer_name TEXT NOT NULL DEFAULT '';
+                ALTER TABLE bill_payments ADD COLUMN payer_name TEXT NOT NULL DEFAULT '';
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -391,6 +404,30 @@ function qr_secret(): string
 {
     $settings = qr_settings();
     return (string) $settings['secret'];
+}
+
+/**
+ * A person's name as we keep it: control and invisible formatting characters
+ * out, whitespace collapsed, at most $max characters.
+ */
+function qr_clean_name(string $name, int $max): string
+{
+    $name = preg_replace('/[\p{Cc}\p{Cf}]+/u', ' ', $name);
+    $name = trim((string) preg_replace('/\s+/u', ' ', (string) $name));
+    return mb_substr($name, 0, $max);
+}
+
+/**
+ * Names are only for the evening: erase them from orders and bill payments
+ * older than QR_NAME_DAYS. Called from the busy write paths (placing an
+ * order, paying a bill), inside their transaction.
+ */
+function qr_forget_names(PDO $pdo, int $now)
+{
+    $before = $now - QR_NAME_DAYS * 86400;
+    $pdo->prepare("UPDATE orders SET guest_name = '', payer_name = '' WHERE created_at < ? AND (guest_name <> '' OR payer_name <> '')")
+        ->execute([$before]);
+    $pdo->prepare("UPDATE bill_payments SET payer_name = '' WHERE created_at < ? AND payer_name <> ''")->execute([$before]);
 }
 
 /** A stable, non-reversible stand-in for the caller's network address. */
@@ -565,6 +602,8 @@ function qr_order_json(array $order, bool $withLines = true): array
         'payStatus' => (string) ($order['pay_status'] ?? ''),
         'paidAt' => (int) ($order['paid_at'] ?? 0),
         'tabId' => (int) ($order['tab_id'] ?? 0),
+        'guestName' => (string) ($order['guest_name'] ?? ''),
+        'payerName' => (string) ($order['payer_name'] ?? ''),
         'tillAt' => (int) ($order['till_at'] ?? 0),
         'tillVoidAt' => (int) ($order['till_void_at'] ?? 0),
     ];

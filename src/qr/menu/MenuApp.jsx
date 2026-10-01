@@ -140,6 +140,7 @@ export default function MenuApp() {
   const [cart, setCart] = useStored("raya.qr.cart", []);
   const [orders, setOrders] = useStored("raya.qr.orders", []);
   const [browsing, setBrowsing] = useStored("raya.qr.browsing", false);
+  const [guestName, setGuestName] = useStored("raya.qr.name", "");
   const [sheet, setSheet] = useState(null);
   const [choiceFor, setChoiceFor] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -233,7 +234,7 @@ export default function MenuApp() {
   async function submit() {
     if (!table || !confirmed || submitting || !cart.length) return;
     const lines = cart.map((l) => ({ itemId: l.itemId, variantId: l.variantId, choiceId: l.choiceId || "", qty: l.qty, note: l.note.trim(), price: l.price }));
-    const body = { table, lang, expectedTotal: total, lines, website: honeypot.current?.value || "" };
+    const body = { table, lang, expectedTotal: total, lines, name: guestName.trim().slice(0, 40), website: honeypot.current?.value || "" };
     // One key per attempt: a retry of the very same order reuses it, so the
     // server can never make two; any change to the order makes a new one.
     const sig = JSON.stringify([table, lines]);
@@ -390,6 +391,8 @@ export default function MenuApp() {
             onSubmit={submit}
             honeypot={honeypot}
             state={state}
+            guestName={guestName}
+            setGuestName={setGuestName}
           />
         </Sheet>
       )}
@@ -661,7 +664,7 @@ function Stepper({ value, onChange, t }) {
   );
 }
 
-function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state }) {
+function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state, guestName, setGuestName }) {
   const closedNow = state && !state.open;
   const online = state?.payment === "online";
   const onTab = state?.payment === "tab";
@@ -712,6 +715,21 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
         <span className="font-display text-3xl text-gold-100">{money(total, lang)}</span>
       </div>
       <p className="text-sm text-cream-100/60 mt-2">{online ? t.payOnline : onTab && table ? fill(t.payTab, { n: table }) : t.payment}</p>
+
+      {cart.length > 0 && (
+        <label className="block mt-5">
+          <span className="text-sm text-cream-100/80">{t.nameLabel}</span>
+          <input
+            value={guestName}
+            maxLength={40}
+            autoComplete="given-name"
+            onChange={(e) => setGuestName(e.target.value)}
+            placeholder={t.namePlaceholder}
+            className="mt-1 w-full bg-ink-950 border border-gold-300/15 rounded-sm px-3 py-2 text-cream-50 placeholder:text-cream-100/30"
+          />
+          <span className="block text-xs text-cream-100/45 mt-1">{onTab ? t.nameHintTab : t.nameHint}</span>
+        </label>
+      )}
 
       {table && cart.length > 0 && (
         <label className="flex items-start gap-3 mt-5 cursor-pointer">

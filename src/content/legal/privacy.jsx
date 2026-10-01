@@ -7,8 +7,9 @@ import { CONTROLLER as C } from "./controller.js";
 // against the code rather than assumed: the brief listed Meta, Google, the
 // host and Sanity, and the code adds Clock PMS+ (the room booking engine),
 // Formspree (the contact form), the OpenAI ads pixel and ipwho.is (country
-// lookup for the language). A notice that leaves out a live recipient is not
-// a notice.
+// lookup for the language). The QR menu (/menu, public/api/qr) adds Stripe,
+// for card payments at the table. A notice that leaves out a live recipient
+// is not a notice.
 
 const mail = <A href={`mailto:${C.email}`}>{C.email}</A>;
 const phone = <A href={C.phoneHref}>{C.phone}</A>;
@@ -18,7 +19,8 @@ export function PrivacyBg() {
     <>
       <P>
         Тази политика обяснява какви лични данни събираме, когато посещавате
-        rayagarden.bg, правите резервация или запитване или се свързвате с нас,
+        rayagarden.bg, правите резервация или запитване, поръчвате от масата
+        или се свързвате с нас,
         защо го правим, на какво основание и какви права имате.
       </P>
 
@@ -48,6 +50,27 @@ export function PrivacyBg() {
           При настаняване регистрираме гостите с данни от документ за
           самоличност, както изисква Законът за туризма — законово задължение,
           чл. 6, пар. 1, б. „в“ от ОРЗД.
+        </Row>
+      </Card>
+
+      <Card title="Поръчки от масата (QR менюто)">
+        <Row label="Данни">
+          Номерът на масата, поръчаните продукти, бележките към тях и — само
+          ако го въведете — Вашето име. Когато плащате с карта в телефона,
+          пазим и името, въведено на платежната страница на Stripe, за да знае
+          персоналът чие е плащането. Данните на картата въвеждате директно при
+          Stripe и ние не ги получаваме; имейла от платежната страница не
+          пазим.
+        </Row>
+        <Row label="Кой ги вижда">
+          Персоналът, на екрана за поръчки. На вечери със „сметка накрая“
+          името до всеки продукт виждат и останалите гости на същата маса,
+          които отворят сметката.
+        </Row>
+        <Row label="Основание">
+          Изпълнение на договор — чл. 6, пар. 1, б. „б“ от ОРЗД. За защита от
+          злоупотреби за 5 минути пазим и необратим отпечатък на IP адреса —
+          легитимен интерес, чл. 6, пар. 1, б. „е“ от ОРЗД.
         </Row>
       </Card>
 
@@ -157,6 +180,13 @@ export function PrivacyBg() {
           определяне на държавата по IP адрес за избор на език.
         </li>
         <li>
+          <strong className="text-cream-50 font-normal">Stripe Payments Europe, Ltd.</strong> —
+          плащанията с карта при поръчки от масата, включително връщането на
+          суми. Stripe обработва данните на картата и за собствените си цели,
+          като предотвратяване на измами, съгласно своята политика за
+          поверителност.
+        </li>
+        <li>
           Държавни органи, когато законът го изисква — например при
           регистрацията на туристи или пред данъчните органи.
         </li>
@@ -164,8 +194,8 @@ export function PrivacyBg() {
 
       <H2>4. Предаване на данни извън ЕС</H2>
       <P>
-        Някои от тези доставчици, включително Google, Meta и OpenAI, могат да
-        обработват данни в САЩ. Тогава предаването се основава на Рамката за
+        Някои от тези доставчици, включително Google, Meta, OpenAI и Stripe,
+        могат да обработват данни в САЩ. Тогава предаването се основава на Рамката за
         защита на данните между ЕС и САЩ (EU–US Data Privacy Framework), когато
         получателят е сертифициран по нея, или на стандартни договорни клаузи,
         одобрени от Европейската комисия.
@@ -184,6 +214,11 @@ export function PrivacyBg() {
         <li>
           Регистрационни данни на гостите — толкова, колкото изисква Законът за
           туризма.
+        </li>
+        <li>
+          Имената при поръчки от масата (Вашето и това на платеца) — изтриват
+          се автоматично 3 дни след поръчката. Самите поръчки и плащания, вече
+          без имена, пазим според счетоводното законодателство.
         </li>
         <li>
           Данни за анализ и реклама — според настройките на съответния
@@ -234,7 +269,8 @@ export function PrivacyEn() {
     <>
       <P>
         This policy explains what personal data we collect when you visit
-        rayagarden.bg, make a booking or an enquiry, or get in touch with us —
+        rayagarden.bg, make a booking or an enquiry, order from your table, or
+        get in touch with us —
         why we collect it, on what legal basis, and what your rights are.
       </P>
 
@@ -264,6 +300,27 @@ export function PrivacyEn() {
           On check-in we register guests using details from an identity
           document, as the Bulgarian Tourism Act requires — a legal obligation,
           GDPR Art. 6(1)(c).
+        </Row>
+      </Card>
+
+      <Card title="Orders from the table (QR menu)">
+        <Row label="Data">
+          The table number, the items ordered, notes on them and — only if you
+          enter it — your name. When you pay by card on your phone we also
+          keep the name entered on Stripe's payment page, so staff know whose
+          payment it is. You enter your card details directly with Stripe and
+          we never receive them; we do not keep the email from the payment
+          page.
+        </Row>
+        <Row label="Who sees it">
+          Staff, on the order screen. On "pay at the end" evenings, the name
+          next to each item is also shown to other guests at the same table
+          who open the bill.
+        </Row>
+        <Row label="Legal basis">
+          Performance of a contract — GDPR Art. 6(1)(b). To prevent abuse we
+          also keep a one-way fingerprint of your IP address for 5 minutes —
+          legitimate interest, GDPR Art. 6(1)(f).
         </Row>
       </Card>
 
@@ -370,6 +427,12 @@ export function PrivacyEn() {
           country lookup by IP address, for choosing the language.
         </li>
         <li>
+          <strong className="text-cream-50 font-normal">Stripe Payments Europe, Ltd.</strong> —
+          card payments for orders from the table, including refunds. Stripe
+          also processes card data for its own purposes, such as fraud
+          prevention, under its own privacy policy.
+        </li>
+        <li>
           Public authorities, where the law requires it — for example tourist
           registration or the tax authorities.
         </li>
@@ -377,8 +440,8 @@ export function PrivacyEn() {
 
       <H2>4. Transfers outside the EU</H2>
       <P>
-        Some of these providers, including Google, Meta and OpenAI, may process
-        data in the United States. Such transfers rely on the EU–US Data
+        Some of these providers, including Google, Meta, OpenAI and Stripe, may
+        process data in the United States. Such transfers rely on the EU–US Data
         Privacy Framework where the recipient is certified under it, or on
         Standard Contractual Clauses approved by the European Commission.
       </P>
@@ -395,6 +458,11 @@ export function PrivacyEn() {
         </li>
         <li>
           Guest registration data — as long as the Tourism Act requires.
+        </li>
+        <li>
+          Names on orders from the table (yours and the payer's) — erased
+          automatically 3 days after the order. The orders and payments
+          themselves, without names, as long as accounting law requires.
         </li>
         <li>
           Analytics and advertising data — according to each tool's settings.

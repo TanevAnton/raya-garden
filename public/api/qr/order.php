@@ -6,6 +6,7 @@
 // Body    {"table": 7, "lang": "bg", "expectedTotal": 2480,
 //          "lines": [{"itemId": "caesar", "variantId": "chicken",
 //                     "choiceId": "", "qty": 2, "note": "", "price": 990}],
+//          "name": "Мария",                     ← optional, at most 40 characters
 //          "website": ""}                       ← honeypot, must stay empty
 //
 // 201 {ok, token, order}           created — only after the commit

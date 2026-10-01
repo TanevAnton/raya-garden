@@ -84,6 +84,8 @@ async function orderTiramisu(page) {
   await clickText(page, "", /Преглед на поръчката/);
   await page.waitForSelector("[role=dialog] input[type=checkbox]");
   assert.match(await text(page), /влиза в сметката на маса №4/);
+  assert.match(await text(page), /Ще се вижда и в сметката на масата/);
+  await page.type('[role=dialog] input[autocomplete="given-name"]', "Мария");
   await page.click("[role=dialog] input[type=checkbox]");
   await clickText(page, "[role=dialog]", /Изпрати поръчката/);
   await page.waitForFunction(() => document.body.innerText.includes("Добавена е към сметката"));
@@ -117,6 +119,7 @@ describe("pay at the end: the table's bill", () => {
     const bill = await text(page);
     assert.match(bill, /Сметка · маса №4/);
     assert.match(bill, /ваше/, "the host's own line is marked");
+    assert.match(bill, /Мария · R-/, "with the name given when ordering");
     assert.match(await page.$eval("[role=dialog] button.btn-gold", (b) => b.textContent), /Плати 5,90/, "own line picked by default");
     await clickText(page, "[role=dialog]", /^Избери всичко$/);
     assert.match(await page.$eval("[role=dialog] button.btn-gold", (b) => b.textContent), /Плати 10,90/);
@@ -131,6 +134,10 @@ describe("pay at the end: the table's bill", () => {
     await clickText(staff, "nav", /^Сметки/);
     await staff.waitForSelector('[data-tab="4"]');
     await staff.waitForFunction(() => /Затвори сметката/.test(document.querySelector('[data-tab="4"]').innerText), { polling: 300, timeout: 15000 });
+    await staff.click('[data-tab="4"] details summary'); // the table's lines are folded away
+    const card = await text(staff, '[data-tab="4"]');
+    assert.match(card, /Test Guest/, "who paid, from Stripe's page");
+    assert.match(card, /Мария:/, "who ordered the line");
     await clickText(staff, '[data-tab="4"]', /Затвори сметката/);
     await staff.waitForFunction(() => document.body.innerText.includes("Няма отворени сметки"), { polling: 300, timeout: 15000 });
     await clickText(staff, "nav", /За касата/);

@@ -106,6 +106,7 @@ describe("paying on the phone", () => {
     await staff.click("button[type=submit]");
     await staff.waitForSelector(`[data-order="${o.code}"]`);
     assert.match(await staff.$eval(`[data-order="${o.code}"]`, (e) => e.innerText), /Платена онлайн/);
+    assert.match(await staff.$eval(`[data-order="${o.code}"]`, (e) => e.innerText), /платил: Test Guest/, "the name from Stripe's page");
     await clickText(staff, "nav", /За касата \(1\)/);
     await staff.waitForSelector(`[data-till="${o.code}"]`);
     await clickText(staff, `[data-till="${o.code}"]`, /Въведена в Clock/);

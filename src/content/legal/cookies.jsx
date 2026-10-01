@@ -13,6 +13,9 @@ import { H2, P, Ul, Card, Row, A, L } from "../../components/LegalPage.jsx";
 //
 // Re-audit when a tag is added to GTM: a new tag can set a new cookie without
 // any change to this repo.
+//
+// The QR menu's entries (raya.qr.*, raya_qr_admin) come from its own code:
+// src/qr/menu/MenuApp.jsx, BillSheet.jsx and public/api/qr/_lib/auth.php.
 
 const KIND = {
   necessary: { bg: "Необходими", en: "Strictly necessary" },
@@ -71,6 +74,16 @@ const COOKIES = [
       en: "Used by the OpenAI advertising pixel to measure ChatGPT ads.",
     },
   },
+  {
+    name: "raya_qr_admin",
+    provider: "RAYA Garden",
+    kind: "necessary",
+    lifetime: { bg: "16 часа", en: "16 hours" },
+    purpose: {
+      bg: "Само за персонала, влязъл в екрана за поръчки (/admin): пази входа. Гостите не го получават.",
+      en: "Only for staff signed in to the order screen (/admin): keeps them signed in. Guests never get it.",
+    },
+  },
 ];
 
 const STORAGE = [
@@ -94,6 +107,17 @@ const STORAGE = [
     purpose: {
       bg: "Помагат на Meta Pixel да свърже посещението с рекламата, от която идвате.",
       en: "Help the Meta Pixel link your visit to the ad you came from.",
+    },
+  },
+  {
+    name: "raya.qr.table, raya.qr.cart, raya.qr.orders, raya.qr.name, raya.qr.browsing, raya.qr.bills",
+    provider: "RAYA Garden",
+    kind: "necessary",
+    where: { bg: "sessionStorage", en: "sessionStorage" },
+    lifetime: { bg: "до затваряне на раздела", en: "until the tab is closed" },
+    purpose: {
+      bg: "Само в менюто за поръчки от масата (/menu): помнят масата, кошницата, Вашите поръчки и плащания и името, ако сте го въвели, за да не се загубят при презареждане.",
+      en: "Only on the menu for ordering from the table (/menu): remember the table, the basket, your orders and payments, and your name if you entered it, so a reload does not lose them.",
     },
   },
   {
@@ -162,6 +186,11 @@ export function CookiesBg() {
         Системата за онлайн резервации Clock PMS+ се отваря в прозорец върху
         сайта и не поставя бисквитки на rayagarden.bg.
       </P>
+      <P>
+        Менюто за поръчки от масата няма анализ и реклама. Платежната страница
+        на Stripe е на адреса на Stripe (checkout.stripe.com) и не поставя
+        бисквитки на rayagarden.bg; за нея важи политиката на Stripe.
+      </P>
 
       <H2>Как да управлявате бисквитките</H2>
       <Ul>
@@ -227,6 +256,11 @@ export function CookiesEn() {
       <P>
         The Clock PMS+ online booking system opens in a window over the site
         and sets no cookies on rayagarden.bg.
+      </P>
+      <P>
+        The menu for ordering from the table has no analytics or advertising.
+        Stripe's payment page is on Stripe's own address (checkout.stripe.com)
+        and sets no cookies on rayagarden.bg; Stripe's own policy covers it.
       </P>
 
       <H2>How to control cookies</H2>

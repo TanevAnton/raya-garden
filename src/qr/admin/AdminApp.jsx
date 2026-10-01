@@ -457,6 +457,8 @@ function OrderCard({ order, flash, onMove, onCancel }) {
           <div className="text-[10px] tracking-[0.25em] uppercase text-cream-100/50">Маса</div>
           {/* Sans-serif on purpose: in the display face "11" reads as "II". */}
           <div className="font-sans font-semibold tabular-nums text-6xl leading-none text-cream-50">{order.table}</div>
+          {/* The name the guest gave when ordering: to call out at the table. */}
+          {order.guestName && <div className="text-xl text-gold-100 mt-2" data-guest-name>{order.guestName}</div>}
         </div>
         <div className="text-right">
           <div className="font-mono text-lg text-gold-100">{order.code}</div>
@@ -479,6 +481,7 @@ function OrderCard({ order, flash, onMove, onCancel }) {
             Общо <span className="font-semibold">{money(order.total)}</span>
           </span>
           <PayChip order={order} />
+          {order.payerName && <span className="text-xs text-cream-100/70">платил: {order.payerName}</span>}
         </span>
         <span className={`text-xs px-3 py-1 border rounded-full ${s.tone}`}>{s.label}</span>
       </div>
@@ -711,7 +714,7 @@ function tillList(orders, billPayments) {
     if (o.payStatus === "refunded" && !o.tillAt) continue; // refunded before it was entered: nothing to do
     entries.push({
       kind: "order", id: o.id, code: o.code, table: o.table, at: o.paidAt || o.createdAt,
-      text: o.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", "),
+      text: (o.payerName ? `${o.payerName} · ` : "") + o.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", "),
       amount: o.total, voidAmount: o.total, tillAt: o.tillAt,
       toEnter: o.payStatus === "paid" && !o.tillAt, toVoid,
     });
@@ -722,7 +725,7 @@ function tillList(orders, billPayments) {
     if (!p.tillAt && p.net <= 0) continue; // all of it owed back before it was entered
     entries.push({
       kind: "bill", id: p.id, code: p.code, table: p.table, at: p.paidAt,
-      text: `сметка · ${p.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}`,
+      text: `сметка${p.payerName ? `, платил ${p.payerName}` : ""} · ${p.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}`,
       amount: p.tillAt ? p.tillCents : p.net, voidAmount: p.tillCents - p.net, tillAt: p.tillAt,
       toEnter: !p.tillAt && p.net > 0, toVoid,
     });
@@ -840,6 +843,7 @@ function Tabs({ tabs, onAction }) {
                   {x.lines.map((l) => (
                     <li key={`${l.code}:${l.line}`} className="flex justify-between gap-3">
                       <span className="text-cream-50">
+                        {l.name && <span className="text-gold-100">{l.name}: </span>}
                         {l.qty} × {l.nameBg}
                         {l.detailBg ? <span className="text-cream-100/60"> · {l.detailBg}</span> : null}
                         <span className="text-xs text-cream-100/40"> {l.code}</span>
@@ -850,6 +854,19 @@ function Tabs({ tabs, onAction }) {
                   ))}
                 </ul>
               </details>
+              {x.payments.some((p) => p.status === "paid") && (
+                <ul className="mt-3 space-y-1 text-sm" aria-label="Плащания от телефон">
+                  {x.payments.filter((p) => p.status === "paid").map((p) => (
+                    <li key={p.id} className="flex justify-between gap-3 text-cream-100/80" data-bill-payment={p.code}>
+                      <span>
+                        <span className="font-mono text-xs text-cream-100/50">{p.code}</span> {clock(p.paidAt)}
+                        {p.payerName ? <span className="text-cream-50"> · {p.payerName}</span> : null}
+                      </span>
+                      <span className="text-sage-200 shrink-0">{money(p.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {owed.map((p) => (
                 <div key={p.id} className="mt-3 border border-red-400/40 bg-red-950/30 rounded-sm px-3 py-2 text-sm flex flex-wrap items-center justify-between gap-2">
                   <span className="text-cream-50">

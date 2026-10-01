@@ -124,6 +124,12 @@ runs once, inside a transaction.
 Prices are fixed by the server when the order is placed, and Stripe charges
 exactly that. The payment page shows each line.
 
+**Names.** Staff see the name entered on Stripe's payment page (*платил: …*)
+on the order, the bill and the till list, plus the name a guest may type when
+ordering (*Вашето име*, optional). Both are erased automatically 3 days later;
+the email from the payment page is never stored. The privacy policy says so —
+keep it in step if this changes (`src/content/legal/privacy.jsx`).
+
 ### Setting it up: test first
 
 1. **Stripe account.** The company's account at dashboard.stripe.com: the

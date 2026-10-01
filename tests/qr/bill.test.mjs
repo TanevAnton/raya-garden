@@ -77,6 +77,23 @@ describe("a table's bill", () => {
     assert.equal(tab5.totals.unpaid, b.bill.totals.unpaid);
   });
 
+  it("names: who ordered each line, and who paid", async () => {
+    const admin = await setUp();
+    const named = await phone().post("/api/qr/order.php", orderBody(menu, 5, [["tiramisu"]], { name: "Мария" }), { headers: { "Idempotency-Key": newKey() } });
+    await order(phone(), 5, [["illy-coffee"]]);
+    const b = await bill(phone(), 5);
+    assert.deepEqual(b.bill.lines.map((l) => l.name), ["Мария", ""]);
+    const all = await pay(phone(), 5, b.bill.lines.map((l) => [l.code, l.line]), { amount: b.bill.totals.unpaid });
+    await stripe.pay(sessionOf(all).id, { name: "Иван Иванов" });
+    const f = await feed(admin);
+    assert.equal(f.billPayments[0].payerName, "Иван Иванов");
+    assert.equal(f.tabs[0].payments[0].payerName, "Иван Иванов");
+    assert.equal(f.tabs[0].lines[0].name, "Мария");
+    const mine = await bill(phone(), 5, [all.body.token]);
+    assert.equal(mine.payments[0].payerName, undefined, "not sent back to phones");
+    assert.equal(named.status, 201);
+  });
+
   it("one person pays their own line; another pays all the rest — the birthday case", async () => {
     const admin = await setUp();
     const ana = await order(phone(), 5, [["tiramisu"]]);

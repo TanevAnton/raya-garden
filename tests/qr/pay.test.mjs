@@ -411,6 +411,15 @@ describe("paying on the phone: cancelling one line, not the whole order", () => 
     assert.equal(later.body.order.tillCents, o2.total - 2 * COLA());
   });
 
+  it("cancelling the bar's part of a paid order refunds just the drinks", async () => {
+    const admin = await setUp();
+    const { order: o } = await paidOrder();
+    const res = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "cancel", station: "bar", from: "new", reason: "Няма Sprite" });
+    assert.equal(res.status, 200, res.text);
+    assert.deepEqual([res.body.order.status, res.body.order.payStatus, res.body.order.stations], ["new", "paid", { kitchen: "new", bar: "cancelled" }]);
+    assert.equal(stripe.refunded(row(o.id).payment_intent), 3 * COLA(), "the three Sprites, not the salad");
+  });
+
   it("paying staff: taking a line off just lowers what the table pays", async () => {
     const admin = await setUp({ paymentMode: "on_site" });
     const res = await order(guest(), 3, [["tiramisu"], ["illy-coffee", "std", 2]]);

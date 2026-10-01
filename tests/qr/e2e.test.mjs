@@ -220,8 +220,9 @@ describe("a guest orders from a phone", () => {
 });
 
 describe("the staff screen", () => {
-  async function tablet() {
-    const page = await browser.newPage();
+  /** A signed-in staff tablet; a second one needs its own browser session (cookies). */
+  async function tablet(session = browser) {
+    const page = await session.newPage();
     await page.setViewport({ width: 1180, height: 820 });
     await page.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
     await page.type('input[type="password"]', ADMIN_PASSWORD);
@@ -317,14 +318,15 @@ describe("the staff screen", () => {
     assert.deepEqual(placed.lines.map((l) => [l.qty, l.detailBg, l.price]), [[2, "100 мл", 620], [1, "", placed.lines[1].price]]);
 
     await staff.bringToFront();
-    await staff.waitForSelector(`[data-order="${code}"]`, { timeout: 10000 });
-    await staff.click(`[data-order="${code}"] [data-line="0"] button`);
+    const bar = `[data-order="${code}"][data-station="bar"]`;
+    await staff.waitForSelector(bar, { timeout: 10000 });
+    await staff.click(`${bar} [data-line="0"] button`);
     await staff.waitForSelector('[role=dialog][aria-label="Откажи ред"]');
     assert.match(await staff.$eval("[role=dialog]", (d) => d.innerText), /Няма: Бургас 63[\s\S]*от 2[\s\S]*Сумата за плащане става/);
     await clickText(staff, "[role=dialog]", /^Откажи 1 × 6,20/);
-    await staff.waitForFunction((code) => /1 отказан: Изчерпан продукт/.test(document.querySelector(`[data-order="${code}"]`)?.innerText || ""), { polling: 300 }, code);
-    const card = await staff.$eval(`[data-order="${code}"]`, (e) => e.innerText);
-    assert.match(card, /отказано 6,20/);
+    await staff.waitForFunction((sel) => /1 отказан: Изчерпан продукт/.test(document.querySelector(sel)?.innerText || ""), { polling: 300 }, bar);
+    const card = await staff.$eval(bar, (e) => e.innerText);
+    assert.match(card, /Бар: 6,20/, "the bar's part, one rakia less");
 
     await guest.bringToFront();
     await guest.waitForFunction(() => /1 отказани — Изчерпан продукт/.test(document.querySelector("[role=dialog]")?.innerText || ""), { timeout: 15000, polling: 300 });
@@ -335,13 +337,81 @@ describe("the staff screen", () => {
     await guest.close();
   });
 
+  it("kitchen and bar: an order with food and drinks splits, each tablet sees its part, the guest sees the whole", async () => {
+    await openEvening();
+    const placed = (await placeOrder(3, [["caesar", "chicken", 1], ["coca-cola-products", "std", 2, "sprite"]])).body;
+    const code = placed.order.code;
+    const status = async () => (await api.get(`/api/qr/order-status.php?t=${placed.token}`)).body.orders[0];
+    const kitchen = await tablet();
+    await clickText(kitchen, "", /^Кухня/);
+    await kitchen.reload({ waitUntil: "networkidle0" });
+    await kitchen.waitForSelector(`[data-order="${code}"]`, { timeout: 10000 });
+    assert.equal(await kitchen.$eval('[aria-pressed="true"]', (b) => b.textContent.trim()), "Кухня (1)", "the tablet remembers it is the kitchen's");
+    assert.equal(await kitchen.$(`[data-order="${code}"][data-station="bar"]`), null, "no drinks in the kitchen");
+    const food = await kitchen.$eval(`[data-order="${code}"][data-station="kitchen"]`, (e) => e.innerText);
+    assert.match(food, /Цезар/);
+    assert.doesNotMatch(food, /Sprite/);
+    assert.match(food, /\+ бар: 2 бр\. · нова/, "it knows drinks are coming too");
+
+    const barSession = await browser.createBrowserContext();
+    const barTablet = await tablet(barSession);
+    await clickText(barTablet, "", /^Бар/);
+    await barTablet.waitForSelector(`[data-order="${code}"][data-station="bar"]`, { timeout: 10000 });
+    assert.equal(await barTablet.$(`[data-order="${code}"][data-station="kitchen"]`), null, "no food at the bar");
+    assert.match(await barTablet.$eval(`[data-order="${code}"]`, (e) => e.innerText), /2 ×\s*Продукти на Кока-Кола · Sprite/);
+
+    // The kitchen takes it on: for the guest the order is accepted; the bar's part is still new.
+    await kitchen.bringToFront();
+    await clickText(kitchen, `[data-order="${code}"][data-station="kitchen"]`, /^Приеми$/);
+    await kitchen.waitForFunction((c) => /сервирано/i.test(document.querySelector(`[data-order="${c}"]`)?.innerText || ""), { polling: 300 }, code);
+    assert.equal((await status()).status, "accepted", "taken on, as far as the guest is concerned");
+    await barTablet.bringToFront();
+    await barTablet.waitForFunction((c) => /Нова/.test(document.querySelector(`[data-order="${c}"][data-station="bar"]`)?.innerText || ""), { polling: 300 }, code);
+    await clickText(barTablet, `[data-order="${code}"][data-station="bar"]`, /^Приеми$/);
+    await barTablet.waitForFunction((c) => /сервирано/i.test(document.querySelector(`[data-order="${c}"][data-station="bar"]`)?.innerText || ""), { polling: 300 }, code);
+    await clickText(barTablet, `[data-order="${code}"][data-station="bar"]`, /^Сервирано$/);
+    await barTablet.waitForFunction((c) => !document.querySelector(`[data-order="${c}"][data-station="bar"]`), { polling: 300 }, code);
+    assert.equal((await status()).status, "accepted", "drinks out, food still coming");
+
+    // Both on one page, still apart.
+    await clickText(barTablet, "", /^Двете$/);
+    await barTablet.waitForSelector('[data-station-list="kitchen"] [data-order]');
+    assert.ok(await barTablet.$('[data-station-list="bar"]'), "a bar column too");
+
+    await kitchen.bringToFront();
+    await clickText(kitchen, `[data-order="${code}"][data-station="kitchen"]`, /^Сервирано$/);
+    await kitchen.waitForFunction((c) => !document.querySelector(`[data-order="${c}"]`), { polling: 300 }, code);
+    assert.equal((await status()).status, "served");
+
+    // Out of Sprite: the bar cancels its part; the kitchen carries on.
+    const res2 = await placeOrder(7, [["tiramisu"], ["coca-cola-products", "std", 1, "sprite"]]);
+    assert.equal(res2.status, 201, res2.text);
+    const second = res2.body;
+    await barTablet.bringToFront();
+    await clickText(barTablet, "", /^Бар/);
+    await barTablet.waitForSelector(`[data-order="${second.order.code}"]`, { timeout: 10000 });
+    await clickText(barTablet, `[data-order="${second.order.code}"]`, /^Откажи$/);
+    await barTablet.waitForSelector("[role=dialog]");
+    assert.match(await barTablet.$eval("[role=dialog]", (d) => d.innerText), /Откажи частта за бара[\s\S]*Кухнята продължава/);
+    await clickText(barTablet, "[role=dialog]", /^Изчерпан продукт$/);
+    await clickText(barTablet, "[role=dialog]", /^Откажи напитките$/);
+    await barTablet.waitForFunction((c) => !document.querySelector(`[data-order="${c}"]`), { polling: 300 }, second.order.code);
+    const after = (await api.get(`/api/qr/order-status.php?t=${second.token}`)).body.orders[0];
+    assert.deepEqual([after.status, after.lines[1].qty, after.lines[1].voidReason], ["new", 0, "Изчерпан продукт"]);
+    await kitchen.bringToFront();
+    await kitchen.waitForSelector(`[data-order="${second.order.code}"][data-station="kitchen"]`, { timeout: 10000 });
+    await kitchen.close();
+    await barSession.close();
+  });
+
   it("pause and resume from the screen", async () => {
     await openEvening();
     const staff = await tablet();
     await clickText(staff, "nav", /^Вечерта$/);
     await staff.waitForFunction(() => [...document.querySelectorAll("main button")].some((b) => b.textContent.trim() === "Пауза"));
     await clickText(staff, "main", /^Пауза$/);
-    await staff.waitForFunction(() => document.body.innerText.includes("ПАУЗА") || document.body.innerText.includes("Поднови"));
+    // The Пауза button itself reads "ПАУЗА" (capitals by CSS): wait for its replacement instead.
+    await staff.waitForFunction(() => [...document.querySelectorAll("main button")].some((b) => /Поднови/.test(b.textContent)), { polling: 200 });
     assert.equal((await api.get("/api/qr/state.php")).body.reason, "paused");
     await clickText(staff, "main", /Поднови/);
     await sleep(500);

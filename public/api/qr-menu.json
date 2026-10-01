@@ -1,5 +1,5 @@
 {
- "version": "2026-10-01.1",
+ "version": "2026-10-01.2",
  "source": "Menu Raya 2026 — PDF от 15.05.2026 (Canva). Цените са в евро с ДДС.",
  "currency": "EUR",
  "allergens": {
@@ -65,6 +65,7 @@
    "id": "premium",
    "bg": "Премиум предложения",
    "en": "Premium selection",
+   "station": "kitchen",
    "items": [
     {
      "id": "wagyu-striploin",
@@ -169,6 +170,7 @@
    "id": "salads",
    "bg": "Салати",
    "en": "Salads",
+   "station": "kitchen",
    "items": [
     {
      "id": "raya-salad",
@@ -365,6 +367,7 @@
    "id": "soups",
    "bg": "Супи",
    "en": "Soups",
+   "station": "kitchen",
    "items": [
     {
      "id": "fish-soup",
@@ -407,6 +410,7 @@
    "en": "Starters",
    "noteBg": "Поднесени с хрупкави брускети",
    "noteEn": "Served with crispy bruschetta",
+   "station": "kitchen",
    "items": [
     {
      "id": "tarama",
@@ -480,6 +484,7 @@
    "id": "hot-appetisers",
    "bg": "Топли предястия",
    "en": "Hot appetisers",
+   "station": "kitchen",
    "items": [
     {
      "id": "crispy-squid",
@@ -596,6 +601,7 @@
    "id": "risotto-pasta",
    "bg": "Ризото и паста",
    "en": "Risotto and pasta",
+   "station": "kitchen",
    "items": [
     {
      "id": "tagliatelle-bolognese",
@@ -715,6 +721,7 @@
    "id": "bbq-fish",
    "bg": "Риба на барбекю",
    "en": "BBQ fish",
+   "station": "kitchen",
    "items": [
     {
      "id": "beluga-fillet",
@@ -837,6 +844,7 @@
    "id": "bbq-mains",
    "bg": "Основни ястия на BBQ",
    "en": "Main BBQ dishes",
+   "station": "kitchen",
    "items": [
     {
      "id": "veal-cutlet",
@@ -1045,6 +1053,7 @@
    "id": "sandwiches",
    "bg": "Сандвичи",
    "en": "Sandwiches",
+   "station": "kitchen",
    "items": [
     {
      "id": "raya-burger",
@@ -1110,6 +1119,7 @@
    "id": "sides",
    "bg": "Гарнитури",
    "en": "Side dishes",
+   "station": "kitchen",
    "items": [
     {
      "id": "french-fries",
@@ -1169,6 +1179,7 @@
    "id": "cold-cuts",
    "bg": "Домашно приготвени мезета",
    "en": "Homemade cold cuts",
+   "station": "kitchen",
    "items": [
     {
      "id": "elena-ham",
@@ -1241,6 +1252,7 @@
    "id": "bread",
    "bg": "Хляб",
    "en": "Bread",
+   "station": "kitchen",
    "items": [
     {
      "id": "homemade-bread",
@@ -1294,6 +1306,7 @@
    "id": "desserts",
    "bg": "Десерти",
    "en": "Desserts",
+   "station": "kitchen",
    "items": [
     {
      "id": "cheesecake",
@@ -1434,6 +1447,7 @@
    "id": "hot-drinks",
    "bg": "Топли напитки",
    "en": "Hot drinks",
+   "station": "bar",
    "items": [
     {
      "id": "illy-coffee",
@@ -1561,6 +1575,7 @@
    "id": "soft-drinks",
    "bg": "Безалкохолни напитки",
    "en": "Soft drinks",
+   "station": "bar",
    "items": [
     {
      "id": "homemade-lemonade",
@@ -1804,6 +1819,7 @@
    "id": "wines",
    "bg": "Вина Old School Wines",
    "en": "Old School Wines",
+   "station": "bar",
    "items": [
     {
      "id": "raya-garden-rose",
@@ -1991,6 +2007,7 @@
    "id": "rakia",
    "bg": "Ракия",
    "en": "Rakiya",
+   "station": "bar",
    "items": [
     {
      "id": "golden-hands-chardonnay-rakia",
@@ -2242,6 +2259,7 @@
    "id": "vodka",
    "bg": "Водка",
    "en": "Vodka",
+   "station": "bar",
    "items": [
     {
      "id": "finlandia",
@@ -2403,6 +2421,7 @@
    "id": "gin",
    "bg": "Джин",
    "en": "Gin",
+   "station": "bar",
    "items": [
     {
      "id": "beefeater",
@@ -2476,6 +2495,7 @@
    "id": "aniseed",
    "bg": "Анасонови",
    "en": "Aniseed",
+   "station": "bar",
    "items": [
     {
      "id": "plomari",
@@ -2549,6 +2569,7 @@
    "id": "whisky",
    "bg": "Уиски",
    "en": "Whiskey",
+   "station": "bar",
    "items": [
     {
      "id": "bushmills",
@@ -2886,6 +2907,7 @@
    "id": "cognac",
    "bg": "Коняк",
    "en": "Cognac",
+   "station": "bar",
    "items": [
     {
      "id": "metaxa-5",
@@ -2959,6 +2981,7 @@
    "id": "digestive",
    "bg": "Дижестиви",
    "en": "Digestive",
+   "station": "bar",
    "items": [
     {
      "id": "baileys",
@@ -3089,6 +3112,7 @@
    "id": "rum",
    "bg": "Ром",
    "en": "Rum",
+   "station": "bar",
    "items": [
     {
      "id": "barcelo-imperial-10",
@@ -3140,6 +3164,7 @@
    "id": "beer",
    "bg": "Бира",
    "en": "Beer",
+   "station": "bar",
    "items": [
     {
      "id": "stella-artois-draft",

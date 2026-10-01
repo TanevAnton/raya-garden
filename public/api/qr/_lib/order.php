@@ -155,22 +155,30 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         //    phone it waits, unseen by staff, until Stripe confirms the
         //    payment (_lib/pay.php).
         //    On a "pay at the end" evening it joins its table's bill.
+        //    Food goes to the kitchen and drinks to the bar: each station
+        //    with something to make starts at 'new'.
         $status = $state['payment'] === 'online' ? 'pending_payment' : 'new';
         $tab = $state['payment'] === 'tab' ? qr_open_tab($pdo, $table, (string) $settings['service_date'], true, $now) : null;
+        $stations = array_fill_keys(QR_STATIONS, '');
+        foreach ($resolved as $r) {
+            $stations[$r[1]['station']] = 'new';
+        }
         $seq = qr_bump_seq($pdo);
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
-            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name,
+             kitchen_status, bar_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
-            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName]);
+            $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName,
+            $stations['kitchen'], $stations['bar']]);
         if ($tab) {
             qr_touch_tab($pdo, (int) $tab['id'], $seq);
         }
         $orderId = (int) $pdo->lastInsertId();
         $insertLine = $pdo->prepare('INSERT INTO order_items
-            (order_id, line, item_id, variant_id, choice_id, name_bg, name_en, detail_bg, detail_en, size, unit_cents, qty, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            (order_id, line, item_id, variant_id, choice_id, name_bg, name_en, detail_bg, detail_en, size, unit_cents, qty, note, station)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         foreach ($resolved as $n => $r) {
             list($line, $item, $variant, $choice) = $r;
             $detailBg = trim(($variant['bg'] ?? '') . ($choice ? ' · ' . $choice['bg'] : ''), ' ·');
@@ -178,7 +186,7 @@ function qr_place_order(array $body, string $idemKey, int $now): array
             $insertLine->execute([
                 $orderId, $n, $item['id'], $variant['id'], $choice ? $choice['id'] : '',
                 $item['bg'], $item['en'], $detailBg, $detailEn, (string) $variant['size'],
-                (int) $variant['price'], $line['qty'], $line['note'],
+                (int) $variant['price'], $line['qty'], $line['note'], $item['station'],
             ]);
         }
         $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, at) VALUES (?, \'\', ?, ?)')
@@ -271,7 +279,9 @@ function qr_new_code(PDO $pdo, int $now): string
  *     refunded right after the commit (qr_order_refund_due);
  *   - on a table's bill: unpaid, it simply drops off the bill; paid on a
  *     phone, it is owed back to whoever paid it (qr_bill_owe); paid on the
- *     spot, the answer says how much to hand back (cashBack).
+ *     spot, the answer says how much to hand back (cashBack);
+ *   - a station left with nothing to make is 'cancelled', and the order's
+ *     own status follows from the stations still making something.
  *
  * The last thing left on an order is not cancelled this way — that is
  * cancelling the order (409 last_line). $have is how many of the line the
@@ -283,23 +293,12 @@ function qr_new_code(PDO $pdo, int $now): string
 function qr_void_line(int $id, int $line, int $qty, int $have, string $reason, int $now): array
 {
     return qr_write(function (PDO $pdo) use ($id, $line, $qty, $have, $reason, $now) {
-        $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-        $find->execute([$id]);
-        $order = $find->fetch();
-        $find->closeCursor();
-        if (!is_array($order)) {
+        $order = qr_find_order($pdo, $id);
+        if ($order === null) {
             return [404, ['ok' => false, 'error' => 'not_found'], false, []];
         }
-        $stmt = $pdo->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');
-        $stmt->execute([$id]);
-        $target = null;
-        $left = 0;
-        foreach ($stmt->fetchAll() as $item) {
-            $left += (int) $item['qty'] - (int) $item['void_qty'];
-            if ((int) $item['line'] === $line) {
-                $target = $item;
-            }
-        }
+        $items = qr_order_items($pdo, $id);
+        $target = $items[$line] ?? null;
         if (!in_array($order['status'], ['new', 'accepted', 'served'], true) || $target === null
             || (int) $target['qty'] - (int) $target['void_qty'] !== $have) {
             return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], false, []];
@@ -307,36 +306,134 @@ function qr_void_line(int $id, int $line, int $qty, int $have, string $reason, i
         if ($qty > $have) {
             return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'qty'], false, []];
         }
+        $left = 0;
+        foreach ($items as $item) {
+            $left += (int) $item['qty'] - (int) $item['void_qty'];
+        }
         if ($left - $qty < 1) {
             return [409, ['ok' => false, 'error' => 'last_line', 'order' => qr_order_json($order)], false, []];
         }
-        $amount = (int) $target['unit_cents'] * $qty;
-        $paid = $order['pay_status'] === 'paid';
-        $seq = qr_bump_seq($pdo);
-        $pdo->prepare('UPDATE order_items SET void_qty = void_qty + ?, void_reason = ? WHERE order_id = ? AND line = ?')
-            ->execute([$qty, $reason, $id, $line]);
-        $pdo->prepare('UPDATE orders SET void_cents = void_cents + ?, refund_due_cents = refund_due_cents + ?, updated_at = ?, seq = ? WHERE id = ?')
-            ->execute([$amount, $paid ? $amount : 0, $now, $seq, $id]);
-        $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)')
-            ->execute([$id, $order['status'], $order['status'], 'line ' . ($line + 1) . ' -' . $qty . ': ' . $reason, $now]);
-        $owed = [];
-        $cashBack = 0;
-        if ((int) $order['tab_id'] > 0) {
-            if ($target['paid_via'] === 'online') {
-                qr_bill_owe($pdo, (int) $target['bill_payment_id'], $amount, $seq);
-                $owed[] = (int) $target['bill_payment_id'];
-            } elseif ($target['paid_via'] === 'staff') {
-                $cashBack = $amount;
-            }
-            qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
-        }
-        $find->execute([$id]);
-        $order = $find->fetch();
-        $find->closeCursor();
-        $body = ['ok' => true, 'order' => qr_order_json($order), 'amount' => $amount];
-        if ($cashBack > 0) {
-            $body['cashBack'] = $cashBack;
-        }
-        return [200, $body, $paid, $owed];
+        return qr_void_cuts($pdo, $order, $items, [$line => $qty], $reason, $now);
     });
+}
+
+/**
+ * One station's part of an order cancelled, the other station's kept: the
+ * bar has none of the drinks, the kitchen carries on with the food. Every
+ * line of the station still standing is taken off as qr_void_line() would,
+ * with the same refunds. $from is the station's status the screen showed.
+ * Only while the other station still has something to make — otherwise it is
+ * cancelling the order (409 last_station).
+ *
+ * Returns [httpStatus, body, refundTheOrder, billPaymentIdsOwed].
+ */
+function qr_cancel_station(int $id, string $station, string $from, string $reason, int $now): array
+{
+    return qr_write(function (PDO $pdo) use ($id, $station, $from, $reason, $now) {
+        $order = qr_find_order($pdo, $id);
+        if ($order === null) {
+            return [404, ['ok' => false, 'error' => 'not_found'], false, []];
+        }
+        if (!in_array($order['status'], ['new', 'accepted', 'served'], true) || $order[$station . '_status'] !== $from
+            || !in_array($from, ['new', 'accepted'], true)) {
+            return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], false, []];
+        }
+        $items = qr_order_items($pdo, $id);
+        $cuts = [];
+        $others = 0;
+        foreach ($items as $n => $item) {
+            $standing = (int) $item['qty'] - (int) $item['void_qty'];
+            if ($item['station'] === $station) {
+                if ($standing > 0) {
+                    $cuts[$n] = $standing;
+                }
+            } else {
+                $others += $standing;
+            }
+        }
+        if ($others < 1) {
+            return [409, ['ok' => false, 'error' => 'last_station', 'order' => qr_order_json($order)], false, []];
+        }
+        return qr_void_cuts($pdo, $order, $items, $cuts, $reason, $now);
+    });
+}
+
+function qr_find_order(PDO $pdo, int $id)
+{
+    $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+    $find->execute([$id]);
+    $order = $find->fetch();
+    $find->closeCursor();
+    return is_array($order) ? $order : null;
+}
+
+/** An order's lines, by line number. */
+function qr_order_items(PDO $pdo, int $id): array
+{
+    $stmt = $pdo->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');
+    $stmt->execute([$id]);
+    $items = [];
+    foreach ($stmt->fetchAll() as $item) {
+        $items[(int) $item['line']] = $item;
+    }
+    return $items;
+}
+
+/**
+ * Take $cuts (line => how many) off an order, checked already, inside the
+ * caller's write transaction: the money as qr_void_line() describes, stations
+ * left with nothing marked 'cancelled', the order's status recomputed.
+ */
+function qr_void_cuts(PDO $pdo, array $order, array $items, array $cuts, string $reason, int $now): array
+{
+    $id = (int) $order['id'];
+    $paid = $order['pay_status'] === 'paid';
+    $seq = qr_bump_seq($pdo);
+    $amount = 0;
+    $owed = [];
+    $cashBack = 0;
+    $voidLine = $pdo->prepare('UPDATE order_items SET void_qty = void_qty + ?, void_reason = ? WHERE order_id = ? AND line = ?');
+    $event = $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)');
+    foreach ($cuts as $line => $qty) {
+        $item = $items[$line];
+        $cents = (int) $item['unit_cents'] * $qty;
+        $amount += $cents;
+        $voidLine->execute([$qty, $reason, $id, $line]);
+        $items[$line]['void_qty'] = (int) $item['void_qty'] + $qty;
+        $event->execute([$id, $order['status'], $order['status'], 'line ' . ($line + 1) . ' -' . $qty . ': ' . $reason, $now]);
+        if ((int) $order['tab_id'] > 0) {
+            if ($item['paid_via'] === 'online') {
+                qr_bill_owe($pdo, (int) $item['bill_payment_id'], $cents, $seq);
+                $owed[(int) $item['bill_payment_id']] = true;
+            } elseif ($item['paid_via'] === 'staff') {
+                $cashBack += $cents;
+            }
+        }
+    }
+    // A station with nothing left to make is done with this order.
+    $standing = array_fill_keys(QR_STATIONS, 0);
+    foreach ($items as $item) {
+        $station = in_array($item['station'], QR_STATIONS, true) ? $item['station'] : 'kitchen';
+        $standing[$station] += (int) $item['qty'] - (int) $item['void_qty'];
+    }
+    foreach (QR_STATIONS as $station) {
+        if ($order[$station . '_status'] !== '' && $standing[$station] === 0) {
+            $order[$station . '_status'] = 'cancelled';
+        }
+    }
+    $overall = qr_overall_status($order);
+    $pdo->prepare('UPDATE orders SET void_cents = void_cents + ?, refund_due_cents = refund_due_cents + ?,
+        kitchen_status = ?, bar_status = ?, status = ?, updated_at = ?, seq = ? WHERE id = ?')
+        ->execute([$amount, $paid ? $amount : 0, $order['kitchen_status'], $order['bar_status'], $overall, $now, $seq, $id]);
+    if ($overall !== $order['status']) {
+        $event->execute([$id, $order['status'], $overall, 'stations', $now]);
+    }
+    if ((int) $order['tab_id'] > 0) {
+        qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
+    }
+    $body = ['ok' => true, 'order' => qr_order_json(qr_find_order($pdo, $id)), 'amount' => $amount];
+    if ($cashBack > 0) {
+        $body['cashBack'] = $cashBack;
+    }
+    return [200, $body, $paid, array_keys($owed)];
 }

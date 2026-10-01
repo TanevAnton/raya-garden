@@ -278,6 +278,9 @@ the phone.
 - **Old orders** keep the names and prices they were placed with.
 - **On the night,** staff mark items sold out in **Изчерпани**, with no deploy
   needed.
+- **Kitchen or bar.** Every category has `"station": "kitchen"` or `"bar"`:
+  where its items are made, and so which staff screen they go to. A new
+  category needs one (anything else counts as kitchen).
 - **Sizes and choices.** An item with several `variants` (50 ml / 100 ml)
   shows a button for each; `bg` is the label in Bulgarian, with Cyrillic
   units (`"100 мл"`). The spirits' 100 ml is twice the 50 ml price; change
@@ -287,8 +290,8 @@ the phone.
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 78 tests, 43 of them paying against a fake Stripe (needs php with pdo_sqlite)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 17 tests
+npm run test:qr            # API: 84 tests, 44 of them paying against a fake Stripe (needs php with pdo_sqlite)
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 18 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

@@ -510,6 +510,88 @@ describe("the admin API", () => {
   });
 });
 
+describe("kitchen and bar", () => {
+  const priceOf = (id, variant = "std") => menu.categories.flatMap((c) => c.items).find((i) => i.id === id).variants.find((v) => v.id === variant).price;
+  const move = (admin, o, action, station, from, extra = {}) => admin.admin("/api/qr/admin/order.php", { id: o.id, action, station, from, ...extra });
+  const status = async (token) => (await client(srv.base, { now: AT_20H }).get(`/api/qr/order-status.php?t=${token}`)).body.orders[0];
+  /** A Caesar salad and two Sprites at table 4: food and drinks. */
+  async function mixed() {
+    const res = await order(client(srv.base, { now: AT_20H }), 4, [["caesar", "chicken", 1], ["coca-cola-products", "std", 2, "sprite"]]);
+    assert.equal(res.status, 201, res.text);
+    return res.body;
+  }
+
+  it("every category says where it is made: food to the kitchen, drinks to the bar", async () => {
+    await setUp();
+    const station = Object.fromEntries(menu.categories.map((c) => [c.id, c.station]));
+    assert.deepEqual([station.salads, station.desserts, station["bbq-mains"]], ["kitchen", "kitchen", "kitchen"]);
+    assert.deepEqual([station["hot-drinks"], station["soft-drinks"], station.wines, station.rakia, station.beer], ["bar", "bar", "bar", "bar", "bar"]);
+    assert.ok(menu.categories.every((c) => c.station === "kitchen" || c.station === "bar"));
+    const { order: o } = await mixed();
+    assert.deepEqual(o.lines.map((l) => l.station), ["kitchen", "bar"]);
+    assert.deepEqual(o.stations, { kitchen: "new", bar: "new" });
+    const drinks = (await order(client(srv.base, { now: AT_20H }), 5, [["illy-coffee"]])).body.order;
+    assert.deepEqual(drinks.stations, { kitchen: "", bar: "new" }, "nothing for the kitchen");
+  });
+
+  it("each station takes and serves its own part; the guest sees the order as a whole", async () => {
+    const admin = await setUp();
+    const { order: o, token } = await mixed();
+    let res = await move(admin, o, "accept", "kitchen", "new");
+    assert.equal(res.status, 200, res.text);
+    assert.deepEqual([res.body.order.stations, res.body.order.status], [{ kitchen: "accepted", bar: "new" }, "accepted"]);
+    assert.equal((await status(token)).status, "accepted", "taken on, as far as the guest is concerned");
+    assert.equal((await move(admin, o, "accept", "kitchen", "new")).status, 409, "another tablet was first");
+
+    await move(admin, o, "accept", "bar", "new");
+    res = await move(admin, o, "serve", "bar", "accepted");
+    assert.deepEqual([res.body.order.stations, res.body.order.status], [{ kitchen: "accepted", bar: "served" }, "accepted"], "drinks out, food still coming");
+    res = await move(admin, o, "serve", "kitchen", "accepted");
+    assert.deepEqual([res.body.order.stations, res.body.order.status], [{ kitchen: "served", bar: "served" }, "served"]);
+    assert.equal((await status(token)).status, "served");
+    assert.equal((await move(admin, o, "accept", "pantry", "new")).status, 400);
+  });
+
+  it("cancelling at the bar takes off only the drinks; the kitchen carries on", async () => {
+    const admin = await setUp();
+    const { order: o, token } = await mixed();
+    const res = await move(admin, o, "cancel", "bar", "new", { reason: "Няма Sprite" });
+    assert.equal(res.status, 200, res.text);
+    const after = res.body.order;
+    assert.deepEqual([after.status, after.stations], ["new", { kitchen: "new", bar: "cancelled" }]);
+    assert.equal(after.total, o.total - 2 * priceOf("coca-cola-products"));
+    assert.deepEqual([after.lines[1].qty, after.lines[1].voidQty, after.lines[1].voidReason], [0, 2, "Няма Sprite"]);
+    const mine = await status(token);
+    assert.equal(mine.status, "new");
+    assert.equal(mine.lines[1].voidReason, "Няма Sprite", "the guest sees why");
+
+    // Now the kitchen is all there is: cancelling there is the whole order.
+    const whole = await move(admin, o, "cancel", "kitchen", "new", { reason: "Кухнята затвори" });
+    assert.equal(whole.status, 200, whole.text);
+    assert.deepEqual([whole.body.order.status, whole.body.order.cancelReason, whole.body.order.stations.kitchen], ["cancelled", "Кухнята затвори", "cancelled"]);
+  });
+
+  it("a station whose lines all came off is done, and the order follows the other", async () => {
+    const admin = await setUp();
+    const { order: o } = await mixed();
+    await move(admin, o, "accept", "kitchen", "new");
+    await move(admin, o, "serve", "kitchen", "accepted");
+    await move(admin, o, "accept", "bar", "new");
+    const v = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "void", line: 1, qty: 2, have: 2, reason: "Изчерпан продукт" });
+    assert.equal(v.status, 200, v.text);
+    assert.deepEqual([v.body.order.stations, v.body.order.status], [{ kitchen: "served", bar: "cancelled" }, "served"], "nothing left to wait for");
+  });
+
+  it("a screen without stations still moves the whole order, every station with it", async () => {
+    const admin = await setUp();
+    const { order: o } = await mixed();
+    const res = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "accept", from: "new" });
+    assert.deepEqual([res.body.order.status, res.body.order.stations], ["accepted", { kitchen: "accepted", bar: "accepted" }]);
+    const served = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "serve", from: "accepted" });
+    assert.deepEqual(served.body.order.stations, { kitchen: "served", bar: "served" });
+  });
+});
+
 describe("without a configured password", () => {
   it("the admin cannot be signed into at all", async () => {
     const bare = await startServer({ withPassword: false });

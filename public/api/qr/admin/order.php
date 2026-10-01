@@ -18,6 +18,14 @@
 // refunded right after (_lib/bill.php). A refund that fails then is shown on
 // "Сметки" with a retry, and the answer says so (refundPending).
 //
+// Kitchen and bar: with "station": "kitchen"|"bar", accept and serve move
+// that station's part only ("from" is the station's status), and the
+// order's own status follows (qr_overall_status). Cancel with a station
+// cancels only that station's part — every line of it, refunded as below —
+// while the other station still has something to make; otherwise it is
+// cancelling the whole order. Without "station", a move applies to the
+// whole order and every station in it, as before.
+//
 // One line, not the whole order (_lib/order.php, qr_void_line):
 //   {"id": 12, "action": "void", "line": 0, "qty": 1, "have": 3, "reason": "…"}
 // cancels qty of line 0, which the screen showed with 3 still on it. Paid
@@ -48,16 +56,34 @@ $body = qr_body();
 $id = $body['id'] ?? null;
 $action = $body['action'] ?? null;
 $from = $body['from'] ?? null;
+$station = $body['station'] ?? null;
 $reason = isset($body['reason']) && is_string($body['reason']) ? trim(preg_replace('/[\p{Cc}\p{Cf}\s]+/u', ' ', $body['reason'])) : '';
 $now = qr_now();
+if ($station !== null && !in_array($station, QR_STATIONS, true)) {
+    qr_fail(400, 'invalid', ['field' => 'station']);
+}
+
+/** After lines came off: refund what is owed, and answer with the order as it is then. */
+function qr_answer_void(int $id, int $status, array $response, bool $refundOrder, array $owed)
+{
+    if ($refundOrder && !qr_order_refund_due($id)) {
+        $response['refundPending'] = true;
+    }
+    foreach ($owed as $paymentId) {
+        if (!qr_bill_refund_due($paymentId)) {
+            $response['refundPending'] = true;
+        }
+    }
+    if ($status === 200 && ($refundOrder || $owed)) {
+        $response['order'] = qr_order_json(qr_find_order(qr_db(), $id));
+    }
+    qr_json($status, $response);
+}
 
 if ($action === 'refund' && is_int($id)) {
     $ok = qr_order_refund_due($id);
-    $find = qr_db()->prepare('SELECT * FROM orders WHERE id = ?');
-    $find->execute([$id]);
-    $order = $find->fetch();
-    $find->closeCursor();
-    if (!is_array($order)) {
+    $order = qr_find_order(qr_db(), $id);
+    if ($order === null) {
         qr_fail(404, 'not_found');
     }
     qr_json($ok ? 200 : 502, ['ok' => $ok] + ($ok ? [] : ['error' => 'refund_failed']) + ['order' => qr_order_json($order)]);
@@ -73,21 +99,7 @@ if ($action === 'void') {
         qr_fail(400, 'invalid', ['field' => 'reason']);
     }
     list($status, $response, $refundOrder, $owed) = qr_void_line($id, $line, $qty, $have, $reason, $now);
-    if ($refundOrder && !qr_order_refund_due($id)) {
-        $response['refundPending'] = true;
-    }
-    foreach ($owed as $paymentId) {
-        if (!qr_bill_refund_due($paymentId)) {
-            $response['refundPending'] = true;
-        }
-    }
-    if ($status === 200 && ($refundOrder || $owed)) {
-        $find = qr_db()->prepare('SELECT * FROM orders WHERE id = ?');
-        $find->execute([$id]);
-        $response['order'] = qr_order_json($find->fetch());
-        $find->closeCursor();
-    }
-    qr_json($status, $response);
+    qr_answer_void($id, $status, $response, $refundOrder, $owed);
 }
 if (!is_int($id) || !is_string($action) || !isset(QR_MOVES[$action]) || !is_string($from)) {
     qr_fail(400, 'invalid');
@@ -95,13 +107,56 @@ if (!is_int($id) || !is_string($action) || !isset(QR_MOVES[$action]) || !is_stri
 if ($action === 'cancel' && ($reason === '' || mb_strlen($reason) > 200)) {
     qr_fail(400, 'invalid', ['field' => 'reason']);
 }
+
+// One station's part cancelled while the other station still has work.
+if ($action === 'cancel' && $station !== null) {
+    $order = qr_find_order(qr_db(), $id);
+    $other = $station === 'kitchen' ? 'bar' : 'kitchen';
+    if ($order !== null && !in_array($order[$other . '_status'], ['', 'cancelled'], true)) {
+        list($status, $response, $refundOrder, $owed) = qr_cancel_station($id, $station, $from, $reason, $now);
+        if ($status !== 409 || ($response['error'] ?? '') !== 'last_station') {
+            qr_answer_void($id, $status, $response, $refundOrder, $owed);
+        }
+        // The other station finished meanwhile: this is the whole order now.
+    }
+}
+
+// A station's part moves on.
+if ($action !== 'cancel' && $station !== null) {
+    list($status, $response) = qr_write(function (PDO $pdo) use ($id, $action, $from, $station, $now) {
+        $order = qr_find_order($pdo, $id);
+        if ($order === null) {
+            return [404, ['ok' => false, 'error' => 'not_found']];
+        }
+        list($allowedFrom, $to) = QR_MOVES[$action];
+        if (!in_array($order['status'], ['new', 'accepted', 'served'], true) || $order[$station . '_status'] !== $from
+            || !in_array($from, $allowedFrom, true)) {
+            return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)]];
+        }
+        $before = $order['status'];
+        $order[$station . '_status'] = $to;
+        $overall = qr_overall_status($order);
+        $seq = qr_bump_seq($pdo);
+        $pdo->prepare("UPDATE orders SET {$station}_status = ?, status = ?, updated_at = ?, seq = ? WHERE id = ?")
+            ->execute([$to, $overall, $now, $seq, $id]);
+        $event = $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)');
+        $event->execute([$id, $from, $to, $station, $now]);
+        if ($overall !== $before) {
+            $event->execute([$id, $before, $overall, 'stations', $now]);
+        }
+        if ((int) $order['tab_id'] > 0) {
+            qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
+        }
+        return [200, ['ok' => true, 'order' => qr_order_json(qr_find_order($pdo, $id))]];
+    });
+    qr_json($status, $response);
+}
+
+// The whole order: every station with it.
 $refundId = null;
 if ($action === 'cancel') {
-    $find = qr_db()->prepare('SELECT * FROM orders WHERE id = ?');
-    $find->execute([$id]);
-    $order = $find->fetch();
-    $find->closeCursor(); // before the refund call and the write — see qr_write()
-    if (is_array($order) && $order['pay_status'] === 'paid' && $order['status'] === $from
+    $order = qr_find_order(qr_db(), $id); // cursor closed: before the refund call and the write — see qr_write()
+    if ($order !== null && $order['pay_status'] === 'paid' && $order['status'] === $from
         && in_array($from, QR_MOVES['cancel'][0], true)) {
         $refundId = qr_refund($order);
         if ($refundId === null) {
@@ -110,11 +165,8 @@ if ($action === 'cancel') {
     }
 }
 list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action, $from, $reason, $now, $refundId) {
-    $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
-    $find->execute([$id]);
-    $order = $find->fetch();
-    $find->closeCursor();
-    if (!is_array($order)) {
+    $order = qr_find_order($pdo, $id);
+    if ($order === null) {
         return [404, ['ok' => false, 'error' => 'not_found'], []];
     }
     list($allowedFrom, $to) = QR_MOVES[$action];
@@ -125,9 +177,18 @@ list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action
         // Paid after the check above: go round again rather than cancel unrefunded.
         return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], []];
     }
+    // Each station still on it moves too (a station already past this
+    // point, or with nothing to make, stays as it is).
+    foreach (QR_STATIONS as $s) {
+        $current = $order[$s . '_status'];
+        if ($current !== '' && $current !== 'cancelled' && ($action === 'cancel' || in_array($current, $allowedFrom, true)
+            || ($action === 'serve' && $current === 'new'))) {
+            $order[$s . '_status'] = $to;
+        }
+    }
     $seq = qr_bump_seq($pdo);
-    $pdo->prepare('UPDATE orders SET status = ?, cancel_reason = ?, updated_at = ?, seq = ? WHERE id = ?')
-        ->execute([$to, $action === 'cancel' ? $reason : '', $now, $seq, $id]);
+    $pdo->prepare('UPDATE orders SET status = ?, cancel_reason = ?, kitchen_status = ?, bar_status = ?, updated_at = ?, seq = ? WHERE id = ?')
+        ->execute([$to, $action === 'cancel' ? $reason : '', $order['kitchen_status'], $order['bar_status'], $now, $seq, $id]);
     if ($refundId !== null) {
         // Refunded in full: whatever was still owed for single lines is in it.
         $pdo->prepare("UPDATE orders SET pay_status = 'refunded', refund_id = ?,
@@ -141,8 +202,7 @@ list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action
         $owed = $action === 'cancel' ? qr_bill_cancel_order($pdo, $order, $seq) : [];
         qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
     }
-    $find->execute([$id]);
-    return [200, ['ok' => true, 'order' => qr_order_json($find->fetch())], $owed];
+    return [200, ['ok' => true, 'order' => qr_order_json(qr_find_order($pdo, $id))], $owed];
 });
 foreach ($owed as $paymentId) {
     if (!qr_bill_refund_due($paymentId)) {

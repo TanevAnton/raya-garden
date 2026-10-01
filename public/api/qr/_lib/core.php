@@ -26,6 +26,10 @@ const QR_TZ = 'Europe/Sofia';
 // order waiting for its payment, and one whose payment never came. Staff
 // never see either — an order reaches them as 'new' once it is paid.
 const QR_STATUSES = ['pending_payment', 'expired', 'new', 'accepted', 'served', 'cancelled'];
+// Where a line is made: each menu category says (qr-menu.json "station").
+// An order with both food and drinks is two jobs, one per station, each
+// accepted and served on its own (orders.kitchen_status / bar_status).
+const QR_STATIONS = ['kitchen', 'bar'];
 const QR_MAX_LINES = 50;
 const QR_MAX_QTY = 20;
 const QR_MAX_NOTE = 200;
@@ -146,7 +150,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 5;
+const QR_SCHEMA_VERSION = 6;
 
 function qr_db(): PDO
 {
@@ -384,6 +388,28 @@ function qr_migrate(PDO $pdo)
                     WHERE till_void_at > 0 AND till_cents > amount_cents - refund_due_cents;
             ");
         }
+        if ($version < 6) {
+            // Kitchen and bar. A line's station is copied from its menu
+            // category when ordered; an order has a status per station
+            // ('' when it has nothing for that station), and its own status
+            // follows from them (qr_overall_status). Existing orders get the
+            // station of each item as the menu has it now, and their own
+            // status for each station they have lines for.
+            $pdo->exec("
+                ALTER TABLE order_items ADD COLUMN station TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN kitchen_status TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN bar_status TEXT NOT NULL DEFAULT '';
+            ");
+            $set = $pdo->prepare('UPDATE order_items SET station = ? WHERE item_id = ?');
+            foreach ($pdo->query('SELECT DISTINCT item_id FROM order_items')->fetchAll(PDO::FETCH_COLUMN) as $itemId) {
+                $set->execute([qr_item_station((string) $itemId), $itemId]);
+            }
+            foreach (QR_STATIONS as $station) {
+                $pdo->exec("UPDATE orders SET {$station}_status =
+                    CASE WHEN status IN ('new', 'accepted', 'served', 'cancelled') THEN status ELSE 'new' END
+                    WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.station = '$station')");
+            }
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -607,10 +633,46 @@ function qr_menu_index(): array
     foreach (qr_menu()['categories'] as $category) {
         foreach ($category['items'] as $item) {
             $item['category'] = $category['id'];
+            $item['station'] = ($category['station'] ?? '') === 'bar' ? 'bar' : 'kitchen';
             $index[$item['id']] = $item;
         }
     }
     return $index;
+}
+
+/** The station a menu item is made at; the kitchen for anything unknown. */
+function qr_item_station(string $itemId): string
+{
+    return (qr_menu_index()[$itemId]['station'] ?? '') === 'bar' ? 'bar' : 'kitchen';
+}
+
+/**
+ * An order's own status, from its stations' — what the guest sees: new until
+ * a station takes it on, accepted once one has, served when every station
+ * still making something has served. A station whose lines were all
+ * cancelled ('cancelled') no longer counts. An order that is not in the
+ * kitchen's hands at all (waiting for payment, cancelled) keeps its status.
+ */
+function qr_overall_status(array $order): string
+{
+    $status = (string) $order['status'];
+    if (!in_array($status, ['new', 'accepted', 'served'], true)) {
+        return $status;
+    }
+    $live = [];
+    foreach (QR_STATIONS as $station) {
+        $s = (string) ($order[$station . '_status'] ?? '');
+        if ($s !== '' && $s !== 'cancelled') {
+            $live[] = $s;
+        }
+    }
+    if (!$live) {
+        return $status;
+    }
+    if (count(array_keys($live, 'served', true)) === count($live)) {
+        return 'served';
+    }
+    return in_array('accepted', $live, true) || in_array('served', $live, true) ? 'accepted' : 'new';
 }
 
 // ── orders as JSON ───────────────────────────────────────────────────
@@ -636,6 +698,8 @@ function qr_order_json(array $order, bool $withLines = true): array
         'paidAt' => (int) ($order['paid_at'] ?? 0),
         'tabId' => (int) ($order['tab_id'] ?? 0),
         'guestName' => (string) ($order['guest_name'] ?? ''),
+        // Each station's part: '' when the order has nothing for it.
+        'stations' => ['kitchen' => (string) ($order['kitchen_status'] ?? ''), 'bar' => (string) ($order['bar_status'] ?? '')],
         'payerName' => (string) ($order['payer_name'] ?? ''),
         'tillAt' => (int) ($order['till_at'] ?? 0),
         'tillVoidAt' => (int) ($order['till_void_at'] ?? 0),
@@ -656,6 +720,7 @@ function qr_order_json(array $order, bool $withLines = true): array
         foreach ($stmt->fetchAll() as $line) {
             $out['lines'][] = [
                 'line' => (int) $line['line'],
+                'station' => (string) ($line['station'] ?? '') !== '' ? (string) $line['station'] : qr_item_station((string) $line['item_id']),
                 'itemId' => (string) $line['item_id'],
                 'variantId' => (string) $line['variant_id'],
                 'choiceId' => (string) $line['choice_id'],

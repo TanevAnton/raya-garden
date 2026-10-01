@@ -418,6 +418,35 @@ that came to.
   boundary: "Нещо се обърка" and a reload button, instead of a black page
   in the middle of service. Orders are on the server either way.
 
+## Kitchen and bar, added 01.10.2026
+
+**Why.** Food and drinks are made in two places by different people. One
+card for "Цезар + 2 Sprite" made the bar wait for the kitchen's "Приеми" and
+the kitchen read the drinks.
+
+**How.** A station per menu category (`"station"` in qr-menu.json), copied
+onto each line when ordered (`order_items.station`), and a status per
+station on the order (`kitchen_status`, `bar_status`, '' when it has nothing
+there).
+
+- **Two cards, one order.** Each station accepts and serves its own part;
+  the order's own status — what the guest sees, and what bills and the till
+  go by — follows from them (`qr_overall_status`): new until a station takes
+  it on, served when every station still making something has served.
+- **A tablet chooses what it shows** (Кухня / Бар / Двете), stored on the
+  device, and chimes only for that. "Двете" keeps them apart: kitchen
+  column, bar column.
+- **Cancel is per station too.** "Откажи" on the bar's card takes every bar
+  line off (as "Няма" would, with its refunds) and leaves the kitchen's part.
+  When the station is all that is left, it is the whole order's cancel, with
+  its full refund first. A station whose lines all came off is 'cancelled'
+  and stops counting.
+- **Old screens keep working**: a move without "station" moves the whole
+  order and every station with it.
+- **Existing orders** got the station of each item as the menu has it, and
+  their own status for each station (schema v6).
+- Coffee and tea are the bar's; desserts the kitchen's.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

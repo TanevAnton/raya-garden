@@ -26,6 +26,12 @@ import { api } from "../shared/api.js";
 // One line of an order can be taken off on its own ("Няма"): some or all of
 // it, with a reason the guest sees. Whatever was paid for it goes back to
 // whoever paid; the rest of the order goes on.
+//
+// Kitchen and bar: food is made in the kitchen, drinks at the bar (each menu
+// category says which). An order with both is two cards, one per station,
+// each accepted and served on its own. A tablet shows the kitchen, the bar,
+// or both side by side ("Двете"), remembers the choice, and chimes only for
+// what it shows.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -39,6 +45,30 @@ const NEXT = {
   accepted: { action: "serve", label: "Сервирано" },
 };
 const REASONS = ["Грешна маса", "Изчерпан продукт", "Гостът се отказа", "Дублирана поръчка"];
+const STATIONS = { kitchen: "Кухня", bar: "Бар" };
+const STATION_OF = { kitchen: "кухнята", bar: "бара" };
+const STATION_THE = { kitchen: "Кухнята", bar: "Барът" };
+const VIEW_KEY = "raya.qr.station"; // this tablet's choice: kitchen, bar or both
+
+/**
+ * An order as the stations see it: one job per station it has lines for,
+ * with that station's status (the order's own once it is cancelled).
+ */
+function jobsOf(order) {
+  return Object.keys(STATIONS)
+    .filter((st) => order.stations?.[st])
+    .map((st) => ({ order, station: st, status: order.status === "cancelled" ? "cancelled" : order.stations[st] }));
+}
+const shows = (view, station) => view === "both" || view === station;
+
+function storedView() {
+  try {
+    const v = window.localStorage.getItem(VIEW_KEY);
+    return v === "kitchen" || v === "bar" ? v : "both";
+  } catch {
+    return "both";
+  }
+}
 const LINE_REASONS = ["Изчерпан продукт", "Гостът се отказа", "Грешка в поръчката"];
 const ITEMS = menu.categories.flatMap((c) => c.items.map((i) => ({ ...i, category: c.bg })));
 
@@ -153,6 +183,17 @@ function Dashboard({ onSignedOut }) {
   const [offline, setOffline] = useState(false);
   const [flash, setFlash] = useState(() => new Set());
   const [tab, setTab] = useState("orders");
+  const [stationView, setStationViewState] = useState(storedView);
+  const setStationView = (v) => {
+    setStationViewState(v);
+    try {
+      window.localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* the choice lasts until the page is reloaded */
+    }
+  };
+  const viewRef = useRef(stationView);
+  viewRef.current = stationView;
   const [toast, setToast] = useState("");
   const [, tick] = useState(0);
   const seq = useRef(0);
@@ -214,7 +255,10 @@ function Dashboard({ onSignedOut }) {
         if (!res.ok) throw new Error(res.error);
         failures = 0;
         setOffline(false);
-        const isNew = res.orders.filter((o) => o.status === "new" && loaded.current && !ordersRef.current.has(o.id));
+        // New for this tablet: an order it has not seen with something new for a station it shows.
+        const isNew = res.orders.filter(
+          (o) => loaded.current && !ordersRef.current.has(o.id) && jobsOf(o).some((j) => j.status === "new" && shows(viewRef.current, j.station))
+        );
         merge(res.orders, res.full);
         mergeTabs(res.tabs, res.full);
         mergeBillPayments(res.billPayments, res.full);
@@ -250,14 +294,24 @@ function Dashboard({ onSignedOut }) {
     setTimeout(() => setToast(""), 5000);
   };
 
-  async function move(order, action, reason) {
+  /** Move one station's part of an order on, or cancel it (the whole order when nothing else is left). */
+  async function move(job, action, reason) {
+    const { order, station } = job;
+    const partOnly = action === "cancel" && jobsOf(order).some((j) => j.station !== station && j.status !== "cancelled");
     try {
-      const res = await adminApi("order.php", { id: order.id, action, from: order.status, ...(reason ? { reason } : {}) });
+      const res = await adminApi("order.php", { id: order.id, action, station, from: job.status, ...(reason ? { reason } : {}) });
       if (res.status === 401) return onSignedOut();
       if (res.order) merge([res.order], false);
       if (res.error === "stale") say("Поръчката вече е променена от друго устройство — показвам я както е сега.");
       else if (res.error === "refund_failed") say("Връщането на парите не успя, затова поръчката НЕ е отказана. Опитайте отново след малко.");
       else if (!res.ok) say("Не успях да променя поръчката. Опитайте отново.");
+      else if (partOnly && res.order?.status !== "cancelled") {
+        const part = `Частта за ${STATION_OF[station]} от ${order.code} е отказана`;
+        if (res.refundPending) say(`${part}, но връщането на ${money(res.amount)} не успя — натиснете „Върни сега“.`);
+        else if (res.cashBack) say(`${part}. Върнете ${money(res.cashBack)} на госта — беше платено на място.`);
+        else if (order.payStatus === "paid" || order.lines.some((l) => l.station === station && l.paidVia === "online")) say(`${part}, ${money(res.amount)} са върнати на госта.`);
+        else say(`${part}. ${STATION_THE[station === "kitchen" ? "bar" : "kitchen"]} продължава.`);
+      }
       else if (action === "cancel" && res.refundPending) say(`${res.order.code} е отказана, но връщането на парите не успя — опитайте пак от „Сметки“.`);
       else if (action === "cancel" && res.order?.payStatus === "refunded")
         say(res.order.tabId ? `${res.order.code} е отказана, платеното за нея е върнато на госта.` : `${res.order.code} е отказана, ${money(res.order.total)} са върнати на госта.`);
@@ -323,7 +377,7 @@ function Dashboard({ onSignedOut }) {
     }
   }
 
-  const newCount = [...orders.values()].filter((o) => o.status === "new").length;
+  const newCount = [...orders.values()].flatMap(jobsOf).filter((j) => j.status === "new" && shows(stationView, j.station)).length;
   const tillEntries = tillList(orders, billPayments);
   const tillCount = tillEntries.filter((e) => e.todo).length;
   const showTill = Boolean(state?.paymentsConfigured) || tillEntries.length > 0;
@@ -342,7 +396,7 @@ function Dashboard({ onSignedOut }) {
             {chime.enabled ? (
               <span className="text-xs text-sage-200 px-2">🔔 Звук: вкл.</span>
             ) : (
-              <button type="button" onClick={chime.enable} className="h-11 px-4 rounded-sm btn-gold text-xs tracking-[0.15em] uppercase font-medium">
+              <button type="button" onClick={chime.enable} className="h-10 sm:h-11 px-3 sm:px-4 rounded-sm btn-gold text-xs tracking-[0.15em] uppercase font-medium">
                 🔔 Включи звук
               </button>
             )}
@@ -355,13 +409,14 @@ function Dashboard({ onSignedOut }) {
                   onSignedOut();
                 }
               }}
-              className="h-11 px-4 rounded-sm border border-gold-300/25 text-xs text-cream-100/70"
+              className="h-10 sm:h-11 px-3 sm:px-4 rounded-sm border border-gold-300/25 text-xs text-cream-100/70"
             >
               Изход
             </button>
           </div>
         </div>
-        <nav className="max-w-7xl mx-auto px-2 flex gap-1">
+        {/* On a phone the tabs scroll sideways rather than wrap or run off the edge. */}
+        <nav className="max-w-7xl mx-auto px-2 flex gap-1 overflow-x-auto">
           {[
             ["orders", `Поръчки${newCount ? ` (${newCount} нови)` : ""}`],
             ["service", "Вечерта"],
@@ -369,7 +424,7 @@ function Dashboard({ onSignedOut }) {
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
           ].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTab(id)} className={`px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
+            <button key={id} type="button" onClick={() => setTab(id)} className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
               {label}
             </button>
           ))}
@@ -383,7 +438,9 @@ function Dashboard({ onSignedOut }) {
       )}
 
       <main className="max-w-7xl mx-auto px-4 pt-4">
-        {tab === "orders" && <Orders orders={orders} flash={flash} state={state} onMove={move} onVoid={voidLine} onRefund={refundOrder} />}
+        {tab === "orders" && (
+          <Orders orders={orders} flash={flash} state={state} stationView={stationView} setStationView={setStationView} onMove={move} onVoid={voidLine} onRefund={refundOrder} />
+        )}
         {tab === "service" && <Service state={state} onSaved={applyState} say={say} onSignedOut={onSignedOut} />}
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
         {tab === "tabs" && <Tabs tabs={tabs} onAction={billAction} />}
@@ -434,22 +491,52 @@ function elapsed(createdAt) {
   return `преди ${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
 
-function Orders({ orders, flash, state, onMove, onVoid, onRefund }) {
+function Orders({ orders, flash, state, stationView, setStationView, onMove, onVoid, onRefund }) {
   const [view, setView] = useState("active");
   const [table, setTable] = useState("");
-  const [cancelling, setCancelling] = useState(null);
+  const [cancelling, setCancelling] = useState(null); // a job
   const [voiding, setVoiding] = useState(null); // { order, line }
-  const list = useMemo(() => {
-    const all = [...orders.values()].filter((o) => (table ? o.table === Number(table) : true));
+  const jobs = useMemo(() => {
     const active = view === "active";
-    return all
-      .filter((o) => (view === "all" ? true : active ? o.status === "new" || o.status === "accepted" : o.status === "served" || o.status === "cancelled"))
-      .sort((a, b) => (active ? a.createdAt - b.createdAt : b.createdAt - a.createdAt));
+    return [...orders.values()]
+      .filter((o) => (table ? o.table === Number(table) : true))
+      .flatMap(jobsOf)
+      .filter((j) => (view === "all" ? true : active ? j.status === "new" || j.status === "accepted" : j.status === "served" || j.status === "cancelled"))
+      .sort((a, b) => (active ? a.order.createdAt - b.order.createdAt : b.order.createdAt - a.order.createdAt));
   }, [orders, view, table]);
   const tables = useMemo(() => [...new Set([...orders.values()].map((o) => o.table))].sort((a, b) => a - b), [orders]);
+  const waiting = (st) => [...orders.values()].flatMap(jobsOf).filter((j) => j.station === st && (j.status === "new" || j.status === "accepted")).length;
+  const shown = Object.keys(STATIONS).filter((st) => shows(stationView, st));
+  const empty = view === "active" ? (state?.open ? "Няма чакащи поръчки." : "Няма чакащи поръчки. Приемането на поръчки не е отворено — виж „Вечерта“.") : "Няма поръчки тук.";
+
+  const card = (j) => (
+    <OrderCard
+      key={`${j.order.id}:${j.station}`}
+      job={j}
+      flash={flash.has(j.order.id)}
+      onMove={onMove}
+      onCancel={() => setCancelling(j)}
+      onVoid={(line) => setVoiding({ order: j.order, line })}
+      onRefund={() => onRefund(j.order)}
+    />
+  );
 
   return (
     <>
+      <div className="flex gap-2 mb-3" role="group" aria-label="Кухня или бар">
+        {[...Object.entries(STATIONS), ["both", "Двете"]].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={stationView === id}
+            onClick={() => setStationView(id)}
+            className={`flex-1 sm:flex-none h-12 px-5 rounded-sm text-sm font-medium border ${stationView === id ? "btn-gold border-transparent" : "border-gold-300/30 text-cream-100/80"}`}
+          >
+            {label}
+            {id !== "both" && waiting(id) > 0 ? ` (${waiting(id)})` : ""}
+          </button>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {[
           ["active", "Активни"],
@@ -468,19 +555,32 @@ function Orders({ orders, flash, state, onMove, onVoid, onRefund }) {
         </select>
       </div>
 
-      {list.length === 0 ? (
-        <p className="text-cream-100/50 py-16 text-center">
-          {view === "active" ? (state?.open ? "Няма чакащи поръчки." : "Няма чакащи поръчки. Приемането на поръчки не е отворено — виж „Вечерта“.") : "Няма поръчки тук."}
-        </p>
+      {shown.length === 1 ? (
+        jobs.filter((j) => j.station === shown[0]).length === 0 ? (
+          <p className="text-cream-100/50 py-16 text-center">{empty}</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-station-list={shown[0]}>
+            {jobs.filter((j) => j.station === shown[0]).map(card)}
+          </div>
+        )
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {list.map((o) => (
-            <OrderCard key={o.id} order={o} flash={flash.has(o.id)} onMove={onMove} onCancel={() => setCancelling(o)} onVoid={(line) => setVoiding({ order: o, line })} onRefund={() => onRefund(o)} />
-          ))}
+        // Both on one page, still apart: the kitchen on the left, the bar on the right.
+        <div className="grid gap-6 lg:grid-cols-2">
+          {shown.map((st) => {
+            const mine = jobs.filter((j) => j.station === st);
+            return (
+              <section key={st} aria-label={STATIONS[st]} data-station-list={st}>
+                <h2 className="font-display text-2xl text-cream-50 border-b border-gold-300/20 pb-2 mb-3">
+                  {STATIONS[st]} <span className="font-sans text-base text-cream-100/50">({mine.length})</span>
+                </h2>
+                {mine.length === 0 ? <p className="text-cream-100/50 py-8 text-center">{empty}</p> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 2xl:grid-cols-2">{mine.map(card)}</div>}
+              </section>
+            );
+          })}
         </div>
       )}
 
-      {cancelling && <CancelDialog order={cancelling} onClose={() => setCancelling(null)} onConfirm={(reason) => { onMove(cancelling, "cancel", reason); setCancelling(null); }} />}
+      {cancelling && <CancelDialog job={cancelling} onClose={() => setCancelling(null)} onConfirm={(reason) => { onMove(cancelling, "cancel", reason); setCancelling(null); }} />}
       {voiding && (
         <VoidDialog
           order={voiding.order}
@@ -496,18 +596,24 @@ function Orders({ orders, flash, state, onMove, onVoid, onRefund }) {
   );
 }
 
-function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
-  const s = STATUS[order.status];
+/** One station's part of an order: its lines, its status, its buttons. */
+function OrderCard({ job, flash, onMove, onCancel, onVoid, onRefund }) {
+  const { order, station } = job;
+  const s = STATUS[job.status];
   const minutes = (Date.now() / 1000 - order.createdAt) / 60;
-  const active = order.status === "new" || order.status === "accepted";
+  const active = job.status === "new" || job.status === "accepted";
+  const lines = order.lines.filter((l) => l.station === station);
   // One line can be cancelled on its own while anything else stays on the
   // order; the last thing left is cancelling the order.
   const units = order.lines.reduce((n, l) => n + l.qty, 0);
-  const canVoid = (active || order.status === "served") && units > 1;
+  const canVoid = (active || job.status === "served") && order.status !== "cancelled" && units > 1;
   const late = active && minutes > 20 ? "text-red-300" : active && minutes > 10 ? "text-amber-300" : "text-cream-100/60";
-  const next = NEXT[order.status];
+  const next = NEXT[job.status];
+  const subtotal = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+  // The other station's part of the same order, for whoever brings it out.
+  const other = jobsOf(order).find((j) => j.station !== station);
   return (
-    <article className={`border-2 rounded-sm bg-ink-900 p-4 transition-shadow ${s.card} ${flash ? "ring-4 ring-gold-300/70 animate-pulse" : ""}`} data-order={order.code}>
+    <article className={`border-2 rounded-sm bg-ink-900 p-4 transition-shadow ${s.card} ${flash ? "ring-4 ring-gold-300/70 animate-pulse" : ""}`} data-order={order.code} data-station={station}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] tracking-[0.25em] uppercase text-cream-100/50">Маса</div>
@@ -517,14 +623,15 @@ function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
           {order.guestName && <div className="text-xl text-gold-100 mt-2" data-guest-name>{order.guestName}</div>}
         </div>
         <div className="text-right">
+          <div className={`inline-block text-[10px] tracking-[0.25em] uppercase px-2 py-0.5 rounded-sm mb-1 ${station === "bar" ? "bg-sky-900/60 text-sky-100" : "bg-amber-900/50 text-amber-100"}`}>{STATIONS[station]}</div>
           <div className="font-mono text-lg text-gold-100">{order.code}</div>
           <div className="text-sm text-cream-100/70">{clock(order.createdAt)}</div>
           <div className={`text-sm ${late}`}>{elapsed(order.createdAt)}</div>
         </div>
       </div>
       <ul className="mt-3 border-t border-gold-300/15 pt-3 space-y-2">
-        {order.lines.map((l, i) => (
-          <li key={i} className="text-cream-50 flex items-start gap-2" data-line={l.line}>
+        {lines.map((l) => (
+          <li key={l.line} className="text-cream-50 flex items-start gap-2" data-line={l.line}>
             <div className={`min-w-0 flex-1 ${l.qty === 0 ? "opacity-50" : ""}`}>
               <span className={l.qty === 0 ? "line-through" : ""}>
                 <span className="font-semibold text-lg">{l.qty === 0 ? l.voidQty : l.qty} ×</span> {l.nameBg}
@@ -545,11 +652,17 @@ function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
           </li>
         ))}
       </ul>
+      {other && (
+        <p className="text-xs text-cream-100/50 mt-2">
+          + {STATIONS[other.station].toLowerCase()}: {order.lines.filter((l) => l.station === other.station && l.qty > 0).reduce((n, l) => n + l.qty, 0)} бр. · {STATUS[other.status]?.label.toLowerCase()}
+        </p>
+      )}
       <div className="flex items-center justify-between mt-3 border-t border-gold-300/15 pt-3">
         <span className="text-cream-50 flex items-center gap-2 flex-wrap">
           <span>
-            Общо <span className="font-semibold">{money(order.total)}</span>
-            {order.voided > 0 && order.status !== "cancelled" && <span className="text-xs text-cream-100/60"> (отказано {money(order.voided)})</span>}
+            {other ? `${STATIONS[station]}: ` : "Общо "}
+            <span className="font-semibold">{money(other ? subtotal : order.total)}</span>
+            {order.voided > 0 && order.status !== "cancelled" && !other && <span className="text-xs text-cream-100/60"> (отказано {money(order.voided)})</span>}
           </span>
           <PayChip order={order} />
           {order.payerName && <span className="text-xs text-cream-100/70">платил: {order.payerName}</span>}
@@ -568,7 +681,7 @@ function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
       {active && (
         <div className="flex gap-2 mt-4">
           {next && (
-            <button type="button" onClick={() => onMove(order, next.action)} className="btn-gold flex-1 h-14 rounded-sm text-sm tracking-[0.15em] uppercase font-semibold">
+            <button type="button" onClick={() => onMove(job, next.action)} className="btn-gold flex-1 h-14 rounded-sm text-sm tracking-[0.15em] uppercase font-semibold">
               {next.label}
             </button>
           )}
@@ -581,28 +694,37 @@ function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
   );
 }
 
-function CancelDialog({ order, onClose, onConfirm }) {
+/**
+ * Cancel a station's part of an order — or the whole order, when that part
+ * is all that is left to make. What happens to the money is said first.
+ */
+function CancelDialog({ job, onClose, onConfirm }) {
+  const { order, station } = job;
   const [reason, setReason] = useState("");
+  const partOnly = jobsOf(order).some((j) => j.station !== station && j.status !== "cancelled");
+  const lines = order.lines.filter((l) => l.station === station && l.qty > 0);
+  const part = lines.reduce((sum, l) => sum + l.price * l.qty, 0);
+  const otherName = STATION_THE[station === "kitchen" ? "bar" : "kitchen"];
+  let moneyNote = null;
+  if (partOnly) {
+    if (order.payStatus === "paid") moneyNote = `Гостът е платил онлайн: ${money(part)} ще му бъдат върнати автоматично.`;
+    else if (lines.some((l) => l.paidVia === "online")) moneyNote = "Платеното от сметката на масата за тези редове ще бъде върнато автоматично на платилия.";
+    else if (lines.some((l) => l.paidVia === "staff")) moneyNote = "Част от тези редове е платена на място — таблетът ще каже колко да върнете.";
+  } else if (order.payStatus === "paid") moneyNote = `Гостът е платил ${money(order.total)} онлайн. Сумата ще му бъде върната автоматично.`;
+  else if (order.payStatus === "tab_paid" || order.payStatus === "tab_partial") moneyNote = "Част от поръчката е платена от сметката на масата. Платеното онлайн ще бъде върнато автоматично на платилия.";
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Отказ на поръчка">
       <button type="button" aria-label="Затвори" onClick={onClose} className="absolute inset-0 bg-black/70" />
       <div className="relative w-full max-w-md bg-ink-900 border border-gold-300/25 rounded-sm p-6">
         <h2 className="font-display text-2xl text-cream-50">
-          Откажи {order.code} · маса {order.table}
+          {partOnly ? `Откажи частта за ${STATION_OF[station]}` : `Откажи ${order.code}`} · маса {order.table}
         </h2>
-        <p className="text-sm text-cream-100/60 mt-1">Причината се вижда и от госта.</p>
-        {order.payStatus === "paid" && (
-          <p className="text-sm text-gold-100 mt-3 border border-gold-300/30 rounded-sm px-3 py-2">
-            Гостът е платил {money(order.total)} онлайн. Сумата ще му бъде върната автоматично.
-          </p>
-        )}
-        {(order.payStatus === "tab_paid" || order.payStatus === "tab_partial") && (
-          <p className="text-sm text-gold-100 mt-3 border border-gold-300/30 rounded-sm px-3 py-2">
-            Част от поръчката е платена от сметката на масата. Платеното онлайн ще бъде върнато автоматично на платилия.
-          </p>
-        )}
+        <p className="text-sm text-cream-100/60 mt-1">
+          {partOnly ? `${lines.map((l) => `${l.qty} × ${l.nameBg}`).join(", ")}. ${otherName} продължава с останалото. ` : ""}Причината се вижда и от госта.
+        </p>
+        {moneyNote && <p className="text-sm text-gold-100 mt-3 border border-gold-300/30 rounded-sm px-3 py-2">{moneyNote}</p>}
         <div className="flex flex-wrap gap-2 mt-4">
-          {REASONS.map((r) => (
+          {(partOnly ? LINE_REASONS : REASONS).map((r) => (
             <button key={r} type="button" onClick={() => setReason(r)} className={`px-3 py-2 rounded-full text-sm border ${reason === r ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/80"}`}>
               {r}
             </button>
@@ -612,7 +734,7 @@ function CancelDialog({ order, onClose, onConfirm }) {
         <div className="flex gap-2 mt-5">
           <button type="button" onClick={onClose} className="flex-1 h-12 rounded-sm border border-gold-300/25 text-cream-100/80">Назад</button>
           <button type="button" disabled={!reason.trim()} onClick={() => onConfirm(reason.trim())} className="flex-1 h-12 rounded-sm bg-red-700 disabled:bg-ink-700 disabled:text-cream-100/40 text-cream-50 font-medium">
-            Откажи поръчката
+            {partOnly ? `Откажи ${station === "bar" ? "напитките" : "храната"}` : "Откажи поръчката"}
           </button>
         </div>
       </div>

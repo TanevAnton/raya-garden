@@ -172,6 +172,35 @@ describe("the menu is the only source of truth", () => {
     assert.equal(countOrders(), 1);
   });
 
+  it("every 50 ml spirit also comes as 100 ml, at twice the price", async () => {
+    await setUp();
+    const spirits = ["rakia", "vodka", "gin", "aniseed", "whisky", "cognac", "digestive", "rum"];
+    const items = menu.categories.filter((c) => spirits.includes(c.id)).flatMap((c) => c.items);
+    const fifty = items.filter((i) => i.variants.some((v) => v.size === "50 ml"));
+    assert.ok(fifty.length >= 40, `${fifty.length} spirits`);
+    for (const item of fifty) {
+      const [small, large] = item.variants;
+      assert.deepEqual([small.size, large.size, large.price], ["50 ml", "100 ml", small.price * 2], item.id);
+    }
+    const guest = client(srv.base, { now: AT_20H });
+    const res = await order(guest, 2, [["burgas-63", "100ml", 2], ["burgas-63", "std", 1]]);
+    assert.equal(res.status, 201, res.text);
+    const [large, small] = res.body.order.lines;
+    assert.deepEqual([large.detailBg, large.size, large.price], ["100 мл", "100 ml", 620]);
+    assert.deepEqual([small.detailBg, small.price], ["50 мл", 310]);
+    assert.equal(res.body.order.total, 2 * 620 + 310);
+  });
+
+  it("Coca-Cola products: the guest picks the drink", async () => {
+    await setUp();
+    const cola = menu.categories.flatMap((c) => c.items).find((i) => i.id === "coca-cola-products");
+    assert.deepEqual(cola.choices.options.map((o) => o.bg), ["Coca-Cola", "Coca-Cola Zero", "Coca-Cola без кофеин", "Fanta", "Sprite", "Тоник", "Розов тоник"]);
+    const guest = client(srv.base, { now: AT_20H });
+    const res = await order(guest, 2, [["coca-cola-products", "std", 1, "coca-cola-no-caffeine"], ["coca-cola-products", "std", 2, "pink-tonic"]]);
+    assert.equal(res.status, 201, res.text);
+    assert.deepEqual(res.body.order.lines.map((l) => l.detailBg), ["Coca-Cola без кофеин", "Розов тоник"]);
+  });
+
   it("changing a price later never changes an order already placed", async () => {
     const admin = await setUp();
     const guest = client(srv.base, { now: AT_20H });

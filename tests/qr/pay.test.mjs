@@ -82,6 +82,19 @@ describe("paying on the phone: placing an order", () => {
     assert.equal((await status(guest(), res.body.token)).payUrl, res.body.checkoutUrl);
   });
 
+  it("names each line on Stripe's page with its size, once", async () => {
+    await setUp();
+    const res = await order(guest(), 7, [["caesar", "chicken", 1], ["burgas-63", "100ml", 1], ["tiramisu"]]);
+    assert.equal(res.status, 201, res.text);
+    const items = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
+    const [call] = stripe.calls("/v1/checkout/sessions");
+    assert.deepEqual(call.params.line_items.map((l) => l.price_data.product_data.name), [
+      `${items.get("caesar").bg} · с пиле 400 g`,
+      `${items.get("burgas-63").bg} · 100 мл`,
+      `${items.get("tiramisu").bg} · ${items.get("tiramisu").variants[0].size}`,
+    ]);
+  });
+
   it("a retry of the same attempt reuses the order and the payment page", async () => {
     await setUp();
     const key = newKey();
@@ -296,6 +309,117 @@ describe("paying on the phone: cancelling, refunds and the till", () => {
     const { order: o } = await paidOrder();
     srv.sqlite(`UPDATE orders SET created_at = created_at - 5 * 86400, status = 'served' WHERE id = ${o.id}`);
     assert.deepEqual((await feed(admin)).orders.map((x) => x.id), [o.id]);
+  });
+});
+
+describe("paying on the phone: cancelling one line, not the whole order", () => {
+  const priceOf = (id, variant = "std") => menu.categories.flatMap((c) => c.items).find((i) => i.id === id).variants.find((v) => v.id === variant).price;
+  const COLA = () => priceOf("coca-cola-products");
+  /** Paid: a Caesar salad and three Sprites, at table 4. */
+  async function paidOrder() {
+    const res = await order(guest(), 4, [["caesar", "chicken", 1], ["coca-cola-products", "std", 3, "sprite"]]);
+    await stripe.pay(sessionOf(res).id);
+    return res.body;
+  }
+  const voidLine = (admin, id, line, qty, have, reason = "Изчерпан продукт") =>
+    admin.admin("/api/qr/admin/order.php", { id, action: "void", line, qty, have, reason });
+
+  it("staff take one of three off: only that is refunded, the rest stands, and the guest sees why", async () => {
+    const admin = await setUp();
+    const { order: o, token } = await paidOrder();
+    const pi = row(o.id).payment_intent;
+    const res = await voidLine(admin, o.id, 1, 1, 3);
+    assert.equal(res.status, 200, res.text);
+    assert.equal(res.body.amount, COLA());
+    assert.equal(stripe.refunded(pi), COLA(), "one Sprite back, nothing else");
+    assert.match(stripe.calls("/v1/refunds")[0].headers["idempotency-key"], new RegExp(`^raya-qr-order-refund-${o.id}-0-${COLA()}$`));
+    const after = res.body.order;
+    assert.deepEqual([after.status, after.payStatus], ["new", "paid"], "the order goes on");
+    assert.equal(after.total, o.total - COLA());
+    assert.equal(after.orderedTotal, o.total);
+    assert.deepEqual([after.lines[1].qty, after.lines[1].voidQty, after.lines[1].voidReason], [2, 1, "Изчерпан продукт"]);
+    assert.deepEqual([after.refunded, after.refundDue], [COLA(), 0]);
+
+    const mine = await status(guest(), token);
+    assert.deepEqual([mine.lines[1].qty, mine.lines[1].voidQty, mine.lines[1].voidReason, mine.refunded], [2, 1, "Изчерпан продукт", COLA()]);
+    assert.equal(mine.tillCents, undefined, "the till is staff business");
+
+    assert.equal((await voidLine(admin, o.id, 1, 1, 3)).status, 409, "the screen showed 3: stale");
+    assert.equal((await voidLine(admin, o.id, 1, 3, 2)).status, 400, "more than is left");
+    assert.equal((await voidLine(admin, o.id, 1, 2, 2)).status, 200, "the other two");
+    assert.equal(stripe.refunded(pi), 3 * COLA());
+    const last = await voidLine(admin, o.id, 0, 1, 1);
+    assert.equal(last.status, 409);
+    assert.equal(last.body.error, "last_line", "the last thing left is cancelling the order");
+    assert.equal((await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "void", line: 0, qty: 1, have: 1 })).status, 400, "a reason is required");
+
+    // Cancelling the whole order now refunds what is left.
+    const cancel = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "cancel", from: "new", reason: "Гостът си тръгна" });
+    assert.equal(cancel.status, 200);
+    assert.equal(stripe.refunded(pi), o.total, "all of it back, once");
+    assert.deepEqual([row(o.id).refunded_cents, row(o.id).refund_due_cents], [o.total, o.total]);
+  });
+
+  it("two tablets taking the same line off at once: one refund", async () => {
+    const admin = await setUp();
+    const other = client(srv.base, { now: AT_20H });
+    await other.login();
+    const { order: o } = await paidOrder();
+    const results = await Promise.all([voidLine(admin, o.id, 1, 1, 3), voidLine(other, o.id, 1, 1, 3)]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+    assert.equal(stripe.refunded(row(o.id).payment_intent), COLA());
+    assert.equal(row(o.id).void_cents, COLA());
+  });
+
+  it("a refund that fails stays owed, on the order, until Върни сега works", async () => {
+    const admin = await setUp();
+    const { order: o } = await paidOrder();
+    stripe.failNext("/v1/refunds", 500);
+    const res = await voidLine(admin, o.id, 1, 1, 3);
+    assert.equal(res.status, 200, "the line is off either way");
+    assert.equal(res.body.refundPending, true);
+    assert.deepEqual([res.body.order.refundDue, res.body.order.refundError], [COLA(), true]);
+    srv.sqlite(`UPDATE orders SET created_at = created_at - 5 * 86400, status = 'served' WHERE id = ${o.id}`);
+    assert.ok((await feed(admin)).orders.some((x) => x.id === o.id), "on the staff screen until it is paid back");
+    const retry = await admin.admin("/api/qr/admin/order.php", { id: o.id, action: "refund" });
+    assert.equal(retry.status, 200, retry.text);
+    assert.deepEqual([retry.body.order.refundDue, retry.body.order.refunded, retry.body.order.refundError], [0, COLA(), false]);
+    assert.equal(stripe.refunded(row(o.id).payment_intent), COLA());
+  });
+
+  it("the till: a line taken off after the order was entered is voided for its amount, and the next one for its own", async () => {
+    const admin = await setUp();
+    const { order: o } = await paidOrder();
+    const entered = await admin.admin("/api/qr/admin/till.php", { id: o.id, entered: true });
+    assert.equal(entered.body.order.tillCents, o.total);
+    assert.equal((await admin.admin("/api/qr/admin/till.php", { id: o.id, voided: true })).status, 409, "nothing to void yet");
+    await voidLine(admin, o.id, 1, 1, 3);
+    let mine = (await feed(admin)).orders.find((x) => x.id === o.id);
+    assert.equal(mine.tillCents - mine.tillVoidCents - mine.net, COLA(), "one Sprite to void in Clock");
+    const voided = await admin.admin("/api/qr/admin/till.php", { id: o.id, voided: true });
+    assert.equal(voided.status, 200);
+    assert.equal(voided.body.order.tillVoidCents, COLA());
+    await voidLine(admin, o.id, 1, 1, 2);
+    mine = (await feed(admin)).orders.find((x) => x.id === o.id);
+    assert.equal(mine.tillCents - mine.tillVoidCents - mine.net, COLA(), "the second Sprite, on its own");
+    assert.equal((await admin.admin("/api/qr/admin/till.php", { id: o.id, voided: true })).body.order.tillVoidCents, 2 * COLA());
+
+    // Taken off before it was entered: entered at what is left.
+    const { order: o2 } = await paidOrder();
+    await voidLine(admin, o2.id, 1, 2, 3);
+    const later = await admin.admin("/api/qr/admin/till.php", { id: o2.id, entered: true });
+    assert.equal(later.body.order.tillCents, o2.total - 2 * COLA());
+  });
+
+  it("paying staff: taking a line off just lowers what the table pays", async () => {
+    const admin = await setUp({ paymentMode: "on_site" });
+    const res = await order(guest(), 3, [["tiramisu"], ["illy-coffee", "std", 2]]);
+    const o = res.body.order;
+    const v = await voidLine(admin, o.id, 1, 1, 2, "Гостът се отказа");
+    assert.equal(v.status, 200);
+    assert.equal(v.body.order.total, o.total - priceOf("illy-coffee"));
+    assert.equal(stripe.calls("/v1/refunds").length, 0, "no money moved");
+    assert.equal(v.body.order.refundDue, 0);
   });
 });
 

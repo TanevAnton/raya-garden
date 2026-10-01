@@ -146,7 +146,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 4;
+const QR_SCHEMA_VERSION = 5;
 
 function qr_db(): PDO
 {
@@ -353,6 +353,35 @@ function qr_migrate(PDO $pdo)
                 ALTER TABLE orders ADD COLUMN guest_name TEXT NOT NULL DEFAULT '';
                 ALTER TABLE orders ADD COLUMN payer_name TEXT NOT NULL DEFAULT '';
                 ALTER TABLE bill_payments ADD COLUMN payer_name TEXT NOT NULL DEFAULT '';
+            ");
+        }
+        if ($version < 5) {
+            // One line of an order cancelled, not the whole order: void_qty
+            // of the line's qty are off (void_reason says why), and the
+            // order's void_cents is what they came to. A paid order owes that
+            // back: refund_due_cents grows, refunded_cents is what Stripe has
+            // returned, as for bill payments. tip_cents: a tip added when
+            // paying a table's bill, on top of amount_cents.
+            //
+            // The till: till_cents is what was entered in Clock, and
+            // till_void_cents what has been voided there since. Whatever the
+            // entry exceeds the order's (or payment's) net amount by is still
+            // to void — however many refunds came after the entry.
+            $pdo->exec("
+                ALTER TABLE order_items ADD COLUMN void_qty INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE order_items ADD COLUMN void_reason TEXT NOT NULL DEFAULT '';
+                ALTER TABLE orders ADD COLUMN void_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN refund_due_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN refunded_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN refund_error INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN till_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE orders ADD COLUMN till_void_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE bill_payments ADD COLUMN tip_cents INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE bill_payments ADD COLUMN till_void_cents INTEGER NOT NULL DEFAULT 0;
+                UPDATE orders SET till_cents = total_cents WHERE till_at > 0;
+                UPDATE orders SET till_void_cents = total_cents WHERE till_void_at > 0;
+                UPDATE bill_payments SET till_void_cents = till_cents - (amount_cents - refund_due_cents)
+                    WHERE till_void_at > 0 AND till_cents > amount_cents - refund_due_cents;
             ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
@@ -594,7 +623,11 @@ function qr_order_json(array $order, bool $withLines = true): array
         'table' => (int) $order['table_no'],
         'status' => (string) $order['status'],
         'cancelReason' => (string) $order['cancel_reason'],
-        'total' => (int) $order['total_cents'],
+        // What the order comes to now: lines staff cancelled one by one are
+        // off. orderedTotal is what was ordered (and, on the phone, paid).
+        'total' => (int) $order['total_cents'] - (int) ($order['void_cents'] ?? 0),
+        'orderedTotal' => (int) $order['total_cents'],
+        'voided' => (int) ($order['void_cents'] ?? 0),
         'lang' => (string) $order['lang'],
         'createdAt' => (int) $order['created_at'],
         'updatedAt' => (int) $order['updated_at'],
@@ -606,13 +639,23 @@ function qr_order_json(array $order, bool $withLines = true): array
         'payerName' => (string) ($order['payer_name'] ?? ''),
         'tillAt' => (int) ($order['till_at'] ?? 0),
         'tillVoidAt' => (int) ($order['till_void_at'] ?? 0),
+        'tillCents' => (int) ($order['till_cents'] ?? 0),
+        'tillVoidCents' => (int) ($order['till_void_cents'] ?? 0),
+        // Paid on the phone: what is still owed back to the guest, and what
+        // Stripe has returned so far.
+        'refundDue' => max(0, (int) ($order['refund_due_cents'] ?? 0) - (int) ($order['refunded_cents'] ?? 0)),
+        'refunded' => (int) ($order['refunded_cents'] ?? 0),
+        'refundError' => (int) ($order['refund_error'] ?? 0) === 1,
     ];
+    // For the till: what a phone-paid order comes to after refunds.
+    $out['net'] = $out['payStatus'] === 'paid' ? $out['total'] : 0;
     if ($withLines) {
         $stmt = qr_db()->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');
         $stmt->execute([(int) $order['id']]);
         $out['lines'] = [];
         foreach ($stmt->fetchAll() as $line) {
             $out['lines'][] = [
+                'line' => (int) $line['line'],
                 'itemId' => (string) $line['item_id'],
                 'variantId' => (string) $line['variant_id'],
                 'choiceId' => (string) $line['choice_id'],
@@ -622,7 +665,11 @@ function qr_order_json(array $order, bool $withLines = true): array
                 'detailEn' => (string) $line['detail_en'],
                 'size' => (string) $line['size'],
                 'price' => (int) $line['unit_cents'],
-                'qty' => (int) $line['qty'],
+                // qty: what is still on the order; voidQty of what was
+                // ordered were cancelled by staff, for voidReason.
+                'qty' => (int) $line['qty'] - (int) ($line['void_qty'] ?? 0),
+                'voidQty' => (int) ($line['void_qty'] ?? 0),
+                'voidReason' => (string) ($line['void_reason'] ?? ''),
                 'note' => (string) $line['note'],
                 'paidVia' => (string) ($line['paid_via'] ?? ''),
             ];
@@ -630,13 +677,18 @@ function qr_order_json(array $order, bool $withLines = true): array
         if ($out['tabId'] > 0) {
             // On a table's bill: how much of this order is paid so far.
             $paid = 0;
+            $standing = 0;
             $refunded = false;
             foreach ($out['lines'] as $line) {
+                if ($line['qty'] === 0) {
+                    continue; // cancelled by staff, all of it
+                }
+                $standing++;
                 $paid += $line['paidVia'] === 'online' || $line['paidVia'] === 'staff' ? 1 : 0;
                 $refunded = $refunded || $line['paidVia'] === 'refunded';
             }
             $out['payStatus'] = $refunded ? 'refunded'
-                : ($paid === 0 ? 'tab' : ($paid === count($out['lines']) ? 'tab_paid' : 'tab_partial'));
+                : ($paid === 0 ? 'tab' : ($paid === $standing ? 'tab_paid' : 'tab_partial'));
         }
     }
     return $out;

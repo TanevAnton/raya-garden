@@ -123,8 +123,12 @@ describe("pay at the end: the table's bill", () => {
     assert.match(await page.$eval("[role=dialog] button.btn-gold", (b) => b.textContent), /Плати 5,90/, "own line picked by default");
     await clickText(page, "[role=dialog]", /^Избери всичко$/);
     assert.match(await page.$eval("[role=dialog] button.btn-gold", (b) => b.textContent), /Плати 10,90/);
+    // A tip: none until the host picks one; 10 % of 10,90 is 1,10.
+    assert.equal(await page.$eval("[data-tip] button[aria-pressed=true]", (b) => b.textContent), "Без");
+    await clickText(page, "[data-tip]", /^10% · 1,10/);
+    assert.match(await page.$eval("[role=dialog] button.btn-gold", (b) => b.textContent), /Плати 12,00/);
 
-    await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати 10,90/)]);
+    await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати 12,00/)]);
     assert.ok(page.url().startsWith(`${stripe.base}/pay/`));
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
     await page.waitForFunction(() => document.body.innerText.includes("Сметката е платена"), { timeout: 15000, polling: 300 });
@@ -138,10 +142,12 @@ describe("pay at the end: the table's bill", () => {
     const card = await text(staff, '[data-tab="4"]');
     assert.match(card, /Test Guest/, "who paid, from Stripe's page");
     assert.match(card, /Мария:/, "who ordered the line");
+    assert.match(card, /Бакшиш\s*1,10/, "the tip, apart from the bill");
     await clickText(staff, '[data-tab="4"]', /Затвори сметката/);
     await staff.waitForFunction(() => document.body.innerText.includes("Няма отворени сметки"), { polling: 300, timeout: 15000 });
     await clickText(staff, "nav", /За касата/);
     await staff.waitForFunction(() => /P-[A-Z0-9]{4}/.test(document.body.innerText) && /10,90/.test(document.body.innerText), { polling: 300 });
+    assert.match(await text(staff, "[data-tips-today]"), /Бакшиши с карта днес: 1,10/);
 
     assert.deepEqual([...page.errors, ...staff.errors], []);
     await page.close();

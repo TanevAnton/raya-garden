@@ -1,5 +1,5 @@
 {
- "version": "2026-05-15.1",
+ "version": "2026-10-01.1",
  "source": "Menu Raya 2026 — PDF от 15.05.2026 (Canva). Цените са в евро с ДДС.",
  "currency": "EUR",
  "allergens": {
@@ -149,14 +149,14 @@
      "variants": [
       {
        "id": "10g",
-       "bg": "10 g",
+       "bg": "10 г",
        "en": "10 g",
        "size": "10 g",
        "price": 2500
       },
       {
        "id": "30g",
-       "bg": "30 g",
+       "bg": "30 г",
        "en": "30 g",
        "size": "30 g",
        "price": 6500
@@ -1570,14 +1570,14 @@
      "variants": [
       {
        "id": "400ml",
-       "bg": "400 ml",
+       "bg": "400 мл",
        "en": "400 ml",
        "size": "400 ml",
        "price": 450
       },
       {
        "id": "1000ml",
-       "bg": "1000 ml",
+       "bg": "1000 мл",
        "en": "1000 ml",
        "size": "1000 ml",
        "price": 690
@@ -1592,14 +1592,14 @@
      "variants": [
       {
        "id": "400ml",
-       "bg": "400 ml",
+       "bg": "400 мл",
        "en": "400 ml",
        "size": "400 ml",
        "price": 450
       },
       {
        "id": "1000ml",
-       "bg": "1000 ml",
+       "bg": "1000 мл",
        "en": "1000 ml",
        "size": "1000 ml",
        "price": 690
@@ -1662,9 +1662,14 @@
         "en": "Coca-Cola"
        },
        {
-        "id": "sprite",
-        "bg": "Sprite",
-        "en": "Sprite"
+        "id": "coca-cola-zero",
+        "bg": "Coca-Cola Zero",
+        "en": "Coca-Cola Zero"
+       },
+       {
+        "id": "coca-cola-no-caffeine",
+        "bg": "Coca-Cola без кофеин",
+        "en": "Coca-Cola caffeine-free"
        },
        {
         "id": "fanta",
@@ -1672,19 +1677,19 @@
         "en": "Fanta"
        },
        {
-        "id": "bitter-lemon",
-        "bg": "Bitter Lemon",
-        "en": "Bitter Lemon"
+        "id": "sprite",
+        "bg": "Sprite",
+        "en": "Sprite"
        },
        {
         "id": "tonic",
-        "bg": "Tonic",
+        "bg": "Тоник",
         "en": "Tonic"
        },
        {
-        "id": "soda",
-        "bg": "сода",
-        "en": "soda"
+        "id": "pink-tonic",
+        "bg": "Розов тоник",
+        "en": "Pink tonic"
        }
       ]
      }
@@ -1997,8 +2002,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 490
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 980
       }
      ]
     },
@@ -2010,8 +2024,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     },
@@ -2023,8 +2046,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     },
@@ -2036,8 +2068,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     },
@@ -2049,8 +2090,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 310
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 620
       }
      ]
     },
@@ -2062,8 +2112,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 310
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 620
       }
      ]
     },
@@ -2075,8 +2134,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 310
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 620
       }
      ]
     },
@@ -2088,8 +2156,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2101,8 +2178,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2114,8 +2200,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 450
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 900
       }
      ]
     },
@@ -2127,8 +2222,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 720
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1440
       }
      ]
     }
@@ -2147,8 +2251,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2160,8 +2273,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2173,8 +2295,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2186,8 +2317,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2199,8 +2339,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 490
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 980
       }
      ]
     },
@@ -2212,8 +2361,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 750
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1500
       }
      ]
     },
@@ -2225,8 +2383,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 750
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1500
       }
      ]
     }
@@ -2245,8 +2412,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 480
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 960
       }
      ]
     },
@@ -2258,8 +2434,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 480
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 960
       }
      ]
     },
@@ -2271,8 +2456,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 590
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1180
       }
      ]
     }
@@ -2291,8 +2485,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     },
@@ -2304,8 +2507,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     },
@@ -2317,8 +2529,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 290
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 580
       }
      ]
     }
@@ -2337,8 +2558,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2350,8 +2580,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 380
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 760
       }
      ]
     },
@@ -2363,8 +2602,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2376,8 +2624,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2389,8 +2646,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 480
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 960
       }
      ]
     },
@@ -2402,8 +2668,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 690
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1380
       }
      ]
     },
@@ -2415,8 +2690,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 590
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1180
       }
      ]
     },
@@ -2428,8 +2712,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 800
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1600
       }
      ]
     },
@@ -2441,8 +2734,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 680
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1360
       }
      ]
     },
@@ -2454,8 +2756,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 1250
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 2500
       }
      ]
     },
@@ -2467,8 +2778,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 690
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1380
       }
      ]
     },
@@ -2480,8 +2800,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 900
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1800
       }
      ]
     },
@@ -2493,8 +2822,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 950
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1900
       }
      ]
     },
@@ -2506,8 +2844,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 1250
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 2500
       }
      ]
     },
@@ -2519,8 +2866,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 2410
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 4820
       }
      ]
     }
@@ -2539,8 +2895,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 350
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 700
       }
      ]
     },
@@ -2552,8 +2917,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 750
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1500
       }
      ]
     },
@@ -2565,8 +2939,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 750
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 1500
       }
      ]
     }
@@ -2585,8 +2968,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 380
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 760
       }
      ]
     },
@@ -2611,8 +3003,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 310
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 620
       }
      ]
     },
@@ -2624,8 +3025,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 400
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 800
       }
      ]
     },
@@ -2637,8 +3047,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 400
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 800
       }
      ]
     },
@@ -2650,8 +3069,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 400
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 800
       }
      ]
     }
@@ -2670,8 +3098,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 390
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 780
       }
      ]
     },
@@ -2683,8 +3120,17 @@
      "variants": [
       {
        "id": "std",
+       "bg": "50 мл",
+       "en": "50 ml",
        "size": "50 ml",
        "price": 320
+      },
+      {
+       "id": "100ml",
+       "bg": "100 мл",
+       "en": "100 ml",
+       "size": "100 ml",
+       "price": 640
       }
      ]
     }
@@ -2703,14 +3149,14 @@
      "variants": [
       {
        "id": "330ml",
-       "bg": "330 ml",
+       "bg": "330 мл",
        "en": "330 ml",
        "size": "330 ml",
        "price": 310
       },
       {
        "id": "500ml",
-       "bg": "500 ml",
+       "bg": "500 мл",
        "en": "500 ml",
        "size": "500 ml",
        "price": 390
@@ -2725,14 +3171,14 @@
      "variants": [
       {
        "id": "330ml",
-       "bg": "330 ml",
+       "bg": "330 мл",
        "en": "330 ml",
        "size": "330 ml",
        "price": 290
       },
       {
        "id": "500ml",
-       "bg": "500 ml",
+       "bg": "500 мл",
        "en": "500 ml",
        "size": "500 ml",
        "price": 350

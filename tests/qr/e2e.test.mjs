@@ -300,6 +300,41 @@ describe("the staff screen", () => {
     await staff.close();
   });
 
+  it("one line taken off: the rest of the order stays, and the guest's phone says what and why", async () => {
+    await openEvening();
+    const staff = await tablet();
+    const guest = await phone();
+    await guest.goto(`${srv.base}/menu/?lang=bg`, { waitUntil: "networkidle0" });
+    await clickText(guest, "[role=dialog]", /^6$/);
+    await addToCart(guest, "Бургас 63", "100 мл");
+    await plus(guest, "Бургас 63", "100 мл");
+    await addToCart(guest, "Тирамису");
+    await checkout(guest);
+    await clickText(guest, "[role=dialog]", /Изпрати поръчката/);
+    await guest.waitForFunction(() => document.body.innerText.includes("Поръчката е изпратена"));
+    const code = await guest.$eval("[role=dialog]", (d) => d.innerText.match(/R-[A-Z0-9]{4}/)[0]);
+    const [placed] = await feed();
+    assert.deepEqual(placed.lines.map((l) => [l.qty, l.detailBg, l.price]), [[2, "100 мл", 620], [1, "", placed.lines[1].price]]);
+
+    await staff.bringToFront();
+    await staff.waitForSelector(`[data-order="${code}"]`, { timeout: 10000 });
+    await staff.click(`[data-order="${code}"] [data-line="0"] button`);
+    await staff.waitForSelector('[role=dialog][aria-label="Откажи ред"]');
+    assert.match(await staff.$eval("[role=dialog]", (d) => d.innerText), /Няма: Бургас 63[\s\S]*от 2[\s\S]*Сумата за плащане става/);
+    await clickText(staff, "[role=dialog]", /^Откажи 1 × 6,20/);
+    await staff.waitForFunction((code) => /1 отказан: Изчерпан продукт/.test(document.querySelector(`[data-order="${code}"]`)?.innerText || ""), { polling: 300 }, code);
+    const card = await staff.$eval(`[data-order="${code}"]`, (e) => e.innerText);
+    assert.match(card, /отказано 6,20/);
+
+    await guest.bringToFront();
+    await guest.waitForFunction(() => /1 отказани — Изчерпан продукт/.test(document.querySelector("[role=dialog]")?.innerText || ""), { timeout: 15000, polling: 300 });
+    const [after] = await feed();
+    assert.equal(after.total, placed.total - 620);
+    assert.deepEqual([after.status, after.lines[0].qty, after.lines[0].voidQty], ["new", 1, 1], "the order goes on");
+    await staff.close();
+    await guest.close();
+  });
+
   it("pause and resume from the screen", async () => {
     await openEvening();
     const staff = await tablet();

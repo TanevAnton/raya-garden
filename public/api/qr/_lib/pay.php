@@ -10,7 +10,9 @@
 //   3. Stripe tells stripe-webhook.php, signed. Only that makes an order
 //      'new' and 'paid' (qr_stripe_event) — never the phone coming back to
 //      the menu, which can fail to happen after a successful payment.
-//   4. A paid order cancelled by staff is refunded first (qr_refund).
+//   4. A paid order cancelled by staff is refunded first (qr_refund). One
+//      line of it cancelled is owed back and refunded right after, for that
+//      line only (qr_order_refund_due).
 //
 // No card data ever reaches this server. No Stripe SDK either: the host runs
 // PHP 7.3 without Composer, so this is Stripe's REST API over cURL — three
@@ -134,14 +136,12 @@ function qr_checkout_for(int $orderId, int $now): string
         'line_items' => [],
     ];
     foreach ($lines->fetchAll() as $line) {
-        $name = $lang === 'en' ? $line['name_en'] : $line['name_bg'];
-        $detail = trim(($lang === 'en' ? $line['detail_en'] : $line['detail_bg']) . ' ' . $line['size']);
         $params['line_items'][] = [
             'quantity' => (int) $line['qty'],
             'price_data' => [
                 'currency' => 'eur',
                 'unit_amount' => (int) $line['unit_cents'],
-                'product_data' => ['name' => $detail !== '' ? $name . ' · ' . $detail : $name],
+                'product_data' => ['name' => qr_stripe_line_name($line, $lang)],
             ],
         ];
     }
@@ -164,6 +164,22 @@ function qr_checkout_for(int $orderId, int $now): string
             ->execute([(string) $session['id'], (string) $session['url'], (int) ($session['expires_at'] ?? 0), $orderId]);
     });
     return (string) $session['url'];
+}
+
+/**
+ * A line as Stripe's payment page shows it: "Бургас 63 · 100 мл",
+ * "Салата „Цезар“ · с пиле 400 g". The size is added unless the detail
+ * already says it (a size choice such as "100 мл").
+ */
+function qr_stripe_line_name(array $line, string $lang): string
+{
+    $name = (string) ($lang === 'en' ? $line['name_en'] : $line['name_bg']);
+    $detail = (string) ($lang === 'en' ? $line['detail_en'] : $line['detail_bg']);
+    $size = (string) $line['size'];
+    if ($size !== '' && strpos($detail, (string) strtok($size, ' ')) === false) {
+        $detail = trim($detail . ' ' . $size);
+    }
+    return $detail !== '' ? $name . ' · ' . $detail : $name;
 }
 
 /**
@@ -323,4 +339,50 @@ function qr_refund(array $order)
     error_log('raya-qr: refund for order ' . $order['id'] . ' failed: HTTP ' . $status
         . ' ' . (string) ($refund['error']['code'] ?? ''));
     return null;
+}
+
+/**
+ * Pay back what a phone-paid order is owed (refund_due − refunded): lines
+ * staff cancelled one by one. Outside any transaction. As for bill payments
+ * (qr_bill_refund_due), the idempotency key names the amount refunded
+ * before, so a retry or two tablets at once make one refund. Returns true
+ * when nothing is owed any more.
+ */
+function qr_order_refund_due(int $orderId): bool
+{
+    $pdo = qr_db();
+    $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+    $find->execute([$orderId]);
+    $order = $find->fetch();
+    $find->closeCursor(); // before calling Stripe — see qr_write()
+    if (!is_array($order) || $order['pay_status'] !== 'paid') {
+        return true;
+    }
+    $due = (int) $order['refund_due_cents'] - (int) $order['refunded_cents'];
+    if ($due <= 0) {
+        return true;
+    }
+    $before = (int) $order['refunded_cents'];
+    list($status, $refund) = qr_stripe('POST', '/v1/refunds', [
+        'payment_intent' => (string) $order['payment_intent'],
+        'amount' => $due,
+        'reason' => 'requested_by_customer',
+        'metadata' => ['order_id' => (string) $orderId, 'order_code' => (string) $order['code']],
+    ], 'raya-qr-order-refund-' . $orderId . '-' . $before . '-' . $due);
+    $ok = $status === 200 && !empty($refund['id']);
+    if (!$ok) {
+        error_log('raya-qr: refund of ' . $due . ' for order ' . $orderId . ' failed: HTTP ' . $status
+            . ' ' . (string) ($refund['error']['code'] ?? ''));
+    }
+    qr_write(function (PDO $pdo) use ($orderId, $ok, $due, $before) {
+        $seq = qr_bump_seq($pdo);
+        if ($ok) {
+            $pdo->prepare("UPDATE orders SET refunded_cents = refunded_cents + ?, refund_error = 0, seq = ?
+                WHERE id = ? AND refunded_cents = ? AND pay_status = 'paid'")
+                ->execute([$due, $seq, $orderId, $before]);
+        } else {
+            $pdo->prepare('UPDATE orders SET refund_error = 1, seq = ? WHERE id = ?')->execute([$seq, $orderId]);
+        }
+    });
+    return $ok;
 }

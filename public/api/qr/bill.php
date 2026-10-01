@@ -42,7 +42,8 @@ try {
         $mine->closeCursor();
         if (is_array($p)) {
             $json = qr_bill_payment_json($p);
-            unset($json['id'], $json['tabId'], $json['seq'], $json['tillAt'], $json['tillVoidAt'], $json['refundError'], $json['payerName']);
+            unset($json['id'], $json['tabId'], $json['seq'], $json['tillAt'], $json['tillVoidAt'], $json['tillCents'], $json['tillVoidCents'],
+                $json['net'], $json['refundError'], $json['payerName']);
             $json['token'] = $token;
             $json['payUrl'] = $p['status'] === 'pending' && (int) $p['checkout_expires'] > $now ? (string) $p['checkout_url'] : '';
             $payments[] = $json;

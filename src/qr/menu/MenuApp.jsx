@@ -832,13 +832,21 @@ function OrderCard({ t, lang, order, big = false }) {
       {order.lines?.length > 0 && (
         <ul className="mt-3 text-sm text-cream-100/80 space-y-1">
           {order.lines.map((l, i) => (
-            <li key={i} className="flex justify-between gap-3">
+            <li key={i} className={`flex justify-between gap-3 ${l.qty === 0 ? "opacity-60" : ""}`}>
               <span>
-                {l.qty} × {lang === "en" ? l.nameEn : l.nameBg}
-                {(lang === "en" ? l.detailEn : l.detailBg) ? ` · ${lang === "en" ? l.detailEn : l.detailBg}` : ""}
+                <span className={l.qty === 0 ? "line-through" : ""}>
+                  {l.qty === 0 ? l.voidQty : l.qty} × {lang === "en" ? l.nameEn : l.nameBg}
+                  {(lang === "en" ? l.detailEn : l.detailBg) ? ` · ${lang === "en" ? l.detailEn : l.detailBg}` : ""}
+                </span>
+                {l.voidQty > 0 && (
+                  <span className="block text-xs text-red-300/90">
+                    {l.qty === 0 ? t.lineVoided : fill(t.lineVoidedPart, { n: l.voidQty })}
+                    {l.voidReason ? ` — ${l.voidReason}` : ""}
+                  </span>
+                )}
                 {l.note ? <span className="block text-xs text-cream-100/50">„{l.note}“</span> : null}
               </span>
-              <span className="shrink-0">{money(l.price * l.qty, lang)}</span>
+              <span className={`shrink-0 ${l.qty === 0 ? "line-through" : ""}`}>{money(l.price * (l.qty || l.voidQty), lang)}</span>
             </li>
           ))}
         </ul>
@@ -849,6 +857,8 @@ function OrderCard({ t, lang, order, big = false }) {
           <span>{money(order.total, lang)}</span>
         </div>
       )}
+      {order.payStatus === "paid" && order.refunded > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.voidRefunded, { amount: money(order.refunded, lang) })}</p>}
+      {order.payStatus === "paid" && order.refundDue > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.voidRefunding, { amount: money(order.refundDue, lang) })}</p>}
     </div>
   );
 }

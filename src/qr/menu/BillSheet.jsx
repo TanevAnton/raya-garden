@@ -13,9 +13,23 @@ import Sheet from "./Sheet.jsx";
 // a line another phone is paying for right now says so, and if two people
 // do pay for the same line, the second gets that share back automatically.
 // The server has the last word on what is paid; this sheet polls it.
+//
+// A tip is optional and starts at none: 5, 10 or 15 % of what is chosen
+// (rounded to 10 cents), or an amount of the guest's own, at most the amount
+// chosen. It is its own line on Stripe's page and goes to staff apart from
+// the bill.
 
 const key = (l) => `${l.code}:${l.line}`;
 const BILLS = "raya.qr.bills"; // this phone's bill payments: [{ token, code }]
+const TIP_PERCENTS = [5, 10, 15];
+const TIP_MAX = 50000; // the server's limit too
+
+/** "2,50" or "2.5" → 250 cents; NaN when it is not an amount. */
+function cents(text) {
+  const value = text.trim().replace(",", ".");
+  if (!/^\d{1,4}(\.\d{0,2})?$/.test(value)) return value === "" ? 0 : NaN;
+  return Math.round(Number(value) * 100);
+}
 
 export default function BillSheet({ t, lang, table, myCodes, returned, onClose, onOrders }) {
   const [data, setData] = useState(null);
@@ -25,6 +39,8 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   const [problem, setProblem] = useState(null);
   const attempt = useRef({ key: null, sig: null });
   const touched = useRef(false);
+  const [tipChoice, setTipChoice] = useState(0); // 0 = none, a percent, or "other"
+  const [tipText, setTipText] = useState("");
 
   const refresh = useCallback(async () => {
     if (!table) return;
@@ -80,16 +96,18 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   };
   const selected = payable.filter((l) => picked.has(key(l)));
   const amount = selected.reduce((s, l) => s + l.amount, 0);
+  const tip = tipChoice === "other" ? cents(tipText) : Math.round((amount * tipChoice) / 1000) * 10;
+  const tipBad = Number.isNaN(tip) || tip > amount || tip > TIP_MAX;
 
   async function pay() {
-    if (!selected.length || busy) return;
+    if (!selected.length || busy || tipBad) return;
     const items = selected.map((l) => ({ code: l.code, line: l.line }));
-    const sig = JSON.stringify([table, items]);
+    const sig = JSON.stringify([table, items, tip]);
     if (attempt.current.sig !== sig) attempt.current = { key: newIdempotencyKey(), sig };
     setBusy(true);
     setProblem(null);
     try {
-      const res = await api("bill-pay.php", { method: "POST", body: { table, lang, items, expectedAmount: amount }, headers: { "Idempotency-Key": attempt.current.key } });
+      const res = await api("bill-pay.php", { method: "POST", body: { table, lang, items, expectedAmount: amount, tip }, headers: { "Idempotency-Key": attempt.current.key } });
       if (res.ok && res.checkoutUrl) {
         session.set(BILLS, [...session.get(BILLS, []).filter((p) => p.token !== res.token), { token: res.token, code: res.payment.code }]);
         window.location.assign(res.checkoutUrl);
@@ -138,8 +156,9 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
                       <span className={p.status === "paid" ? "text-sage-200" : p.status === "pending" ? "text-gold-200" : "text-cream-100/50"}>
                         {p.status === "pending" && returned?.kind === "billpaid" && returned.code === p.code ? t.confirmingPayment : t.paymentStatus[p.status]}
                       </span>
-                      <span className="text-cream-50">{money(p.amount, lang)}</span>
+                      <span className="text-cream-50">{money(p.amount + p.tip, lang)}</span>
                     </div>
+                    {p.tip > 0 && <p className="text-xs text-cream-100/50 mt-0.5 text-right">{fill(t.paymentTip, { amount: money(p.tip, lang) })}</p>}
                     {p.refunded > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.paymentRefunded, { amount: money(p.refunded, lang) })}</p>}
                     {p.status === "pending" && p.payUrl && (
                       <a href={p.payUrl} className="inline-block mt-1 text-xs text-gold-200 underline underline-offset-4">{t.resumePayment}</a>
@@ -210,6 +229,44 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
                   <div className="flex justify-between"><dt className="text-cream-100/60">{t.billLeft}</dt><dd className="font-display text-2xl text-gold-100">{money(totals.unpaid, lang)}</dd></div>
                 </dl>
               )}
+              {selected.length > 0 && (
+                <fieldset className="mt-5" data-tip>
+                  <legend className="text-sm text-cream-50">
+                    {t.tip} <span className="text-cream-100/50">· {t.tipHint}</span>
+                  </legend>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {[0, ...TIP_PERCENTS, "other"].map((choice) => {
+                      const label = choice === 0 ? t.tipNone : choice === "other" ? t.tipOther : `${choice}% · ${money(Math.round((amount * choice) / 1000) * 10, lang)}`;
+                      return (
+                        <button
+                          key={choice}
+                          type="button"
+                          aria-pressed={tipChoice === choice}
+                          onClick={() => setTipChoice(choice)}
+                          className={`h-10 px-3 rounded-full text-xs border ${tipChoice === choice ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/70"}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {tipChoice === "other" && (
+                    <label className="block mt-3">
+                      <span className="text-xs text-cream-100/60">{t.tipOtherLabel}</span>
+                      <input
+                        value={tipText}
+                        onChange={(e) => setTipText(e.target.value)}
+                        inputMode="decimal"
+                        autoComplete="off"
+                        placeholder="2,00"
+                        className="mt-1 w-32 bg-ink-950 border border-gold-300/25 rounded-sm px-3 py-2 text-cream-50"
+                        aria-invalid={tipBad}
+                      />
+                    </label>
+                  )}
+                  {tipBad && <p role="alert" className="text-xs text-red-300 mt-2">{t.tipTooBig}</p>}
+                </fieldset>
+              )}
               {problem && <p role="alert" className="border border-red-300/30 bg-red-950/30 rounded-sm px-4 py-3 mt-4 text-sm text-cream-50">{problem}</p>}
               {payable.length === 0 ? (
                 <p className="mt-5 text-center text-sage-200">{t.billAllPaid}</p>
@@ -217,10 +274,10 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
                 <button
                   type="button"
                   onClick={pay}
-                  disabled={!selected.length || busy}
+                  disabled={!selected.length || busy || tipBad}
                   className="btn-gold w-full mt-5 py-4 rounded-sm text-sm tracking-[0.15em] uppercase font-medium"
                 >
-                  {busy ? t.toPayment : selected.length ? fill(t.payButton, { total: money(amount, lang) }) : t.chooseLines}
+                  {busy ? t.toPayment : selected.length ? fill(t.payButton, { total: money(amount + (tipBad ? 0 : tip), lang) }) : t.chooseLines}
                 </button>
               )}
             </>

@@ -260,3 +260,83 @@ function qr_new_code(PDO $pdo, int $now): string
     }
     throw new RuntimeException('no free order code');
 }
+
+/**
+ * Staff cancel part of an order — some or all of one line — rather than the
+ * whole order: "one of the three mojitos, we are out of mint". The rest of
+ * the order stands. In one write transaction:
+ *
+ *   - the line's void_qty grows, and the order's void_cents with it;
+ *   - paid on the phone: that amount is owed back (refund_due_cents) and
+ *     refunded right after the commit (qr_order_refund_due);
+ *   - on a table's bill: unpaid, it simply drops off the bill; paid on a
+ *     phone, it is owed back to whoever paid it (qr_bill_owe); paid on the
+ *     spot, the answer says how much to hand back (cashBack).
+ *
+ * The last thing left on an order is not cancelled this way — that is
+ * cancelling the order (409 last_line). $have is how many of the line the
+ * screen showed: if another tablet changed it first, 409 stale and nothing
+ * changes.
+ *
+ * Returns [httpStatus, body, refundTheOrder, billPaymentIdsOwed].
+ */
+function qr_void_line(int $id, int $line, int $qty, int $have, string $reason, int $now): array
+{
+    return qr_write(function (PDO $pdo) use ($id, $line, $qty, $have, $reason, $now) {
+        $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
+        $find->execute([$id]);
+        $order = $find->fetch();
+        $find->closeCursor();
+        if (!is_array($order)) {
+            return [404, ['ok' => false, 'error' => 'not_found'], false, []];
+        }
+        $stmt = $pdo->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');
+        $stmt->execute([$id]);
+        $target = null;
+        $left = 0;
+        foreach ($stmt->fetchAll() as $item) {
+            $left += (int) $item['qty'] - (int) $item['void_qty'];
+            if ((int) $item['line'] === $line) {
+                $target = $item;
+            }
+        }
+        if (!in_array($order['status'], ['new', 'accepted', 'served'], true) || $target === null
+            || (int) $target['qty'] - (int) $target['void_qty'] !== $have) {
+            return [409, ['ok' => false, 'error' => 'stale', 'order' => qr_order_json($order)], false, []];
+        }
+        if ($qty > $have) {
+            return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'qty'], false, []];
+        }
+        if ($left - $qty < 1) {
+            return [409, ['ok' => false, 'error' => 'last_line', 'order' => qr_order_json($order)], false, []];
+        }
+        $amount = (int) $target['unit_cents'] * $qty;
+        $paid = $order['pay_status'] === 'paid';
+        $seq = qr_bump_seq($pdo);
+        $pdo->prepare('UPDATE order_items SET void_qty = void_qty + ?, void_reason = ? WHERE order_id = ? AND line = ?')
+            ->execute([$qty, $reason, $id, $line]);
+        $pdo->prepare('UPDATE orders SET void_cents = void_cents + ?, refund_due_cents = refund_due_cents + ?, updated_at = ?, seq = ? WHERE id = ?')
+            ->execute([$amount, $paid ? $amount : 0, $now, $seq, $id]);
+        $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$id, $order['status'], $order['status'], 'line ' . ($line + 1) . ' -' . $qty . ': ' . $reason, $now]);
+        $owed = [];
+        $cashBack = 0;
+        if ((int) $order['tab_id'] > 0) {
+            if ($target['paid_via'] === 'online') {
+                qr_bill_owe($pdo, (int) $target['bill_payment_id'], $amount, $seq);
+                $owed[] = (int) $target['bill_payment_id'];
+            } elseif ($target['paid_via'] === 'staff') {
+                $cashBack = $amount;
+            }
+            qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
+        }
+        $find->execute([$id]);
+        $order = $find->fetch();
+        $find->closeCursor();
+        $body = ['ok' => true, 'order' => qr_order_json($order), 'amount' => $amount];
+        if ($cashBack > 0) {
+            $body['cashBack'] = $cashBack;
+        }
+        return [200, $body, $paid, $owed];
+    });
+}

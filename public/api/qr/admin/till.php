@@ -13,6 +13,11 @@
 // Only for what was paid on the phone. Every tick takes a change number, so
 // every tablet's list agrees.
 //
+// What is entered is the net amount at the time (till_cents). A refund after
+// that — the whole order, or one line of it — leaves the entry above the
+// net: the difference is to void, and ticking it records what was voided
+// (till_void_cents), so a later refund shows up again for its own amount.
+//
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
 
 declare(strict_types=1);
@@ -46,16 +51,17 @@ if (array_key_exists('paymentId', $body)) {
         if (!is_array($p)) {
             return [404, ['ok' => false, 'error' => 'not_found']];
         }
-        $net = (int) $p['amount_cents'] - (int) $p['refund_due_cents'];
-        if ($column === 'till_void_at' && ((int) $p['till_at'] === 0 || $net >= (int) $p['till_cents'])) {
+        $net = qr_bill_payment_json($p)['net'];
+        if ($column === 'till_void_at' && $value && ((int) $p['till_at'] === 0 || (int) $p['till_cents'] - (int) $p['till_void_cents'] <= $net)) {
             return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_json($p)]];
         }
         $seq = qr_bump_seq($pdo);
         if ($column === 'till_at') {
-            $pdo->prepare('UPDATE bill_payments SET till_at = ?, till_cents = ?, seq = ? WHERE id = ?')
+            $pdo->prepare('UPDATE bill_payments SET till_at = ?, till_cents = ?, till_void_at = 0, till_void_cents = 0, seq = ? WHERE id = ?')
                 ->execute([$value ? $now : 0, $value ? $net : 0, $seq, $paymentId]);
         } else {
-            $pdo->prepare('UPDATE bill_payments SET till_void_at = ?, seq = ? WHERE id = ?')->execute([$value ? $now : 0, $seq, $paymentId]);
+            $pdo->prepare('UPDATE bill_payments SET till_void_at = ?, till_void_cents = ?, seq = ? WHERE id = ?')
+                ->execute([$value ? $now : 0, $value ? (int) $p['till_cents'] - $net : 0, $seq, $paymentId]);
         }
         $find->execute([$paymentId]);
         $p = $find->fetch();
@@ -68,14 +74,22 @@ list($status, $response) = qr_write(function (PDO $pdo) use ($id, $column, $valu
     $find = $pdo->prepare('SELECT * FROM orders WHERE id = ?');
     $find->execute([$id]);
     $order = $find->fetch();
+    $find->closeCursor();
     if (!is_array($order) || !in_array($order['pay_status'], ['paid', 'refunded'], true)) {
         return [404, ['ok' => false, 'error' => 'not_found']];
     }
-    if ($column === 'till_void_at' && ($order['pay_status'] !== 'refunded' || (int) $order['till_at'] === 0)) {
+    $net = qr_order_json($order, false)['net'];
+    if ($column === 'till_void_at' && $value && ((int) $order['till_at'] === 0 || (int) $order['till_cents'] - (int) $order['till_void_cents'] <= $net)) {
         return [409, ['ok' => false, 'error' => 'not_voidable', 'order' => qr_order_json($order)]];
     }
     $seq = qr_bump_seq($pdo);
-    $pdo->prepare("UPDATE orders SET $column = ?, seq = ? WHERE id = ?")->execute([$value ? $now : 0, $seq, $id]);
+    if ($column === 'till_at') {
+        $pdo->prepare('UPDATE orders SET till_at = ?, till_cents = ?, till_void_at = 0, till_void_cents = 0, seq = ? WHERE id = ?')
+            ->execute([$value ? $now : 0, $value ? $net : 0, $seq, $id]);
+    } else {
+        $pdo->prepare('UPDATE orders SET till_void_at = ?, till_void_cents = ?, seq = ? WHERE id = ?')
+            ->execute([$value ? $now : 0, $value ? (int) $order['till_cents'] - $net : 0, $seq, $id]);
+    }
     $find->execute([$id]);
     return [200, ['ok' => true, 'order' => qr_order_json($find->fetch())]];
 });

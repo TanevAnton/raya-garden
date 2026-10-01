@@ -8,7 +8,8 @@
 //
 // Orders still waiting for (or never given) a phone payment are not staff
 // business and are left out. Paid orders still to be entered in the till —
-// or voided there after a refund — are always included, however old.
+// or voided there after a refund, or still owed a refund — are always
+// included, however old.
 //
 // The read is one snapshot (BEGIN … COMMIT), so the counter and the rows
 // agree. A screen that was offline for a minute simply asks with its old
@@ -36,8 +37,9 @@ try {
         $stmt = $pdo->prepare("SELECT * FROM orders
             WHERE status NOT IN ('pending_payment', 'expired')
               AND (created_at > ? OR status IN ('new', 'accepted')
-                   OR (pay_status = 'paid' AND till_at = 0)
-                   OR (pay_status = 'refunded' AND till_at > 0 AND till_void_at = 0))
+                   OR (pay_status = 'paid' AND (till_at = 0 OR refund_due_cents > refunded_cents))
+                   OR (till_at > 0 AND till_cents - till_void_cents >
+                       CASE WHEN pay_status = 'paid' THEN total_cents - void_cents ELSE 0 END))
             ORDER BY created_at");
         $stmt->execute([$now - 172800]);
     } else {
@@ -65,7 +67,7 @@ try {
     if ($since === 0) {
         $stmt = $pdo->prepare("SELECT * FROM bill_payments WHERE status = 'paid'
             AND (paid_at > ? OR till_at = 0 OR refund_due_cents > refunded_cents
-                 OR (till_at > 0 AND till_void_at = 0 AND amount_cents - refund_due_cents < till_cents)) ORDER BY paid_at");
+                 OR (till_at > 0 AND till_cents - till_void_cents > amount_cents - min(refund_due_cents, amount_cents))) ORDER BY paid_at");
         $stmt->execute([$now - 172800]);
     } else {
         $stmt = $pdo->prepare("SELECT * FROM bill_payments WHERE status = 'paid' AND seq > ? ORDER BY paid_at");

@@ -18,6 +18,10 @@
 // A tab belongs to a table and an evening (the service date). A new evening
 // starts new tabs; a tab staff closed starts a new one on the next order.
 //
+// A payment can carry a tip (tip_cents), on top of the lines it pays for:
+// its own line on Stripe's page, kept apart from the till amount, and
+// refunded only if nothing the payment paid for still stands.
+//
 // ⚠ PHP 7.3 on the production host — see core.php.
 
 declare(strict_types=1);
@@ -29,6 +33,8 @@ if (!defined('RAYA_QR')) {
 
 const QR_BILL_ATTEMPTS = 10;     // payment attempts per table per 5 minutes
 const QR_BILL_PENDING_HINT = 600; // "being paid…" shown for 10 minutes at most
+const QR_TIP_MAX = 50000;         // a tip: at most 500 € …
+// … and at most the amount it is added to; anything more is a slip of the finger.
 
 /** The open tab of a table tonight, or null; with $create, made if missing. Inside qr_write() only. */
 function qr_open_tab(PDO $pdo, int $table, string $evening, bool $create, int $now)
@@ -79,6 +85,12 @@ function qr_tab_lines(PDO $pdo, int $tabId, int $now): array
     }
     $lines = [];
     foreach ($rows as $r) {
+        // Staff can cancel part of a line (or all of it): only what is left
+        // is on the bill.
+        $qty = (int) $r['qty'] - (int) $r['void_qty'];
+        if ($qty <= 0) {
+            continue;
+        }
         $state = $r['paid_via'] === 'online' || $r['paid_via'] === 'staff' ? $r['paid_via'] : 'unpaid';
         if ($state === 'unpaid' && isset($busy[$r['order_id'] . ':' . $r['line']])) {
             $state = 'pending';
@@ -92,9 +104,9 @@ function qr_tab_lines(PDO $pdo, int $tabId, int $now): array
             'detailBg' => (string) $r['detail_bg'],
             'detailEn' => (string) $r['detail_en'],
             'size' => (string) $r['size'],
-            'qty' => (int) $r['qty'],
+            'qty' => $qty,
             'price' => (int) $r['unit_cents'],
-            'amount' => (int) $r['unit_cents'] * (int) $r['qty'],
+            'amount' => (int) $r['unit_cents'] * $qty,
             'state' => $state,
             'orderedAt' => (int) $r['created_at'],
             // The name the guest gave when ordering, if any: "Мария: 2 × бира".
@@ -144,13 +156,21 @@ function qr_tab_json(PDO $pdo, array $tab, int $now, bool $forStaff): array
 
 function qr_bill_payment_json(array $p): array
 {
+    // What is owed back covers lines first; only a payment left with no
+    // lines at all gives its tip back too (see qr_bill_owe).
+    $amount = (int) $p['amount_cents'];
+    $due = (int) $p['refund_due_cents'];
+    $tip = (int) ($p['tip_cents'] ?? 0);
     return [
         'id' => (int) $p['id'],
         'code' => (string) $p['code'],
         'tabId' => (int) $p['tab_id'],
         'table' => (int) $p['table_no'],
         'status' => (string) $p['status'],
-        'amount' => (int) $p['amount_cents'],
+        'amount' => $amount,
+        // The tip on top of the lines, and what is left of it after refunds.
+        'tip' => $tip,
+        'tipNet' => $tip - max(0, $due - $amount),
         'overlap' => (int) $p['overlap_cents'],
         'refundDue' => (int) $p['refund_due_cents'] - (int) $p['refunded_cents'],
         'refunded' => (int) $p['refunded_cents'],
@@ -158,26 +178,36 @@ function qr_bill_payment_json(array $p): array
         'createdAt' => (int) $p['created_at'],
         'paidAt' => (int) $p['paid_at'],
         'payerName' => (string) ($p['payer_name'] ?? ''),
-        // For the till: what the payment comes to after what is owed back,
-        // and what was entered in Clock.
-        'net' => (int) $p['amount_cents'] - (int) $p['refund_due_cents'],
+        // For the till: what the lines come to after what is owed back (the
+        // tip is shown apart), what was entered in Clock, and voided there.
+        'net' => $amount - min($due, $amount),
         'tillAt' => (int) $p['till_at'],
         'tillCents' => (int) $p['till_cents'],
         'tillVoidAt' => (int) $p['till_void_at'],
+        'tillVoidCents' => (int) ($p['till_void_cents'] ?? 0),
         'seq' => (int) $p['seq'],
     ];
 }
 
-/** A payment's lines, for the till list and the payment page. */
+/**
+ * A payment's lines, for the till list and the payment page. qty is how many
+ * the payment covered when it was made — the line's amount then, over its
+ * unit price — whatever staff cancelled of the line since.
+ */
 function qr_bill_payment_lines(PDO $pdo, int $paymentId): array
 {
-    $stmt = $pdo->prepare('SELECT i.qty, i.unit_cents, i.name_bg, i.name_en, i.detail_bg, i.detail_en, i.size, o.code, b.amount_cents
+    $stmt = $pdo->prepare('SELECT i.unit_cents, i.name_bg, i.name_en, i.detail_bg, i.detail_en, i.size, o.code, b.amount_cents
         FROM bill_payment_items b
         JOIN order_items i ON i.order_id = b.order_id AND i.line = b.line
         JOIN orders o ON o.id = b.order_id
         WHERE b.payment_id = ? ORDER BY b.order_id, b.line');
     $stmt->execute([$paymentId]);
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$row) {
+        $row['qty'] = (int) $row['unit_cents'] > 0 ? intdiv((int) $row['amount_cents'], (int) $row['unit_cents']) : 1;
+    }
+    unset($row);
+    return $rows;
 }
 
 /**
@@ -186,7 +216,9 @@ function qr_bill_payment_lines(PDO $pdo, int $paymentId): array
  * afterwards (qr_bill_checkout), outside the lock.
  *
  * Body: {"table": 7, "items": [{"code": "R-4K7Q", "line": 0}, …],
- *        "expectedAmount": 2380, "lang": "bg"}
+ *        "expectedAmount": 2380, "tip": 240, "lang": "bg"}
+ * expectedAmount is the lines' total as the guest saw it; tip (optional,
+ * cents) goes on top, at most the lines' total and QR_TIP_MAX.
  * Returns [httpStatus, body].
  */
 function qr_bill_pay(array $body, string $idemKey, int $now): array
@@ -207,9 +239,14 @@ function qr_bill_pay(array $body, string $idemKey, int $now): array
     ksort($picked);
     $lang = ($body['lang'] ?? 'bg') === 'en' ? 'en' : 'bg';
     $expected = $body['expectedAmount'] ?? null;
-    $payloadHash = hash('sha256', json_encode([$table, array_keys($picked)]));
+    $tip = $body['tip'] ?? 0;
+    if (!is_int($tip) || $tip < 0 || $tip > QR_TIP_MAX || (is_int($expected) && $tip > $expected)) {
+        return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
+    }
+    // Without a tip the hash is what it always was.
+    $payloadHash = hash('sha256', json_encode($tip > 0 ? [$table, array_keys($picked), $tip] : [$table, array_keys($picked)]));
 
-    return qr_write(function (PDO $pdo) use ($table, $picked, $lang, $expected, $payloadHash, $idemKey, $now) {
+    return qr_write(function (PDO $pdo) use ($table, $picked, $lang, $expected, $tip, $payloadHash, $idemKey, $now) {
         $token = hash_hmac('sha256', 'bill|' . $idemKey, qr_secret());
         $find = $pdo->prepare('SELECT * FROM bill_payments WHERE idem_key = ?');
         $find->execute([$idemKey]);
@@ -261,9 +298,9 @@ function qr_bill_pay(array $body, string $idemKey, int $now): array
         $seq = qr_bump_seq($pdo);
         $code = qr_bill_code($pdo, $now);
         $pdo->prepare('INSERT INTO bill_payments
-            (code, tab_id, table_no, token_hash, idem_key, payload_hash, amount_cents, lang, ip_hash, created_at, seq)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$code, (int) $tab['id'], $table, hash('sha256', $token), $idemKey, $payloadHash, $amount, $lang, qr_ip_hash(), $now, $seq]);
+            (code, tab_id, table_no, token_hash, idem_key, payload_hash, amount_cents, tip_cents, lang, ip_hash, created_at, seq)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$code, (int) $tab['id'], $table, hash('sha256', $token), $idemKey, $payloadHash, $amount, $tip, $lang, qr_ip_hash(), $now, $seq]);
         $paymentId = (int) $pdo->lastInsertId();
         $insert = $pdo->prepare('INSERT INTO bill_payment_items (payment_id, order_id, line, amount_cents) VALUES (?, ?, ?, ?)');
         foreach ($picked as $key => $p) {
@@ -333,14 +370,22 @@ function qr_bill_checkout(int $paymentId, int $now): string
         'line_items' => [],
     ];
     foreach (qr_bill_payment_lines($pdo, $paymentId) as $line) {
-        $name = $lang === 'en' ? $line['name_en'] : $line['name_bg'];
-        $detail = trim(($lang === 'en' ? $line['detail_en'] : $line['detail_bg']) . ' ' . $line['size']);
         $params['line_items'][] = [
             'quantity' => (int) $line['qty'],
             'price_data' => [
                 'currency' => 'eur',
                 'unit_amount' => (int) $line['unit_cents'],
-                'product_data' => ['name' => $detail !== '' ? $name . ' · ' . $detail : $name],
+                'product_data' => ['name' => qr_stripe_line_name($line, $lang)],
+            ],
+        ];
+    }
+    if ((int) $p['tip_cents'] > 0) {
+        $params['line_items'][] = [
+            'quantity' => 1,
+            'price_data' => [
+                'currency' => 'eur',
+                'unit_amount' => (int) $p['tip_cents'],
+                'product_data' => ['name' => $lang === 'en' ? 'Tip for the team' : 'Бакшиш за екипа'],
             ],
         ];
     }
@@ -350,7 +395,7 @@ function qr_bill_checkout(int $paymentId, int $now): string
             . ' ' . (string) ($session['error']['code'] ?? $session['error']['message'] ?? ''));
         return '';
     }
-    if ((int) ($session['amount_total'] ?? -1) !== (int) $p['amount_cents']) {
+    if ((int) ($session['amount_total'] ?? -1) !== (int) $p['amount_cents'] + (int) $p['tip_cents']) {
         error_log('raya-qr: checkout session ' . $session['id'] . ' total differs from bill payment ' . $paymentId);
         return '';
     }
@@ -419,15 +464,16 @@ function qr_bill_event(PDO $pdo, string $type, array $object, int $now)
         if (($object['payment_status'] ?? '') !== 'paid' || $p['status'] === 'paid') {
             return null;
         }
-        if ((int) ($object['amount_total'] ?? -1) !== (int) $p['amount_cents'] || ($object['currency'] ?? '') !== 'eur') {
+        if ((int) ($object['amount_total'] ?? -1) !== (int) $p['amount_cents'] + (int) $p['tip_cents'] || ($object['currency'] ?? '') !== 'eur') {
             error_log('raya-qr: paid session ' . $object['id'] . ' does not match bill payment ' . $id);
             return null;
         }
         $seq = qr_bump_seq($pdo);
         // First confirmed payment wins a line. A line that is no longer
         // unpaid — paid by someone else meanwhile, settled by staff, or its
-        // order cancelled — is owed back to this payer.
-        $items = $pdo->prepare("SELECT b.*, i.paid_via, o.status AS order_status FROM bill_payment_items b
+        // order cancelled — is owed back to this payer; so is any part of a
+        // line staff cancelled while the guest was paying.
+        $items = $pdo->prepare("SELECT b.*, i.paid_via, i.unit_cents, i.qty, i.void_qty, o.status AS order_status FROM bill_payment_items b
             JOIN order_items i ON i.order_id = b.order_id AND i.line = b.line
             JOIN orders o ON o.id = b.order_id WHERE b.payment_id = ?");
         $items->execute([$id]);
@@ -435,16 +481,19 @@ function qr_bill_event(PDO $pdo, string $type, array $object, int $now)
         $mark = $pdo->prepare("UPDATE order_items SET paid_via = 'online', bill_payment_id = ? WHERE order_id = ? AND line = ? AND paid_via = ''");
         $touchOrder = $pdo->prepare('UPDATE orders SET seq = ?, updated_at = ? WHERE id = ?');
         foreach ($items->fetchAll() as $item) {
-            if ($item['paid_via'] !== '' || !in_array($item['order_status'], ['new', 'accepted', 'served'], true)) {
+            $standing = (int) $item['unit_cents'] * ((int) $item['qty'] - (int) $item['void_qty']);
+            if ($item['paid_via'] !== '' || $standing <= 0 || !in_array($item['order_status'], ['new', 'accepted', 'served'], true)) {
                 $overlap += (int) $item['amount_cents'];
                 continue;
             }
+            $overlap += max(0, (int) $item['amount_cents'] - $standing);
             $mark->execute([$id, $item['order_id'], $item['line']]);
             $touchOrder->execute([$seq, $now, $item['order_id']]);
         }
         $pdo->prepare("UPDATE bill_payments SET status = 'paid', paid_at = ?, payment_intent = ?, payer_name = ?, checkout_url = '',
-            overlap_cents = ?, refund_due_cents = refund_due_cents + ?, seq = ? WHERE id = ?")
-            ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $overlap, $overlap, $seq, $id]);
+            overlap_cents = ?, seq = ? WHERE id = ?")
+            ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $overlap, $seq, $id]);
+        qr_bill_owe($pdo, $id, $overlap, $seq);
         qr_touch_tab($pdo, (int) $p['tab_id'], $seq);
         return $overlap > 0 ? $id : null;
     }
@@ -510,17 +559,43 @@ function qr_bill_refund_due(int $paymentId): bool
  */
 function qr_bill_cancel_order(PDO $pdo, array $order, int $seq): array
 {
-    $stmt = $pdo->prepare("SELECT bill_payment_id, SUM(unit_cents * qty) AS amount FROM order_items
+    // What staff cancelled line by line before is owed back already.
+    $stmt = $pdo->prepare("SELECT bill_payment_id, SUM(unit_cents * (qty - void_qty)) AS amount FROM order_items
         WHERE order_id = ? AND paid_via = 'online' GROUP BY bill_payment_id");
     $stmt->execute([$order['id']]);
     $owed = $stmt->fetchAll();
-    $due = $pdo->prepare('UPDATE bill_payments SET refund_due_cents = refund_due_cents + ?, seq = ? WHERE id = ?');
     $ids = [];
     foreach ($owed as $o) {
-        $due->execute([(int) $o['amount'], $seq, $o['bill_payment_id']]);
-        $ids[] = (int) $o['bill_payment_id'];
+        if ((int) $o['amount'] > 0) {
+            qr_bill_owe($pdo, (int) $o['bill_payment_id'], (int) $o['amount'], $seq);
+            $ids[] = (int) $o['bill_payment_id'];
+        }
     }
     $pdo->prepare("UPDATE order_items SET paid_via = 'refunded' WHERE order_id = ? AND paid_via = 'online'")->execute([$order['id']]);
     qr_touch_tab($pdo, (int) $order['tab_id'], $seq);
     return $ids;
+}
+
+/**
+ * A bill payment now owes $cents more back to its payer: lines paid twice,
+ * cancelled, or cut short by staff. Once nothing of what it paid for still
+ * stands, its tip goes back too — a tip for nothing is not a tip. Inside a
+ * write transaction; the refund itself is qr_bill_refund_due(), after it.
+ */
+function qr_bill_owe(PDO $pdo, int $paymentId, int $cents, int $seq)
+{
+    if ($cents <= 0) {
+        return;
+    }
+    $find = $pdo->prepare('SELECT amount_cents, tip_cents, refund_due_cents FROM bill_payments WHERE id = ?');
+    $find->execute([$paymentId]);
+    $p = $find->fetch();
+    $find->closeCursor();
+    if (!is_array($p)) {
+        return;
+    }
+    $amount = (int) $p['amount_cents'];
+    $lines = min($amount, min((int) $p['refund_due_cents'], $amount) + $cents);
+    $due = $lines + ($lines >= $amount ? (int) $p['tip_cents'] : 0);
+    $pdo->prepare('UPDATE bill_payments SET refund_due_cents = ?, seq = ? WHERE id = ?')->execute([$due, $seq, $paymentId]);
 }

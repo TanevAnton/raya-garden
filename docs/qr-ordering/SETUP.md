@@ -112,6 +112,10 @@ runs once, inside a transaction.
    - The server also checks that the amount paid is the order's total.
 4. **Cancelling a paid order refunds it in full, automatically.** If the refund
    fails, the order is **not** cancelled, and staff try again.
+   **Taking one line off** ("Няма") refunds just that line (or the part of it
+   taken off); the rest of the order goes on. If that refund fails, the line
+   is off anyway and the order card shows "Дължим на госта …" with
+   *Върни сега*.
 5. **An unpaid order never reaches staff.** The guest has an hour to pay, and
    after that Stripe closes the payment page.
 6. **"За касата"** lists every paid order still to be entered in the till
@@ -207,7 +211,17 @@ Choose *Сметка накрая* in `/admin` → **Вечерта**.
   confirms gets a line. Anyone who paid for the same line at the same moment
   gets that share back automatically, as a partial refund.
 - **Cancelling an order** refunds its already-paid lines to whoever paid
-  them.
+  them. **Taking one line off** ("Няма" on the order card) does the same
+  for just that line, or part of it.
+- **Tips.** When paying, a guest can add a tip: none (the default), 5, 10 or
+  15 %, or an amount of their own, at most what they are paying for. It is
+  its own line on Stripe's page and stays apart from the bill everywhere:
+  on the table's card in **Сметки**, next to the payment in **За касата**,
+  and as a total for the day at the top of **За касата**. If everything a
+  payment covered is refunded, its tip is refunded too.
+
+  ⚠ **Ask the accountant how card tips go through the till and payroll**
+  before the first real evening with tips.
 - **Refunds that fail** stay on the table's card in **Сметки**
   ("Дължим на госта …") with *Върни сега* until they succeed.
 - **Staff, in Сметки:**
@@ -217,8 +231,8 @@ Choose *Сметка накрая* in `/admin` → **Вечерта**.
     table's next order starts a new one.
   - A new evening starts new bills too.
 - **For the till:** each payment from a bill (code `P-…`) goes on
-  **За касата** at its net amount. A refund made after it was entered shows
-  up there to void.
+  **За касата** at its net amount, without the tip. A refund made after it
+  was entered shows up there to void, for its own amount.
 - **Anyone who picks table 7 can see table 7's bill**: items and prices,
   never notes. That is the same trust as picking the table itself.
 
@@ -252,12 +266,17 @@ the phone.
 - **Old orders** keep the names and prices they were placed with.
 - **On the night,** staff mark items sold out in **Изчерпани**, with no deploy
   needed.
+- **Sizes and choices.** An item with several `variants` (50 ml / 100 ml)
+  shows a button for each; `bg` is the label in Bulgarian, with Cyrillic
+  units (`"100 мл"`). The spirits' 100 ml is twice the 50 ml price; change
+  any one of them in the file. `choices` (the Coca-Cola drinks, the fresh
+  juice's fruit) are picked after tapping Добави and cost the same.
 
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 60 tests, 30 of them paying against a fake Stripe (needs php with pdo_sqlite)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 16 tests
+npm run test:qr            # API: 78 tests, 43 of them paying against a fake Stripe (needs php with pdo_sqlite)
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 17 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

@@ -43,8 +43,8 @@ const order = async (c, table, lines) => {
 };
 const bill = async (c, table, tokens = []) => (await c.get(`/api/qr/bill.php?table=${table}${tokens.length ? `&t=${tokens.join(",")}` : ""}`)).body;
 /** Start paying: lines as [code, line] pairs. */
-const pay = (c, table, lines, { key = newKey(), amount } = {}) =>
-  c.post("/api/qr/bill-pay.php", { table, lang: "bg", items: lines.map(([code, line]) => ({ code, line })), expectedAmount: amount }, { headers: { "Idempotency-Key": key } });
+const pay = (c, table, lines, { key = newKey(), amount, tip } = {}) =>
+  c.post("/api/qr/bill-pay.php", { table, lang: "bg", items: lines.map(([code, line]) => ({ code, line })), expectedAmount: amount, ...(tip !== undefined ? { tip } : {}) }, { headers: { "Idempotency-Key": key } });
 const sessionOf = (res) => stripe.sessions.get(new URL(res.body.checkoutUrl).pathname.slice(5));
 const feed = async (admin, since = 0) => (await admin.get(`/api/qr/admin/feed.php?since=${since}`)).body;
 const lines = (b) => b.bill.lines.map((l) => [l.code, l.line, l.state]);
@@ -279,6 +279,115 @@ describe("a table's bill: staff", () => {
     assert.equal(after.net, 0);
     const voided = await admin.admin("/api/qr/admin/till.php", { paymentId: payment.id, voided: true });
     assert.equal(voided.status, 200);
+  });
+});
+
+describe("a table's bill: staff take one line off", () => {
+  const voidLine = (admin, id, line, qty, have, reason = "Изчерпан продукт") =>
+    admin.admin("/api/qr/admin/order.php", { id, action: "void", line, qty, have, reason });
+
+  it("unpaid, it just leaves the bill; paid on a phone, it goes back to whoever paid; paid on the spot, staff are told to hand it back", async () => {
+    const admin = await setUp();
+    const ana = await order(phone(), 5, [["tiramisu"], ["illy-coffee", "std", 3]]);
+    const ben = await order(phone(), 5, [["caesar", "chicken", 1], ["illy-coffee", "std", 2]]);
+
+    // Unpaid: one coffee of three off the bill.
+    const v = await voidLine(admin, ana.order.id, 1, 1, 3);
+    assert.equal(v.status, 200, v.text);
+    assert.equal(stripe.calls("/v1/refunds").length, 0);
+    let b = await bill(phone(), 5);
+    assert.equal(b.bill.lines.find((l) => l.code === ana.order.code && l.line === 1).qty, 2);
+    const total = price("tiramisu") + 2 * price("illy-coffee") + price("caesar", "chicken") + 2 * price("illy-coffee");
+    assert.equal(b.bill.totals.total, total);
+
+    // Ben pays for Ana's tiramisu and his own salad; then the tiramisu is off.
+    const p = await pay(phone(), 5, [[ana.order.code, 0], [ben.order.code, 0]], { amount: price("tiramisu") + price("caesar", "chicken") });
+    assert.equal(p.status, 201, p.text);
+    await stripe.pay(sessionOf(p).id);
+    const t = await voidLine(admin, ana.order.id, 0, 1, 1, "Изгоряло");
+    assert.equal(t.status, 200, t.text);
+    assert.equal(stripe.refunded(sessionOf(p).payment_intent), price("tiramisu"), "back to Ben, who paid it");
+    b = await bill(phone(), 5, [p.body.token]);
+    assert.ok(!b.bill.lines.some((l) => l.code === ana.order.code && l.line === 0), "gone from the bill");
+    assert.equal(b.payments[0].refunded, price("tiramisu"));
+
+    // The rest settled on the spot; then one of Ben's coffees goes: cash back.
+    const tabId = (await feed(admin)).tabs[0].id;
+    await admin.admin("/api/qr/admin/bill.php", { action: "settle", tabId });
+    const c = await voidLine(admin, ben.order.id, 1, 1, 2, "Гостът се отказа");
+    assert.equal(c.status, 200);
+    assert.equal(c.body.cashBack, price("illy-coffee"));
+    const tab = (await feed(admin)).tabs[0];
+    assert.equal(tab.totals.paidStaff, 3 * price("illy-coffee"), "what staff took, less what they hand back");
+    assert.equal(tab.totals.unpaid, 0);
+  });
+
+  it("taken off while someone is paying for it: that part comes back to them", async () => {
+    const admin = await setUp();
+    const ana = await order(phone(), 5, [["tiramisu"], ["illy-coffee", "std", 2]]);
+    const p = await pay(phone(), 5, [[ana.order.code, 1]], { amount: 2 * price("illy-coffee") });
+    assert.equal((await voidLine(admin, ana.order.id, 1, 1, 2)).status, 200);
+    await stripe.pay(sessionOf(p).id);
+    const payment = (await feed(admin)).billPayments[0];
+    assert.equal(payment.net, price("illy-coffee"), "one coffee paid for");
+    assert.equal(stripe.refunded(sessionOf(p).payment_intent), price("illy-coffee"), "the other one back");
+    const b = await bill(phone(), 5);
+    assert.deepEqual(b.bill.lines.map((l) => [l.line, l.qty, l.state]), [[0, 1, "unpaid"], [1, 1, "online"]]);
+  });
+});
+
+describe("a table's bill: tips", () => {
+  it("a tip goes on top: its own line on Stripe's page, apart from the till amount", async () => {
+    const admin = await setUp();
+    const ana = await order(phone(), 5, [["tiramisu"]]);
+    const p = await pay(phone(), 5, [[ana.order.code, 0]], { amount: price("tiramisu"), tip: 100 });
+    assert.equal(p.status, 201, p.text);
+    const session = sessionOf(p);
+    assert.equal(session.amount_total, price("tiramisu") + 100);
+    const [call] = stripe.calls("/v1/checkout/sessions");
+    const items = Object.values(call.params.line_items);
+    assert.deepEqual(items.at(-1), { quantity: "1", price_data: { currency: "eur", unit_amount: "100", product_data: { name: "Бакшиш за екипа" } } });
+    await stripe.pay(session.id);
+    const payment = (await feed(admin)).billPayments[0];
+    assert.deepEqual([payment.amount, payment.tip, payment.tipNet, payment.net], [price("tiramisu"), 100, 100, price("tiramisu")]);
+    const mine = (await bill(phone(), 5, [p.body.token])).payments[0];
+    assert.deepEqual([mine.amount, mine.tip], [price("tiramisu"), 100], "the guest sees what they tipped");
+    const entered = await admin.admin("/api/qr/admin/till.php", { paymentId: payment.id, entered: true });
+    assert.equal(entered.body.payment.tillCents, price("tiramisu"), "the till gets the bill, not the tip");
+  });
+
+  it("a tip is at most what it is added to, and whole cents", async () => {
+    await setUp();
+    const ana = await order(phone(), 5, [["tiramisu"]]);
+    const lines = [[ana.order.code, 0]];
+    for (const tip of [price("tiramisu") + 1, -10, 1.5, "100"]) {
+      const res = await pay(phone(), 5, lines, { amount: price("tiramisu"), tip });
+      assert.equal(res.status, 400, `tip ${tip}`);
+      assert.equal(res.body.field, "tip");
+    }
+    const key = newKey();
+    assert.equal((await pay(phone(), 5, lines, { amount: price("tiramisu"), tip: 50, key })).status, 201);
+    assert.equal((await pay(phone(), 5, lines, { amount: price("tiramisu"), tip: 90, key })).status, 409, "same attempt, another tip: refused");
+    assert.equal((await pay(phone(), 5, lines, { amount: price("tiramisu"), tip: 50, key })).status, 200, "same attempt again: the same payment");
+  });
+
+  it("a payment that ends up paying for nothing gets its tip back too", async () => {
+    const admin = await setUp();
+    const ana = await order(phone(), 5, [["tiramisu"], ["illy-coffee"]]);
+    const first = await pay(phone(), 5, [[ana.order.code, 0]], { amount: price("tiramisu") });
+    const second = await pay(phone(), 5, [[ana.order.code, 0]], { amount: price("tiramisu"), tip: 200 });
+    await stripe.pay(sessionOf(first).id);
+    await stripe.pay(sessionOf(second).id);
+    assert.equal(stripe.refunded(sessionOf(second).payment_intent), price("tiramisu") + 200, "all of it");
+    const paid = await pay(phone(), 5, [[ana.order.code, 1]], { amount: price("illy-coffee"), tip: 50 });
+    await stripe.pay(sessionOf(paid).id);
+    // Ana's coffee taken off after she paid it with a tip: nothing she paid
+    // for stands any more, so the tip goes back with it.
+    const v = await admin.admin("/api/qr/admin/order.php", { id: ana.order.id, action: "void", line: 1, qty: 1, have: 1, reason: "Изчерпан продукт" });
+    assert.equal(v.status, 200, v.text);
+    assert.equal(stripe.refunded(sessionOf(paid).payment_intent), price("illy-coffee") + 50);
+    const payment = (await feed(admin)).billPayments.find((x) => x.code === paid.body.payment.code);
+    assert.deepEqual([payment.net, payment.tipNet], [0, 0]);
   });
 });
 

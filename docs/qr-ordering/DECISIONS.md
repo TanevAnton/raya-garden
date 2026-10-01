@@ -338,6 +338,67 @@ of eight people it is for, or who paid.
   names, the 3 days and Stripe as a recipient; the cookie policy lists the
   menu's tab storage and the staff cookie.
 
+## One line off, tips, 100 ml, added 01.10.2026
+
+### Taking one line off an order
+
+**Why.** One thing missing from a six-item order used to mean cancelling all
+of it (a full refund) and ordering again.
+
+**How.** "Няма" on a line of the order card: how many (for "3 × mojito"), a
+reason the guest sees, then confirm. The line keeps its quantity;
+`void_qty` says how much of it is off, and the order's `void_cents` what
+that came to.
+
+- **The money follows the payment mode.** Paid to staff: the total shown
+  drops. Paid on the phone: that amount is owed back (`refund_due_cents`)
+  and refunded at once. On a bill: off the bill if unpaid; owed back to
+  whoever paid it if paid on a phone; "hand back X" to staff if paid on the
+  spot.
+- **Off first, refunded after, retried until done.** A whole cancelled order
+  is refunded before it is cancelled (so it is never cancelled unrefunded).
+  A single line works the other way, as bills already do: the line is off at
+  once, and a refund that fails stays owed on the card with *Върни сега*. A
+  kitchen that has run out shouldn't wait on Stripe. The refund's
+  idempotency key names the amount refunded before, so a retry or two
+  tablets make one refund.
+- **"have" guards the race.** The request says how many the screen showed.
+  If another tablet changed the line first, the answer is 409 and nothing
+  happens.
+- **The last thing left can't be taken off**: that is cancelling the order,
+  with its own reason and its own full refund.
+- **The till keeps a running total.** `till_cents` is what was entered,
+  `till_void_cents` what was voided since. Anything the entry is above the
+  net amount is to void, so a second line taken off after the first void
+  shows up again, for its own amount. This now holds for bill payments too.
+
+### Tips on the bill
+
+- **Only on the bill**, where the guest pays at the end. Paying "on the
+  phone" happens before the food arrives, which is the wrong moment to ask.
+- **Off by default.** "Без" is preselected; 5, 10 and 15 % are rounded to 10
+  cents, and an amount of one's own is allowed up to what is being paid
+  (and 500 €), to catch a slip of the finger.
+- **A separate line on Stripe's page** ("Бакшиш за екипа"), and kept apart
+  (`tip_cents`) from the amount the bill payment covers. The till entry is
+  the bill without the tip; the tip is shown beside it, and the day's card
+  tips are totalled on **За касата**.
+- **A tip for nothing goes back.** Refunds cover lines first; when nothing
+  a payment paid for still stands (another phone paid first, or staff took
+  it all off), the tip is refunded with it (`qr_bill_owe`).
+
+### Menu
+
+- **Every 50 ml spirit also comes as 100 ml**, at twice the price, as a
+  second variant. `std` stays the 50 ml id, so carts and links from before
+  still work.
+- **Coca-Cola products** offer what the bar stocks: Coca-Cola, Zero,
+  caffeine-free, Fanta, Sprite, tonic and pink tonic. Bitter Lemon and soda,
+  from the printed menu, are gone from the phone.
+- **Sizes say themselves once.** Bulgarian size labels use Cyrillic units,
+  so the menu no longer shows "400 ml · 400 мл"; Stripe's page adds the size
+  only when the label doesn't already say it.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

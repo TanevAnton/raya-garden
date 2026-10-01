@@ -20,7 +20,12 @@ import { api } from "../shared/api.js";
 // On "pay at the end" evenings orders arrive at once and collect on their
 // table's bill. "Сметки" shows each table's bill: what is paid on phones,
 // what staff took on the spot, what is left; staff settle the rest and close
-// the bill. Payments from bills go on "За касата" too, at their net amount.
+// the bill. Payments from bills go on "За касата" too, at their net amount,
+// with any tip shown beside it.
+//
+// One line of an order can be taken off on its own ("Няма"): some or all of
+// it, with a reason the guest sees. Whatever was paid for it goes back to
+// whoever paid; the rest of the order goes on.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -34,6 +39,7 @@ const NEXT = {
   accepted: { action: "serve", label: "Сервирано" },
 };
 const REASONS = ["Грешна маса", "Изчерпан продукт", "Гостът се отказа", "Дублирана поръчка"];
+const LINE_REASONS = ["Изчерпан продукт", "Гостът се отказа", "Грешка в поръчката"];
 const ITEMS = menu.categories.flatMap((c) => c.items.map((i) => ({ ...i, category: c.bg })));
 
 const adminApi = (path, body) =>
@@ -256,6 +262,36 @@ function Dashboard({ onSignedOut }) {
     }
   }
 
+  /** Cancel qty of one line, not the whole order. */
+  async function voidLine(order, line, qty, reason) {
+    try {
+      const res = await adminApi("order.php", { id: order.id, action: "void", line: line.line, qty, have: line.qty, reason });
+      if (res.status === 401) return onSignedOut();
+      if (res.order) merge([res.order], false);
+      const what = `${qty} × ${line.nameBg}`;
+      if (res.error === "stale") say("Поръчката вече е променена от друго устройство — показвам я както е сега.");
+      else if (res.error === "last_line") say("Това е последното в поръчката — откажете цялата поръчка.");
+      else if (!res.ok) say("Не успях да откажа реда. Опитайте отново.");
+      else if (res.refundPending) say(`${what} е отказано, но връщането на ${money(res.amount)} не успя — натиснете „Върни сега“.`);
+      else if (res.cashBack) say(`${what} е отказано. Върнете ${money(res.cashBack)} на госта — беше платено на място.`);
+      else if (order.payStatus === "paid" || line.paidVia === "online") say(`${what} е отказано, ${money(res.amount)} са върнати на госта.`);
+      else say(`${what} е отказано. Новата сума е ${money(res.order.total)}.`);
+    } catch {
+      say("Няма връзка — промяната не е записана. Опитайте отново.");
+    }
+  }
+
+  async function refundOrder(order) {
+    try {
+      const res = await adminApi("order.php", { id: order.id, action: "refund" });
+      if (res.status === 401) return onSignedOut();
+      if (res.order) merge([res.order], false);
+      say(res.ok ? `Сумата е върната на госта (${order.code}).` : "Stripe отново отказа връщането. Опитайте след малко.");
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    }
+  }
+
   async function till(entry, change) {
     try {
       const res = await adminApi("till.php", { ...(entry.kind === "bill" ? { paymentId: entry.id } : { id: entry.id }), ...change });
@@ -343,7 +379,7 @@ function Dashboard({ onSignedOut }) {
       )}
 
       <main className="max-w-7xl mx-auto px-4 pt-4">
-        {tab === "orders" && <Orders orders={orders} flash={flash} state={state} onMove={move} />}
+        {tab === "orders" && <Orders orders={orders} flash={flash} state={state} onMove={move} onVoid={voidLine} onRefund={refundOrder} />}
         {tab === "service" && <Service state={state} onSaved={applyState} say={say} onSignedOut={onSignedOut} />}
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
         {tab === "tabs" && <Tabs tabs={tabs} onAction={billAction} />}
@@ -394,10 +430,11 @@ function elapsed(createdAt) {
   return `преди ${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
 
-function Orders({ orders, flash, state, onMove }) {
+function Orders({ orders, flash, state, onMove, onVoid, onRefund }) {
   const [view, setView] = useState("active");
   const [table, setTable] = useState("");
   const [cancelling, setCancelling] = useState(null);
+  const [voiding, setVoiding] = useState(null); // { order, line }
   const list = useMemo(() => {
     const all = [...orders.values()].filter((o) => (table ? o.table === Number(table) : true));
     const active = view === "active";
@@ -434,20 +471,35 @@ function Orders({ orders, flash, state, onMove }) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((o) => (
-            <OrderCard key={o.id} order={o} flash={flash.has(o.id)} onMove={onMove} onCancel={() => setCancelling(o)} />
+            <OrderCard key={o.id} order={o} flash={flash.has(o.id)} onMove={onMove} onCancel={() => setCancelling(o)} onVoid={(line) => setVoiding({ order: o, line })} onRefund={() => onRefund(o)} />
           ))}
         </div>
       )}
 
       {cancelling && <CancelDialog order={cancelling} onClose={() => setCancelling(null)} onConfirm={(reason) => { onMove(cancelling, "cancel", reason); setCancelling(null); }} />}
+      {voiding && (
+        <VoidDialog
+          order={voiding.order}
+          line={voiding.line}
+          onClose={() => setVoiding(null)}
+          onConfirm={(qty, reason) => {
+            onVoid(voiding.order, voiding.line, qty, reason);
+            setVoiding(null);
+          }}
+        />
+      )}
     </>
   );
 }
 
-function OrderCard({ order, flash, onMove, onCancel }) {
+function OrderCard({ order, flash, onMove, onCancel, onVoid, onRefund }) {
   const s = STATUS[order.status];
   const minutes = (Date.now() / 1000 - order.createdAt) / 60;
   const active = order.status === "new" || order.status === "accepted";
+  // One line can be cancelled on its own while anything else stays on the
+  // order; the last thing left is cancelling the order.
+  const units = order.lines.reduce((n, l) => n + l.qty, 0);
+  const canVoid = (active || order.status === "served") && units > 1;
   const late = active && minutes > 20 ? "text-red-300" : active && minutes > 10 ? "text-amber-300" : "text-cream-100/60";
   const next = NEXT[order.status];
   return (
@@ -468,10 +520,24 @@ function OrderCard({ order, flash, onMove, onCancel }) {
       </div>
       <ul className="mt-3 border-t border-gold-300/15 pt-3 space-y-2">
         {order.lines.map((l, i) => (
-          <li key={i} className="text-cream-50">
-            <span className="font-semibold text-lg">{l.qty} ×</span> {l.nameBg}
-            {l.detailBg ? <span className="text-cream-100/70"> · {l.detailBg}</span> : null}
-            {l.note && <div className="mt-1 ml-6 inline-block bg-gold-300/20 text-gold-50 px-2 py-0.5 rounded-sm text-sm">„{l.note}“</div>}
+          <li key={i} className="text-cream-50 flex items-start gap-2" data-line={l.line}>
+            <div className={`min-w-0 flex-1 ${l.qty === 0 ? "opacity-50" : ""}`}>
+              <span className={l.qty === 0 ? "line-through" : ""}>
+                <span className="font-semibold text-lg">{l.qty === 0 ? l.voidQty : l.qty} ×</span> {l.nameBg}
+                {l.detailBg ? <span className="text-cream-100/70"> · {l.detailBg}</span> : null}
+              </span>
+              {l.voidQty > 0 && (
+                <div className="text-sm text-red-300/90">
+                  {l.qty === 0 ? "Отказано" : `${l.voidQty} отказан${l.voidQty === 1 ? "" : "и"}`}: {l.voidReason}
+                </div>
+              )}
+              {l.note && <div className="mt-1 ml-6 inline-block bg-gold-300/20 text-gold-50 px-2 py-0.5 rounded-sm text-sm">„{l.note}“</div>}
+            </div>
+            {canVoid && l.qty > 0 && (
+              <button type="button" onClick={() => onVoid(l)} aria-label={`Откажи само ${l.nameBg}`} className="shrink-0 h-9 px-2 rounded-sm border border-red-400/30 text-red-300/90 text-xs">
+                Няма
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -479,6 +545,7 @@ function OrderCard({ order, flash, onMove, onCancel }) {
         <span className="text-cream-50 flex items-center gap-2 flex-wrap">
           <span>
             Общо <span className="font-semibold">{money(order.total)}</span>
+            {order.voided > 0 && order.status !== "cancelled" && <span className="text-xs text-cream-100/60"> (отказано {money(order.voided)})</span>}
           </span>
           <PayChip order={order} />
           {order.payerName && <span className="text-xs text-cream-100/70">платил: {order.payerName}</span>}
@@ -486,6 +553,14 @@ function OrderCard({ order, flash, onMove, onCancel }) {
         <span className={`text-xs px-3 py-1 border rounded-full ${s.tone}`}>{s.label}</span>
       </div>
       {order.status === "cancelled" && order.cancelReason && <p className="text-sm text-red-300/90 mt-2">Причина: {order.cancelReason}</p>}
+      {order.refundDue > 0 && (
+        <div className="mt-3 border border-red-400/40 bg-red-950/30 rounded-sm px-3 py-2 text-sm flex flex-wrap items-center justify-between gap-2">
+          <span className="text-cream-50">Дължим на госта {money(order.refundDue)}{order.refundError ? " — връщането не успя" : " — връща се…"}</span>
+          <button type="button" onClick={onRefund} className="h-10 px-3 rounded-sm border border-red-300/50 text-red-200 text-xs">
+            Върни сега
+          </button>
+        </div>
+      )}
       {active && (
         <div className="flex gap-2 mt-4">
           {next && (
@@ -534,6 +609,60 @@ function CancelDialog({ order, onClose, onConfirm }) {
           <button type="button" onClick={onClose} className="flex-1 h-12 rounded-sm border border-gold-300/25 text-cream-100/80">Назад</button>
           <button type="button" disabled={!reason.trim()} onClick={() => onConfirm(reason.trim())} className="flex-1 h-12 rounded-sm bg-red-700 disabled:bg-ink-700 disabled:text-cream-100/40 text-cream-50 font-medium">
             Откажи поръчката
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Cancel one line, or some of it: "2 of the 3 mojitos". What happens to the
+ * money is said before staff confirm.
+ */
+function VoidDialog({ order, line, onClose, onConfirm }) {
+  const others = order.lines.reduce((n, l) => n + (l.line === line.line ? 0 : l.qty), 0);
+  const max = others > 0 ? line.qty : line.qty - 1;
+  const [qty, setQty] = useState(1);
+  const [reason, setReason] = useState("Изчерпан продукт");
+  const amount = line.price * qty;
+  let moneyNote;
+  if (order.payStatus === "paid") moneyNote = `Гостът е платил онлайн: ${money(amount)} ще му бъдат върнати автоматично.`;
+  else if (line.paidVia === "online") moneyNote = `Редът е платен от сметката на масата: ${money(amount)} ще бъдат върнати автоматично на платилия.`;
+  else if (line.paidVia === "staff") moneyNote = `Редът е платен на място: върнете ${money(amount)} на госта.`;
+  else moneyNote = `Сумата за плащане става ${money(order.total - amount)}.`;
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Откажи ред">
+      <button type="button" aria-label="Затвори" onClick={onClose} className="absolute inset-0 bg-black/70" />
+      <div className="relative w-full max-w-md bg-ink-900 border border-gold-300/25 rounded-sm p-6">
+        <h2 className="font-display text-2xl text-cream-50">Няма: {line.nameBg}</h2>
+        <p className="text-sm text-cream-100/60 mt-1">
+          {order.code} · маса {order.table}. Останалото от поръчката остава. Причината се вижда и от госта.
+        </p>
+        {max > 1 && (
+          <div className="flex items-center gap-3 mt-4">
+            <span className="text-cream-100/80">Колко</span>
+            <div className="flex items-center border border-gold-300/40 rounded-sm">
+              <button type="button" onClick={() => setQty(Math.max(1, qty - 1))} className="w-11 h-11 text-xl text-gold-100" aria-label="−">−</button>
+              <span className="w-10 text-center text-cream-50 tabular-nums" aria-live="polite">{qty}</span>
+              <button type="button" onClick={() => setQty(Math.min(max, qty + 1))} disabled={qty >= max} className="w-11 h-11 text-xl text-gold-100 disabled:opacity-30" aria-label="+">+</button>
+            </div>
+            <span className="text-sm text-cream-100/60">от {line.qty}</span>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {LINE_REASONS.map((r) => (
+            <button key={r} type="button" onClick={() => setReason(r)} className={`px-3 py-2 rounded-full text-sm border ${reason === r ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/80"}`}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} placeholder="или напишете причина" className="mt-3 w-full bg-ink-950 border border-gold-300/25 rounded-sm px-3 py-3 text-cream-50" />
+        <p className="text-sm text-gold-100 mt-4 border border-gold-300/30 rounded-sm px-3 py-2">{moneyNote}</p>
+        <div className="flex gap-2 mt-5">
+          <button type="button" onClick={onClose} className="flex-1 h-12 rounded-sm border border-gold-300/25 text-cream-100/80">Назад</button>
+          <button type="button" disabled={!reason.trim()} onClick={() => onConfirm(qty, reason.trim())} className="flex-1 h-12 rounded-sm bg-red-700 disabled:bg-ink-700 disabled:text-cream-100/40 text-cream-50 font-medium">
+            Откажи {qty} × {money(amount)}
           </button>
         </div>
       </div>
@@ -703,31 +832,33 @@ function Service({ state, onSaved, say, onSignedOut }) {
 /**
  * Everything paid on a phone that the till (Clock) has to hear about:
  * orders paid before they went out, and payments from tables' bills (at
- * their net amount — what was owed back is not a sale). "todo": still to be
- * entered, or refunded after it was entered and still to be voided.
+ * their net amount — what was owed back is not a sale; a tip is shown
+ * apart). "todo": still to be entered, or refunded — all of it or one line —
+ * after it was entered, and that difference still to be voided.
  */
 function tillList(orders, billPayments) {
   const entries = [];
+  const lines = (list) => list.filter((l) => l.qty > 0).map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ");
   for (const o of orders.values()) {
     if (o.payStatus !== "paid" && o.payStatus !== "refunded") continue;
-    const toVoid = o.payStatus === "refunded" && o.tillAt > 0 && !o.tillVoidAt;
-    if (o.payStatus === "refunded" && !o.tillAt) continue; // refunded before it was entered: nothing to do
+    if (!o.tillAt && o.net <= 0) continue; // refunded before it was entered: nothing to do
+    const voidAmount = o.tillCents - o.tillVoidCents - o.net;
     entries.push({
       kind: "order", id: o.id, code: o.code, table: o.table, at: o.paidAt || o.createdAt,
-      text: (o.payerName ? `${o.payerName} · ` : "") + o.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", "),
-      amount: o.total, voidAmount: o.total, tillAt: o.tillAt,
-      toEnter: o.payStatus === "paid" && !o.tillAt, toVoid,
+      text: (o.payerName ? `${o.payerName} · ` : "") + lines(o.lines),
+      amount: o.tillAt ? o.tillCents : o.net, voidAmount, tip: 0, tillAt: o.tillAt,
+      toEnter: o.payStatus === "paid" && !o.tillAt && o.net > 0, toVoid: o.tillAt > 0 && voidAmount > 0,
     });
   }
   for (const p of billPayments.values()) {
     if (p.status !== "paid") continue;
-    const toVoid = p.tillAt > 0 && !p.tillVoidAt && p.net < p.tillCents;
     if (!p.tillAt && p.net <= 0) continue; // all of it owed back before it was entered
+    const voidAmount = p.tillCents - p.tillVoidCents - p.net;
     entries.push({
       kind: "bill", id: p.id, code: p.code, table: p.table, at: p.paidAt,
-      text: `сметка${p.payerName ? `, платил ${p.payerName}` : ""} · ${p.lines.map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ")}`,
-      amount: p.tillAt ? p.tillCents : p.net, voidAmount: p.tillCents - p.net, tillAt: p.tillAt,
-      toEnter: !p.tillAt && p.net > 0, toVoid,
+      text: `сметка${p.payerName ? `, платил ${p.payerName}` : ""} · ${lines(p.lines)}`,
+      amount: p.tillAt ? p.tillCents : p.net, voidAmount, tip: p.tipNet, tillAt: p.tillAt,
+      toEnter: !p.tillAt && p.net > 0, toVoid: p.tillAt > 0 && voidAmount > 0,
     });
   }
   for (const e of entries) e.todo = e.toEnter || e.toVoid;
@@ -743,7 +874,11 @@ function Till({ entries, onTill }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
   const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
   const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
-  const Row = ({ entry, amount, children }) => (
+  // Tips paid with bills today, for sharing out at the end of the evening.
+  const today = sofiaDate(Math.floor(Date.now() / 1000));
+  const tipped = entries.filter((e) => e.tip > 0 && sofiaDate(e.at) === today);
+  const tips = tipped.reduce((sum, e) => sum + e.tip, 0);
+  const Row = ({ entry, amount, tip = 0, children }) => (
     <li className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-till={entry.code}>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3">
@@ -753,7 +888,10 @@ function Till({ entries, onTill }) {
         </div>
         <div className="text-sm text-cream-100/80 mt-1">{entry.text}</div>
       </div>
-      <div className="font-semibold text-cream-50 text-lg">{money(amount)}</div>
+      <div className="text-right">
+        <div className="font-semibold text-cream-50 text-lg">{money(amount)}</div>
+        {tip > 0 && <div className="text-xs text-sage-200">+ бакшиш {money(tip)}</div>}
+      </div>
       {children}
     </li>
   );
@@ -762,6 +900,11 @@ function Till({ entries, onTill }) {
       <p className="text-sm text-cream-100/60">
         Платеното онлайн се въвежда в Clock ръчно, с плащане „карта“. Отметнете всяко, след като го въведете. Кодовете „P-…“ са плащания от сметка на маса.
       </p>
+      {tips > 0 && (
+        <p className="mt-3 border border-sage-300/30 rounded-sm px-3 py-2 text-sm text-cream-50" data-tips-today>
+          Бакшиши с карта днес: <span className="font-semibold text-sage-200">{money(tips)}</span> ({tipped.length} {tipped.length === 1 ? "плащане" : "плащания"}). Те не са част от сумата за въвеждане.
+        </p>
+      )}
       {toVoid.length > 0 && (
         <>
           <h2 className="font-display text-2xl text-red-300 mt-6">Сторнирай в Clock</h2>
@@ -781,7 +924,7 @@ function Till({ entries, onTill }) {
       ) : (
         <ul className="space-y-3 mt-3">
           {toEnter.map((e) => (
-            <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount}>
+            <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip}>
               <button type="button" onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm">Въведена в Clock ✓</button>
             </Row>
           ))}
@@ -792,7 +935,7 @@ function Till({ entries, onTill }) {
           <summary className="text-sm text-cream-100/60 cursor-pointer">Въведени ({done.length})</summary>
           <ul className="space-y-2 mt-3 opacity-80">
             {done.map((e) => (
-              <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount}>
+              <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip}>
                 <button type="button" onClick={() => onTill(e, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
               </Row>
             ))}
@@ -834,6 +977,9 @@ function Tabs({ tabs, onAction }) {
                   <div><dt className="inline text-cream-100/60">Общо </dt><dd className="inline text-cream-50">{money(x.totals.total)}</dd></div>
                   {x.totals.paidOnline > 0 && <div><dt className="inline text-cream-100/60">Онлайн </dt><dd className="inline text-sage-200">{money(x.totals.paidOnline)}</dd></div>}
                   {x.totals.paidStaff > 0 && <div><dt className="inline text-cream-100/60">На място </dt><dd className="inline text-sage-200">{money(x.totals.paidStaff)}</dd></div>}
+                  {x.payments.some((p) => p.status === "paid" && p.tipNet > 0) && (
+                    <div><dt className="inline text-cream-100/60">Бакшиш </dt><dd className="inline text-sage-200">{money(x.payments.filter((p) => p.status === "paid").reduce((n, p) => n + p.tipNet, 0))}</dd></div>
+                  )}
                   <div><dt className="inline text-cream-100/60">Остава </dt><dd className={`inline font-semibold text-lg ${x.totals.unpaid ? "text-gold-100" : "text-sage-200"}`}>{money(x.totals.unpaid)}</dd></div>
                 </dl>
               </div>
@@ -862,7 +1008,10 @@ function Tabs({ tabs, onAction }) {
                         <span className="font-mono text-xs text-cream-100/50">{p.code}</span> {clock(p.paidAt)}
                         {p.payerName ? <span className="text-cream-50"> · {p.payerName}</span> : null}
                       </span>
-                      <span className="text-sage-200 shrink-0">{money(p.amount)}</span>
+                      <span className="text-sage-200 shrink-0">
+                        {money(p.amount)}
+                        {p.tipNet > 0 && <span className="text-xs text-cream-100/70"> + бакшиш {money(p.tipNet)}</span>}
+                      </span>
                     </li>
                   ))}
                 </ul>

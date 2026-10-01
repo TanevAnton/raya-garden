@@ -182,13 +182,17 @@ function Dashboard({ onSignedOut }) {
       return next;
     });
   }, []);
-  /** Tabs and bill payments come whole: newest version by change number wins. */
+  /**
+   * Tabs and bill payments: the newest version by change number wins. Laid
+   * over the one held, so an answer that leaves a field out (a payment's
+   * lines) never takes it away.
+   */
   const mergeBy = (setter) => (list, full) =>
     setter((prev) => {
       const next = full ? new Map() : new Map(prev);
       for (const x of list || []) {
         const old = next.get(x.id);
-        if (!old || old.seq <= x.seq) next.set(x.id, x);
+        if (!old || old.seq <= x.seq) next.set(x.id, old ? { ...old, ...x } : x);
       }
       return next;
     });
@@ -838,7 +842,7 @@ function Service({ state, onSaved, say, onSignedOut }) {
  */
 function tillList(orders, billPayments) {
   const entries = [];
-  const lines = (list) => list.filter((l) => l.qty > 0).map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ");
+  const lines = (list = []) => list.filter((l) => l.qty > 0).map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ");
   for (const o of orders.values()) {
     if (o.payStatus !== "paid" && o.payStatus !== "refunded") continue;
     if (!o.tillAt && o.net <= 0) continue; // refunded before it was entered: nothing to do

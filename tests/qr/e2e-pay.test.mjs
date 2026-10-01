@@ -91,9 +91,16 @@ describe("paying on the phone", () => {
 
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
     assert.match(page.url(), /\/menu\/\?lang=bg$/, "the ?paid= marker is taken out of the address");
-    await page.waitForFunction(() => document.body.innerText.includes("Поръчката е изпратена"), { timeout: 15000 });
-    const shown = await page.$eval("[role=dialog]", (d) => d.innerText);
-    assert.match(shown, /Платена/i);
+    // A thank-you screen: confirming first, then thanks, and back to the menu.
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
+    const thanks = await page.$eval("[data-thanks]", (d) => d.innerText);
+    assert.match(thanks, /Благодарим!/);
+    assert.match(thanks, /Ще я донесем на маса №6/);
+    assert.match(thanks, /R-[A-Z0-9]{4}/);
+    assert.match(thanks, /Платено\s*5,90/);
+    await clickText(page, "[data-thanks]", /Обратно към менюто/);
+    await page.waitForFunction(() => !document.querySelector("[data-thanks]") && !document.querySelector("[role=dialog]"));
+    assert.ok(await page.$("main article"), "the menu");
 
     const [o] = await feed();
     assert.equal(o.payStatus, "paid");
@@ -131,7 +138,7 @@ describe("paying on the phone", () => {
     // Pay from "Моите поръчки" after all.
     await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати 5,90/)]);
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
-    await page.waitForFunction(() => document.body.innerText.includes("Поръчката е изпратена"), { timeout: 15000 });
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
     assert.equal((await feed()).length, 1);
     assert.deepEqual(page.errors, []);
     await page.close();
@@ -143,7 +150,7 @@ describe("paying on the phone", () => {
     await orderTiramisu(page);
     await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати/)]);
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
-    await page.waitForFunction(() => document.body.innerText.includes("Поръчката е изпратена"), { timeout: 15000 });
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
     const [o] = await feed();
 
     const staff = await phone();
@@ -162,6 +169,8 @@ describe("paying on the phone", () => {
 
     // The guest's tab is in the background now: check on a timer, since a
     // background tab gets no animation frames to poll on.
+    await page.bringToFront();
+    await clickText(page, "[data-thanks]", /Моите поръчки/);
     await page.waitForFunction(() => /Сумата е върната/i.test(document.body.innerText), { timeout: 20000, polling: 500 });
     assert.match(await page.$eval("[role=dialog]", (d) => d.innerText), /Отказана — Изчерпан продукт/);
     assert.deepEqual([...page.errors, ...staff.errors], []);

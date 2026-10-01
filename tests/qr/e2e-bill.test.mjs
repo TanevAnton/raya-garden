@@ -131,8 +131,14 @@ describe("pay at the end: the table's bill", () => {
     await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати 12,00/)]);
     assert.ok(page.url().startsWith(`${stripe.base}/pay/`));
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
-    await page.waitForFunction(() => document.body.innerText.includes("Сметката е платена"), { timeout: 15000, polling: 300 });
-    assert.match(await text(page), /Платено/);
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
+    const thanks = await text(page, "[data-thanks]");
+    assert.match(thanks, /Благодарим!/);
+    assert.match(thanks, /Платено\s*12,00/);
+    assert.match(thanks, /в т.ч. бакшиш 1,10/);
+    assert.match(thanks, /Сметката на масата е платена/);
+    await clickText(page, "[data-thanks]", /Обратно към менюто/);
+    await page.waitForFunction(() => !document.querySelector("[data-thanks]"));
 
     await staff.bringToFront();
     await clickText(staff, "nav", /^Сметки/);
@@ -148,6 +154,16 @@ describe("pay at the end: the table's bill", () => {
     await clickText(staff, "nav", /За касата/);
     await staff.waitForFunction(() => /P-[A-Z0-9]{4}/.test(document.body.innerText) && /10,90/.test(document.body.innerText), { polling: 300 });
     assert.match(await text(staff, "[data-tips-today]"), /Бакшиши с карта днес: 1,10/);
+    // Ticking a bill payment in and back out: this blanked the screen once,
+    // when the answer came without the payment's lines.
+    const pcode = await staff.evaluate(() => document.body.innerText.match(/P-[A-Z0-9]{4}/)[0]);
+    await clickText(staff, `[data-till="${pcode}"]`, /Въведена в Clock/);
+    await staff.waitForFunction(() => document.body.innerText.includes("Всичко е въведено"), { polling: 300, timeout: 10000 });
+    await staff.click("main details summary");
+    await clickText(staff, `[data-till="${pcode}"]`, /Върни в списъка/);
+    await staff.waitForFunction((c) => /За въвеждане \(1\)/.test(document.body.innerText) && document.querySelector(`[data-till="${c}"]`), { polling: 300, timeout: 10000 }, pcode);
+    assert.match(await text(staff, `[data-till="${pcode}"]`), /Тирамису/, "its lines are still there");
+    assert.equal(await staff.$("[role=alert] button"), null, "no error screen");
 
     assert.deepEqual([...page.errors, ...staff.errors], []);
     await page.close();
@@ -164,6 +180,9 @@ describe("pay at the end: the table's bill", () => {
     await page.waitForFunction(() => document.querySelectorAll("[data-line]").length === 2, { polling: 300 });
     await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати 5,90/)]);
     await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
+    assert.match(await text(page, "[data-thanks]"), /По сметката на масата остават 5,00/);
+    await clickText(page, "[data-thanks]", /^Сметка$/);
     await page.waitForFunction(() => /платено/.test(document.querySelector("[role=dialog]")?.innerText || ""), { timeout: 15000, polling: 300 });
     const bill = await text(page);
     assert.match(bill, /Остава\s*5,00/, "the friend's coffees are left");

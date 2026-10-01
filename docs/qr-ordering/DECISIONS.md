@@ -399,6 +399,25 @@ that came to.
   so the menu no longer shows "400 ml · 400 мл"; Stripe's page adds the size
   only when the label doesn't already say it.
 
+## A thank-you screen, and no more black screens, added 01.10.2026
+
+- **Back from Stripe's page, a screen of its own.** It says "Потвърждаваме
+  плащането…" until the server has Stripe's signed confirmation (coming back
+  proves nothing by itself), then "Благодарим!" with the code, the table and
+  what was paid, and "Обратно към менюто". For a bill payment it also says
+  whether the table's bill is now settled or how much is left. After two
+  minutes without a confirmation it says where the payment will show up.
+  Backing out of Stripe's page still opens the order or the bill as before.
+- **A staff answer never takes fields away.** Ticking a bill payment in the
+  till list blanked the staff screen: the answer carried the payment without
+  its lines, the screen replaced what it held, and drawing the list threw.
+  Every staff answer about a payment now carries its lines
+  (`qr_bill_payment_staff_json`), and the screen lays an answer over what it
+  holds rather than replacing it.
+- **If a page still throws, it says so.** Both pages sit inside an error
+  boundary: "Нещо се обърка" and a reload button, instead of a black page
+  in the middle of service. Orders are on the server either way.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

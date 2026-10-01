@@ -5,6 +5,7 @@ import { money, size, clock, sofiaDate, pick } from "../shared/format.js";
 import { api, newIdempotencyKey, session } from "../shared/api.js";
 import Sheet from "./Sheet.jsx";
 import BillSheet, { abandonBillPayment } from "./BillSheet.jsx";
+import ThankYou from "./ThankYou.jsx";
 
 // The guest page at /menu, opened from the QR code on the tables.
 //
@@ -28,6 +29,10 @@ import BillSheet, { abandonBillPayment } from "./BillSheet.jsx";
 // to the kitchen and onto the table's bill; "Сметка" (BillSheet.jsx) is
 // where anyone at the table pays — all of it or their part — coming back
 // to ?billpaid= / ?billunpaid=.
+//
+// Back after paying (?paid= or ?billpaid=), a whole thank-you screen
+// (ThankYou.jsx) waits for the server's confirmation, then thanks the guest
+// and leads back to the menu.
 
 const ITEMS = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
 const lineKey = (l) => `${l.itemId}|${l.variantId}|${l.choiceId || ""}`;
@@ -149,19 +154,17 @@ export default function MenuApp() {
   const [problem, setProblem] = useState(null);
   const [sentOrder, setSentOrder] = useState(null);
   const [returned] = useState(takeReturn);
+  const [thanks, setThanks] = useState(() => returned?.kind === "paid" || returned?.kind === "billpaid");
   const attempt = useRef({ key: null, sig: null });
   const honeypot = useRef(null);
   const { byToken, refresh: refreshOrders } = useOrderStatuses(orders, returned);
 
-  // Back from Stripe's page: show that order, or the bill, and what became of it.
+  // Back from Stripe's page without paying: show that order, or the bill,
+  // and what became of it. Paid: the thank-you screen below.
   useEffect(() => {
-    if (!returned) return;
-    if (returned.kind === "paid") {
-      setSentOrder({ code: returned.code });
-      setSheet("sent");
-    } else if (returned.kind === "unpaid") setSheet("orders");
-    else {
-      if (returned.kind === "billunpaid") abandonBillPayment(returned.code);
+    if (returned?.kind === "unpaid") setSheet("orders");
+    else if (returned?.kind === "billunpaid") {
+      abandonBillPayment(returned.code);
       setSheet("bill");
     }
   }, [returned]);
@@ -204,8 +207,8 @@ export default function MenuApp() {
   }, [state, table, tables, setTable]);
   // Ordering is open and we do not know the table yet: ask, once.
   useEffect(() => {
-    if (open && table == null && !browsing && sheet == null) setSheet("table");
-  }, [open, table, browsing, sheet]);
+    if (open && table == null && !browsing && sheet == null && !thanks) setSheet("table");
+  }, [open, table, browsing, sheet, thanks]);
 
   const total = cart.reduce((sum, l) => sum + l.price * l.qty, 0);
   const count = cart.reduce((sum, l) => sum + l.qty, 0);
@@ -434,6 +437,21 @@ export default function MenuApp() {
             ))}
           </ol>
         </Sheet>
+      )}
+
+      {thanks && (
+        <ThankYou
+          t={t}
+          lang={lang}
+          kind={returned.kind === "billpaid" ? "bill" : "order"}
+          code={returned.code}
+          table={table}
+          since={returned.at}
+          order={byToken[orders.find((o) => o.code === returned.code)?.token]}
+          onMenu={() => setThanks(false)}
+          onOrders={orders.length ? () => { setThanks(false); setSheet("orders"); } : null}
+          onBill={tabMode && table ? () => { setThanks(false); setSheet("bill"); } : null}
+        />
       )}
 
       {choiceFor && (

@@ -39,7 +39,7 @@ if ($action === 'refund') {
     if (!is_array($p)) {
         qr_fail(404, 'not_found');
     }
-    qr_json($ok ? 200 : 502, ['ok' => $ok] + ($ok ? [] : ['error' => 'refund_failed']) + ['payment' => qr_bill_payment_json($p)]);
+    qr_json($ok ? 200 : 502, ['ok' => $ok] + ($ok ? [] : ['error' => 'refund_failed']) + ['payment' => qr_bill_payment_staff_json(qr_db(), $p)]);
 }
 
 $tabId = $body['tabId'] ?? null;

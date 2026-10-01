@@ -96,6 +96,14 @@ The database needs no setup. It creates itself on first use and upgrades itself
 in place. The schema version is kept in SQLite's `user_version`, and each step
 runs once, inside a transaction.
 
+**A deploy that stops at "1/4 assets/".** Nothing is switched: the site keeps
+running the previous build, whole. If the log says files are on the server
+but **EMPTY (0 bytes)**, the server took the names and refused the contents:
+the hosting account is out of disk space (deploy #91, 01.10.2026). Free space
+in SPanel (disk usage: mailboxes, backups, logs), then re-run the deploy in
+GitHub → Actions. A full disk can also stop the QR database from saving
+orders, so check that first.
+
 ## Paying on the phone (Stripe)
 
 ### How it works
@@ -118,6 +126,10 @@ runs once, inside a transaction.
    *Върни сега*.
 5. **An unpaid order never reaches staff.** The guest has an hour to pay, and
    after that Stripe closes the payment page.
+   **Back from paying**, the guest gets a thank-you screen ("Благодарим!",
+   with the code, table and amount) and a button back to the menu. It first
+   shows "Потвърждаваме плащането…" until the server has Stripe's
+   confirmation; the same holds for paying a table's bill.
 6. **"За касата"** lists every paid order still to be entered in the till
    (Clock), and every refund to void there. This system cannot reach Clock, so
    one person enters them by hand and ticks each one off.

@@ -53,7 +53,7 @@ if (array_key_exists('paymentId', $body)) {
         }
         $net = qr_bill_payment_json($p)['net'];
         if ($column === 'till_void_at' && $value && ((int) $p['till_at'] === 0 || (int) $p['till_cents'] - (int) $p['till_void_cents'] <= $net)) {
-            return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_json($p)]];
+            return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
         }
         $seq = qr_bump_seq($pdo);
         if ($column === 'till_at') {
@@ -66,7 +66,7 @@ if (array_key_exists('paymentId', $body)) {
         $find->execute([$paymentId]);
         $p = $find->fetch();
         $find->closeCursor();
-        return [200, ['ok' => true, 'payment' => qr_bill_payment_json($p)]];
+        return [200, ['ok' => true, 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
     });
     qr_json($status, $response);
 }

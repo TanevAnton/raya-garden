@@ -45,7 +45,7 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   const refresh = useCallback(async () => {
     if (!table) return;
     try {
-      const tokens = session.get(BILLS, []).map((p) => p.token).join(",");
+      const tokens = myBillTokens().join(",");
       const res = await api(`bill.php?table=${table}${tokens ? `&t=${tokens}` : ""}`);
       if (res.ok) {
         setData(res);
@@ -291,6 +291,11 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
       )}
     </Sheet>
   );
+}
+
+/** The tokens of this phone's bill payments, which let it see them. */
+export function myBillTokens() {
+  return session.get(BILLS, []).map((p) => p.token);
 }
 
 /**

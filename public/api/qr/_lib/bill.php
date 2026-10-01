@@ -190,6 +190,21 @@ function qr_bill_payment_json(array $p): array
 }
 
 /**
+ * A bill payment as the staff screen keeps it: with its lines, which the till
+ * list shows. Every staff answer about a payment uses this — the screen
+ * replaces what it holds with the answer, so a reply without lines would
+ * leave it a payment without them.
+ */
+function qr_bill_payment_staff_json(PDO $pdo, array $p): array
+{
+    $json = qr_bill_payment_json($p);
+    $json['lines'] = array_map(function ($l) {
+        return ['qty' => (int) $l['qty'], 'nameBg' => (string) $l['name_bg'], 'detailBg' => (string) $l['detail_bg'], 'code' => (string) $l['code']];
+    }, qr_bill_payment_lines($pdo, (int) $p['id']));
+    return $json;
+}
+
+/**
  * A payment's lines, for the till list and the payment page. qty is how many
  * the payment covered when it was made — the line's amount then, over its
  * unit price — whatever staff cancelled of the line since.

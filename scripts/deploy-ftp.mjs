@@ -206,6 +206,16 @@ const hashes = new Map(rest.map((p) => [p, sha256(path.join(SRC, p))]));
 // ── 1/4 assets/ ──────────────────────────────────────────────────────
 log(`── 1/4 assets/ (${chunks.length} files), nothing deleted`);
 if (lftp([`mkdir -p -f ${q(remote("assets"))}`, `mirror -R --ignore-time --verbose ${q(`${SRC}/assets/`)} ${q(remote("assets/"))}`]) == null) {
+  // lftp only says "max-retries exceeded". A file the server created but
+  // left empty says more: it took the name and refused the bytes, which on
+  // shared hosting means the account's disk space is used up (deploy #91).
+  const seen = listRemote();
+  const empty = seen ? chunks.filter((p) => seen.get(p) === 0 && local.get(p) > 0) : [];
+  if (empty.length) {
+    console.error(`\n${empty.length} file(s) are on the server but EMPTY (0 bytes), e.g. ${empty[0]}.`);
+    console.error("The server accepts a file's name and refuses its contents: the hosting account is most likely out of disk space.");
+    console.error("Free space in SPanel (disk usage: mailboxes, backups, logs), then run this deploy again.");
+  }
   die("Uploading assets/ failed — index.html NOT switched.");
 }
 

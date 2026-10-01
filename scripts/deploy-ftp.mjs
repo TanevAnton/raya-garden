@@ -65,14 +65,18 @@
 // command, so instead of trusting exit codes every step is checked against a
 // fresh listing of the server.
 //
+// Watchdog: every lftp session runs under one (scripts/lib/lftp.mjs): lftp
+// is stopped a few seconds after its last command has run, and at a time
+// limit in any case. Deploy #95's lftp finished its work, then never exited.
+//
 // LFTP_EXTRA is appended to the settings — for testing against a local plain
 // FTP server; empty in CI.
 
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { FTPS, allow, bytesOf, lftpSessions } from "./lib/lftp.mjs";
 
 const { FTP_SERVER, FTP_USERNAME, FTP_PASSWORD } = process.env;
 const SRC = process.env.SRC || "dist";
@@ -90,15 +94,7 @@ const tempOf = (p) => {
 };
 
 const SETTINGS = [
-  "set ftp:ssl-force true",
-  "set ftp:ssl-protect-data true",
-  "set ssl:verify-certificate no",
-  // TLS 1.2, not 1.3: from deploy #91 on (01.10.2026) every upload over TLS
-  // 1.3 was dropped at once — the server answered "451-Error during read from
-  // data connection" with 0 bytes stored — while listings, which come the
-  // other way, still worked. A known clash between lftp/GnuTLS and FTP
-  // servers on TLS 1.3 data connections; 1.2 is still fully encrypted.
-  'set ssl:priority "NORMAL:-VERS-TLS1.3"',
+  ...FTPS, // TLS 1.2, cert not verified — scripts/lib/lftp.mjs says why
   "set net:timeout 40",
   "set net:max-retries 6",
   "set net:reconnect-interval-base 5",
@@ -114,6 +110,16 @@ function die(msg) {
   process.exit(1);
 }
 if (!FTP_SERVER || !FTP_USERNAME || !FTP_PASSWORD) die("FTP_SERVER, FTP_USERNAME and FTP_PASSWORD are required");
+// Every session runs under a watchdog (scripts/lib/lftp.mjs): lftpRun gives
+// what echo printed and whether the last command succeeded, lftp only the
+// latter, lftpRead a command's output (a listing, a remote file) or null.
+const { run: lftpRun, ok: lftp, read: lftpRead } = lftpSessions({
+  server: FTP_SERVER,
+  user: FTP_USERNAME,
+  password: FTP_PASSWORD,
+  settings: SETTINGS,
+  work,
+});
 
 const remote = (p) => (DIR ? `${DIR}/${p}` : p);
 const q = (s) => `"${s}"`;
@@ -121,21 +127,6 @@ const q = (s) => `"${s}"`;
 // never a question. Checked for the build up front; a remote name outside it
 // is reported and left alone.
 const SAFE = /^[A-Za-z0-9._\/-]+$/;
-
-/** Run lftp commands in one session. Returns stdout, or null on failure. */
-function lftp(commands) {
-  const file = path.join(work, "cmds.lftp");
-  writeFileSync(file, commands.join("\n") + "\n");
-  try {
-    return execFileSync(
-      "lftp",
-      ["-c", `${SETTINGS}; ${process.env.LFTP_EXTRA || ""}; open -u "${FTP_USERNAME}","${FTP_PASSWORD}" "${FTP_SERVER}"; source ${q(file)}`],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], maxBuffer: 64 << 20 }
-    );
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Every file and directory under DIR: Map path → size (files) or "dir".
@@ -146,7 +137,7 @@ function lftp(commands) {
  * a listing we cannot read is treated as knowing nothing.
  */
 function listRemote() {
-  const out = lftp([`find -l ${q(DIR || ".")}`]);
+  const out = lftpRead(`find -l ${q(DIR || ".")}`);
   if (out == null) return null;
   const files = new Map();
   const base = DIR ? `${DIR}/` : "./";
@@ -202,7 +193,8 @@ function uploadAtomically(paths, fromDir) {
     // alone is not — a changed file can be as long as the old one).
     cmds.push(`put ${q(path.join(fromDir, p))} -o ${q(remote(tempOf(p)))} && mv ${q(remote(tempOf(p)))} ${q(remote(p))} && echo ${q(`DONE ${p}`)}`);
   }
-  const missed = paths.filter((p) => !doneIn(lftp([...cmds, "echo END"])).has(p));
+  const sent = lftpRun([...cmds, "echo END"], allow(bytesOf(paths.map((p) => path.join(fromDir, p))), paths.length)).out;
+  const missed = paths.filter((p) => !doneIn(sent).has(p));
   if (!missed.length) return [];
   // Some did not make it: pick each up where it stopped, file by file.
   return sendResuming(missed.map((p) => ({ from: path.join(fromDir, p), to: p, via: tempOf(p) })));
@@ -231,7 +223,7 @@ function sendResuming(items) {
     // that file's turn, not everyone else's.
     for (const it of todo) {
       const send = `put -c ${q(it.from)} -o ${q(remote(it.via || it.to))}` + (it.via ? ` && mv ${q(remote(it.via))} ${q(remote(it.to))}` : "");
-      for (const d of doneIn(lftp(["set net:max-retries 3", `${send} && echo ${q(`DONE ${it.to}`)}`, "echo END"]))) done.add(d);
+      for (const d of doneIn(lftpRun(["set net:max-retries 3", `${send} && echo ${q(`DONE ${it.to}`)}`, "echo END"], allow(bytesOf([it.from]))).out)) done.add(d);
     }
     const after = listRemote();
     const moved = todo.some((it) => done.has(it.to) || sizeOf(it, after) > sizeOf(it, before));
@@ -263,7 +255,11 @@ const hashes = new Map(rest.map((p) => [p, sha256(path.join(SRC, p))]));
 
 // ── 1/4 assets/ ──────────────────────────────────────────────────────
 log(`── 1/4 assets/ (${chunks.length} files), nothing deleted`);
-if (lftp([`mkdir -p -f ${q(remote("assets"))}`, `mirror -R --ignore-time --verbose ${q(`${SRC}/assets/`)} ${q(remote("assets/"))}`]) == null) {
+const mirrored = lftp(
+  [`mkdir -p -f ${q(remote("assets"))}`, `mirror -R --ignore-time ${q(`${SRC}/assets/`)} ${q(remote("assets/"))}`],
+  allow(bytesOf(chunks.map((p) => path.join(SRC, p))), chunks.length)
+);
+if (!mirrored) {
   // The mirror gave up on some (lftp: "max-retries exceeded"). Finish them
   // file by file, each resumed from where it stopped.
   const seen = listRemote();
@@ -293,7 +289,7 @@ if (lftp([`mkdir -p -f ${q(remote("assets"))}`, `mirror -R --ignore-time --verbo
 function serverSays(file, target = file) {
   if (!file) return [];
   const debugLog = path.join(work, "debug.log");
-  lftp([`debug -o ${q(debugLog)} 3`, "set net:max-retries 2", `put ${q(`${SRC}/${file}`)} -o ${q(remote(target))}`]);
+  lftp([`debug -o ${q(debugLog)} 3`, "set net:max-retries 2", `put ${q(`${SRC}/${file}`)} -o ${q(remote(target))}`], allow(bytesOf([`${SRC}/${file}`])));
   let text = "";
   try {
     text = readFileSync(debugLog, "utf8");
@@ -313,7 +309,7 @@ const before = listRemote();
 if (!before) log("   could not read the server's listing — sending every file");
 let record = {};
 try {
-  record = JSON.parse(lftp([`cat ${q(remote(MANIFEST))}`]) || "{}").files || {};
+  record = JSON.parse(lftpRead(`cat ${q(remote(MANIFEST))}`) || "{}").files || {};
 } catch {
   record = {};
 }
@@ -368,7 +364,7 @@ if (!switched || !live || live.get("index.html") !== local.get("index.html") || 
 // ── 4/4 clean up ─────────────────────────────────────────────────────
 log("── 4/4 clean up");
 const current = chunks.map((p) => p.slice("assets/".length));
-const previous = (lftp([`cat ${q(remote(CHUNK_LIST))}`]) || "").split("\n").filter(Boolean);
+const previous = (lftpRead(`cat ${q(remote(CHUNK_LIST))}`) || "").split("\n").filter(Boolean);
 const keep = new Set([...current, ...previous, path.posix.basename(CHUNK_LIST)]);
 const inBuild = new Set(all);
 const stale = [];
@@ -387,7 +383,7 @@ const deletable = stale.filter((p) => SAFE.test(p));
 for (const p of stale.filter((p) => !SAFE.test(p))) log(`   left alone (name not safe to quote): ${p}`);
 if (deletable.length) {
   for (const p of deletable) log(`   ✕ ${p}`);
-  lftp([`rm -f ${deletable.map((p) => q(remote(p))).join(" ")}`]);
+  lftp([`rm -f ${deletable.map((p) => q(remote(p))).join(" ")}`], allow(0, deletable.length));
 } else {
   log("   nothing stale");
 }
@@ -400,7 +396,7 @@ const goneDirs = [...live]
   .map(([p]) => p)
   .sort((a, b) => b.split("/").length - a.split("/").length);
 for (const d of goneDirs) log(`   ✕ ${d}/`);
-if (goneDirs.length) lftp(goneDirs.map((d) => `rmdir ${q(remote(d))}`));
+if (goneDirs.length) lftp(goneDirs.map((d) => `rmdir ${q(remote(d))}`), allow(0, goneDirs.length));
 putJson(CHUNK_LIST, current.join("\n") + "\n", "The new build is live; the next deploy will keep every chunk.");
 
 rmSync(work, { recursive: true, force: true });

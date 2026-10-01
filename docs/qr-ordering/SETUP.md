@@ -115,6 +115,17 @@ for one of the files. Read it:
 
 Then re-run the deploy in GitHub → Actions.
 
+**A deploy that sits on one step with no new lines.** Deploy #95 sent every
+file of step 2 and then waited 53 minutes: the upload program (lftp) had
+finished its work but never exited while closing the connection. Each lftp
+session now runs under a watchdog. lftp prints a mark once its last command
+has run and is stopped a few seconds later if it is still there. A session
+that runs past its time limit (a few minutes, more for big files) is stopped
+too, and what it did not finish is resumed file by file as above. The log
+then says "lftp finished but did not exit — stopped it" or "lftp still busy
+after …s". Both are harmless: every file is still checked on the server
+before index.html switches.
+
 ## Paying on the phone (Stripe)
 
 ### How it works

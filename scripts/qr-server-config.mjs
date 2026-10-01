@@ -35,6 +35,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { FTPS, lftpSessions } from "./lib/lftp.mjs";
 
 const NAME = "raya-qr-config.php";
 const TEMP = `.up.${NAME}`;
@@ -143,9 +144,7 @@ const remote = (name) => (above === "." ? name : `${above}/${name}`);
 if (!/^[A-Za-z0-9._\/-]*$/.test(DIR)) die(`FTP_DIR "${DIR}" has characters this script will not quote.`);
 
 const SETTINGS = [
-  "set ftp:ssl-force true",
-  "set ftp:ssl-protect-data true",
-  "set ssl:verify-certificate no", // SuperHosting's self-signed cert — see deploy-ftp.mjs
+  ...FTPS, // TLS 1.2, cert not verified — scripts/lib/lftp.mjs says why
   "set net:timeout 40",
   "set net:max-retries 6",
   "set net:reconnect-interval-base 5",
@@ -153,19 +152,9 @@ const SETTINGS = [
 ].join("; ");
 
 const work = mkdtempSync(path.join(tmpdir(), "qr-config-"));
-function lftp(commands) {
-  const file = path.join(work, "cmds.lftp");
-  writeFileSync(file, commands.join("\n") + "\n");
-  try {
-    return execFileSync(
-      "lftp",
-      ["-c", `${SETTINGS}; ${process.env.LFTP_EXTRA || ""}; open -u "${FTP_USERNAME}","${FTP_PASSWORD}" "${FTP_SERVER}"; source "${file}"`],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }
-    );
-  } catch {
-    return null;
-  }
-}
+// Each session under a watchdog (scripts/lib/lftp.mjs): ok() says whether the
+// last command succeeded, read() gives a command's output or null.
+const lftp = lftpSessions({ server: FTP_SERVER, user: FTP_USERNAME, password: FTP_PASSWORD, settings: SETTINGS, work, quiet: true });
 const finish = (code, msg) => {
   rmSync(work, { recursive: true, force: true });
   (code ? console.error : console.log)(msg);
@@ -173,8 +162,8 @@ const finish = (code, msg) => {
 };
 
 // ── compare with the server's copy ───────────────────────────────────
-const current = lftp([`cat "${remote(NAME)}"`]);
-if (current == null && lftp([`cls -1 "${above}"`]) == null) finish(1, "Could not reach the server over FTP. The site is deployed; its QR settings are not updated.");
+const current = lftp.read(`cat "${remote(NAME)}"`);
+if (current == null && !lftp.ok([`cls -1 "${above}"`])) finish(1, "Could not reach the server over FTP. The site is deployed; its QR settings are not updated.");
 let next = current;
 const changes = [];
 if (QR_ADMIN_PASSWORD) {
@@ -199,14 +188,14 @@ const local = path.join(work, NAME);
 writeFileSync(local, next);
 // Uploaded beside it and renamed over it: the old file stays whole until the
 // new one is complete.
-lftp([`put "${local}" -o "${remote(TEMP)}" && mv "${remote(TEMP)}" "${remote(NAME)}"`]);
-const written = lftp([`cat "${remote(NAME)}"`]);
+lftp.ok([`put "${local}" -o "${remote(TEMP)}" && mv "${remote(TEMP)}" "${remote(NAME)}"`]);
+const written = lftp.read(`cat "${remote(NAME)}"`);
 const ok =
   written != null &&
   (!QR_ADMIN_PASSWORD || matches(QR_ADMIN_PASSWORD, valueOf(written, "admin_password_hash") || "")) &&
   stripe.every(([, key, value]) => valueOf(written, key) === (value ?? undefined));
 if (!ok) {
-  lftp([`rm -f "${remote(TEMP)}"`]);
+  lftp.ok([`rm -f "${remote(TEMP)}"`]);
   finish(1, `${NAME} could not be written or read back. The site is deployed; its QR settings are not updated.`);
 }
 finish(0, `${NAME}: written and checked.`);

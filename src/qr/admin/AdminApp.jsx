@@ -32,6 +32,10 @@ import { api } from "../shared/api.js";
 // each accepted and served on its own. A tablet shows the kitchen, the bar,
 // or both side by side ("Двете"), remembers the choice, and chimes only for
 // what it shows.
+//
+// Waiters: "Сервитьори" assigns tables to tonight's waiters; every card and
+// bill for a table names its waiter. A new evening starts with none. The
+// kitchen and the bar can stop taking orders at different times (Вечерта).
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -180,6 +184,16 @@ function Dashboard({ onSignedOut }) {
   const [billPayments, setBillPayments] = useState(() => new Map());
   const [state, setState] = useState(null);
   const [soldOut, setSoldOut] = useState([]);
+  // Tonight's waiters, table → name. Like the settings, an answer older than
+  // what is shown (a poll already on its way when staff saved) is ignored.
+  const [waiters, setWaiters] = useState({});
+  const waitersSeq = useRef(0);
+  const waitersSaving = useRef(0); // saves on their way: polls leave the list alone
+  const applyWaiters = useCallback((next, at) => {
+    if (waitersSaving.current > 0 || at < waitersSeq.current) return;
+    waitersSeq.current = at;
+    setWaiters(next || {});
+  }, []);
   const [offline, setOffline] = useState(false);
   const [flash, setFlash] = useState(() => new Set());
   const [tab, setTab] = useState("orders");
@@ -265,6 +279,7 @@ function Dashboard({ onSignedOut }) {
         seq.current = res.seq;
         applyState(res.state, res.seq);
         setSoldOut(res.soldOut);
+        applyWaiters(res.waiters, res.seq);
         if (isNew.length) {
           setFlash((f) => new Set([...f, ...isNew.map((o) => o.id)]));
           if (chimeRef.current.enabled) chimeRef.current.play();
@@ -282,7 +297,7 @@ function Dashboard({ onSignedOut }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [merge, mergeTabs, mergeBillPayments, applyState, onSignedOut]);
+  }, [merge, mergeTabs, mergeBillPayments, applyState, applyWaiters, onSignedOut]);
   // "преди 7 мин" moves on by itself.
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 30000);
@@ -347,6 +362,29 @@ function Dashboard({ onSignedOut }) {
       say(res.ok ? `Сумата е върната на госта (${order.code}).` : "Stripe отново отказа връщането. Опитайте след малко.");
     } catch {
       say("Няма връзка — опитайте отново.");
+    }
+  }
+
+  /** The whole table → waiter list, shown at once and saved. */
+  async function saveWaiters(next) {
+    const before = waiters;
+    waitersSaving.current += 1;
+    setWaiters(next);
+    try {
+      const res = await adminApi("waiters.php", { tables: next });
+      if (res.status === 401) return onSignedOut();
+      if (res.ok) {
+        waitersSeq.current = Math.max(waitersSeq.current, res.seq);
+        setWaiters(res.waiters);
+      } else {
+        setWaiters(before);
+        say(res.error === "not_configured" ? "Първо настройте вечерта (Вечерта)." : "Не успях да запиша.");
+      }
+    } catch {
+      setWaiters(before);
+      say("Няма връзка — промяната не е записана.");
+    } finally {
+      waitersSaving.current -= 1;
     }
   }
 
@@ -421,6 +459,7 @@ function Dashboard({ onSignedOut }) {
             ["orders", `Поръчки${newCount ? ` (${newCount} нови)` : ""}`],
             ["service", "Вечерта"],
             ["soldout", `Изчерпани${soldOut.length ? ` (${soldOut.length})` : ""}`],
+            ["waiters", "Сервитьори"],
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
           ].map(([id, label]) => (
@@ -439,11 +478,22 @@ function Dashboard({ onSignedOut }) {
 
       <main className="max-w-7xl mx-auto px-4 pt-4">
         {tab === "orders" && (
-          <Orders orders={orders} flash={flash} state={state} stationView={stationView} setStationView={setStationView} onMove={move} onVoid={voidLine} onRefund={refundOrder} />
+          <Orders
+            orders={orders}
+            flash={flash}
+            state={state}
+            waiterOf={(order) => (order.evening && order.evening === state?.serviceDate ? waiters[order.table] : "")}
+            stationView={stationView}
+            setStationView={setStationView}
+            onMove={move}
+            onVoid={voidLine}
+            onRefund={refundOrder}
+          />
         )}
         {tab === "service" && <Service state={state} onSaved={applyState} say={say} onSignedOut={onSignedOut} />}
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
-        {tab === "tabs" && <Tabs tabs={tabs} onAction={billAction} />}
+        {tab === "waiters" && <Waiters state={state} waiters={waiters} onSave={saveWaiters} say={say} />}
+        {tab === "tabs" && <Tabs tabs={tabs} waiterOf={(table, evening) => (evening === state?.serviceDate ? waiters[table] : "")} onAction={billAction} />}
         {tab === "till" && <Till entries={tillEntries} onTill={till} />}
       </main>
 
@@ -470,7 +520,11 @@ function ServiceChip({ state }) {
   let text = "Не е настроено";
   let tone = "border-cream-100/30 text-cream-100/60";
   if (state.open) {
-    text = `Отворено до ${state.closes}`;
+    const k = state.stations?.kitchen;
+    const b = state.stations?.bar;
+    text = !k || !b || (k.open && b.open && k.closes === b.closes)
+      ? `Отворено до ${state.closes}`
+      : `Кухня ${k.open ? `до ${k.closes}` : "затворена"} · Бар ${b.open ? `до ${b.closes}` : "затворен"}`;
     tone = "border-sage-300 text-sage-200";
   } else if (state.reason === "paused") {
     text = "Пауза";
@@ -491,7 +545,7 @@ function elapsed(createdAt) {
   return `преди ${Math.floor(minutes / 60)} ч ${minutes % 60} мин`;
 }
 
-function Orders({ orders, flash, state, stationView, setStationView, onMove, onVoid, onRefund }) {
+function Orders({ orders, flash, state, waiterOf, stationView, setStationView, onMove, onVoid, onRefund }) {
   const [view, setView] = useState("active");
   const [table, setTable] = useState("");
   const [cancelling, setCancelling] = useState(null); // a job
@@ -513,6 +567,7 @@ function Orders({ orders, flash, state, stationView, setStationView, onMove, onV
     <OrderCard
       key={`${j.order.id}:${j.station}`}
       job={j}
+      waiter={waiterOf(j.order)}
       flash={flash.has(j.order.id)}
       onMove={onMove}
       onCancel={() => setCancelling(j)}
@@ -597,7 +652,7 @@ function Orders({ orders, flash, state, stationView, setStationView, onMove, onV
 }
 
 /** One station's part of an order: its lines, its status, its buttons. */
-function OrderCard({ job, flash, onMove, onCancel, onVoid, onRefund }) {
+function OrderCard({ job, waiter, flash, onMove, onCancel, onVoid, onRefund }) {
   const { order, station } = job;
   const s = STATUS[job.status];
   const minutes = (Date.now() / 1000 - order.createdAt) / 60;
@@ -621,6 +676,11 @@ function OrderCard({ job, flash, onMove, onCancel, onVoid, onRefund }) {
           <div className="font-sans font-semibold tabular-nums text-6xl leading-none text-cream-50">{order.table}</div>
           {/* The name the guest gave when ordering: to call out at the table. */}
           {order.guestName && <div className="text-xl text-gold-100 mt-2" data-guest-name>{order.guestName}</div>}
+          {waiter && (
+            <div className="text-sm text-cream-100/70 mt-1" data-waiter>
+              Сервитьор: <span className="text-cream-50 font-medium">{waiter}</span>
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className={`inline-block text-[10px] tracking-[0.25em] uppercase px-2 py-0.5 rounded-sm mb-1 ${station === "bar" ? "bg-sky-900/60 text-sky-100" : "bg-amber-900/50 text-amber-100"}`}>{STATIONS[station]}</div>
@@ -801,13 +861,15 @@ function Service({ state, onSaved, say, onSignedOut }) {
   const [form, setForm] = useState(() => ({
     date: state?.serviceDate && state.serviceDate >= today ? state.serviceDate : today,
     opens: state?.opens || "18:00",
-    closes: state?.closes || "23:00",
+    // The kitchen and the bar can stop taking orders at different times.
+    kitchenCloses: state?.stations?.kitchen?.closes || state?.closes || "23:00",
+    barCloses: state?.stations?.bar?.closes || state?.closes || "23:00",
     tables: state?.tables || 10,
     disabled: new Set(state?.disabledTables || []),
     payment: state?.paymentsConfigured && ["online", "tab"].includes(state?.paymentMode) ? state.paymentMode : "on_site",
   }));
   const [busy, setBusy] = useState(false);
-  const nextDay = form.closes <= form.opens;
+  const nextDay = (time) => time <= form.opens;
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const count = Math.max(0, Math.min(300, Number(form.tables) || 0));
 
@@ -817,7 +879,8 @@ function Service({ state, onSaved, say, onSignedOut }) {
       const res = await adminApi("settings.php", {
         date: form.date,
         opens: form.opens,
-        closes: form.closes,
+        kitchenCloses: form.kitchenCloses,
+        barCloses: form.barCloses,
         tables: count,
         disabledTables: [...form.disabled].filter((n) => n <= count),
         paused: false,
@@ -830,7 +893,9 @@ function Service({ state, onSaved, say, onSignedOut }) {
       } else
         say(
           res.field === "window"
-            ? "Невалидна дата или час."
+            ? res.station
+              ? `Невалиден час за ${res.station === "bar" ? "бара" : "кухнята"} (най-много 26 часа след отварянето).`
+              : "Невалидна дата или час."
             : res.field === "tables"
               ? "Броят маси трябва да е между 1 и 300."
               : res.error === "payments_not_configured"
@@ -860,8 +925,13 @@ function Service({ state, onSaved, say, onSignedOut }) {
           <p className="text-cream-50">
             {state.open ? "Приемаме поръчки" : state.reason === "paused" ? "Приемането е на ПАУЗА" : state.reason === "not_yet_open" ? "Още не приемаме поръчки" : "Приемането е приключило"}
             {" · "}
-            {state.serviceDate} от {state.opens} до {state.closes}
-            {state.closes <= state.opens ? " (следващия ден)" : ""} · {state.tables} маси
+            {state.serviceDate} от {state.opens}
+            {Object.entries(STATIONS).map(([st, label]) => {
+              const closes = state.stations?.[st]?.closes || state.closes;
+              return ` · ${label.toLowerCase()} до ${closes}${closes <= state.opens ? " (следващия ден)" : ""}`;
+            })}
+            {" · "}
+            {state.tables} маси
             {" · "}
             {state.payment === "online" ? "плащане с карта в телефона" : state.payment === "tab" ? "сметка накрая, плащане от телефона" : "плащане при сервитьора"}
           </p>
@@ -880,17 +950,21 @@ function Service({ state, onSaved, say, onSignedOut }) {
       )}
 
       <h2 className="font-display text-3xl text-cream-50">Вечерта</h2>
-      <div className="grid sm:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
         <Field label="Дата">
           <input type="date" value={form.date} onChange={set("date")} className={inputClass} />
         </Field>
         <Field label="Поръчки от">
           <input type="time" value={form.opens} onChange={set("opens")} className={inputClass} />
         </Field>
-        <Field label={`до${nextDay ? " (следващия ден)" : ""}`}>
-          <input type="time" value={form.closes} onChange={set("closes")} className={inputClass} />
+        <Field label={`Кухня до${nextDay(form.kitchenCloses) ? " (сл. ден)" : ""}`}>
+          <input type="time" value={form.kitchenCloses} onChange={set("kitchenCloses")} className={inputClass} aria-label="Кухнята приема поръчки до" />
+        </Field>
+        <Field label={`Бар до${nextDay(form.barCloses) ? " (сл. ден)" : ""}`}>
+          <input type="time" value={form.barCloses} onChange={set("barCloses")} className={inputClass} aria-label="Барът приема поръчки до" />
         </Field>
       </div>
+      <p className="text-xs text-cream-100/50 mt-2">След като кухнята спре, гостите още могат да поръчват напитки — и обратно. Менюто им казва какво вече не се приема.</p>
       <Field label="Брой маси" className="mt-4 max-w-[12rem]">
         <input type="number" inputMode="numeric" min="1" max="300" value={form.tables} onChange={set("tables")} className={inputClass} />
       </Field>
@@ -1078,7 +1152,7 @@ function Till({ entries, onTill }) {
  * shown until it is refunded. Staff settle what is left (cash or terminal)
  * and close the bill; the table's next order starts a new one.
  */
-function Tabs({ tabs, onAction }) {
+function Tabs({ tabs, waiterOf, onAction }) {
   const [settling, setSettling] = useState(null);
   const open = [...tabs.values()].filter((x) => !x.closedAt).sort((a, b) => a.table - b.table);
   const closed = [...tabs.values()].filter((x) => x.closedAt).sort((a, b) => b.closedAt - a.closedAt);
@@ -1098,6 +1172,7 @@ function Tabs({ tabs, onAction }) {
                 <div>
                   <div className="text-[10px] tracking-[0.25em] uppercase text-cream-100/50">Маса</div>
                   <div className="font-sans font-semibold tabular-nums text-5xl leading-none text-cream-50">{x.table}</div>
+                  {waiterOf(x.table, x.evening) && <div className="text-sm text-cream-100/70 mt-1" data-waiter>Сервитьор: <span className="text-cream-50">{waiterOf(x.table, x.evening)}</span></div>}
                 </div>
                 <dl className="text-right text-sm space-y-0.5">
                   <div><dt className="inline text-cream-100/60">Общо </dt><dd className="inline text-cream-50">{money(x.totals.total)}</dd></div>
@@ -1212,6 +1287,128 @@ function Field({ label, children, className = "" }) {
       <span className="text-xs tracking-[0.2em] uppercase text-gold-300/80">{label}</span>
       {children}
     </label>
+  );
+}
+
+const NAMES_KEY = "raya.qr.waiterNames"; // names used on this device before, as suggestions
+const TONES = ["bg-amber-900/60", "bg-sky-900/60", "bg-emerald-900/60", "bg-rose-900/60", "bg-violet-900/60", "bg-teal-900/60", "bg-orange-900/60", "bg-indigo-900/60"];
+
+function rememberedNames() {
+  try {
+    const list = JSON.parse(window.localStorage.getItem(NAMES_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((n) => typeof n === "string").slice(0, 30) : [];
+  } catch {
+    return [];
+  }
+}
+function rememberNames(list) {
+  try {
+    window.localStorage.setItem(NAMES_KEY, JSON.stringify(list.slice(0, 30)));
+  } catch {
+    /* suggestions only */
+  }
+}
+
+/**
+ * "Сервитьори": who serves which table tonight. Pick a waiter, then tap
+ * their tables; a tap on a table that is theirs takes it back. Every change
+ * is saved at once and reaches every tablet. Tonight only: a new evening
+ * starts with no waiters.
+ */
+function Waiters({ state, waiters, onSave: save, say }) {
+  const [names, setNames] = useState(() => [...new Set([...Object.values(waiters), ...rememberedNames()])]);
+  const [current, setCurrent] = useState(null);
+  const [draft, setDraft] = useState("");
+  // Names assigned on another tablet show up here too.
+  useEffect(() => {
+    setNames((list) => {
+      const missing = Object.values(waiters).filter((n) => !list.includes(n));
+      return missing.length ? [...list, ...new Set(missing)] : list;
+    });
+  }, [waiters]);
+  const tables = state ? Array.from({ length: state.tables }, (_, i) => i + 1).filter((n) => !state.disabledTables.includes(n)) : [];
+  const tone = (name) => TONES[Math.max(0, names.indexOf(name)) % TONES.length];
+
+  const tap = (n) => {
+    if (!current) {
+      say("Първо изберете сервитьор горе.");
+      return;
+    }
+    const next = { ...waiters };
+    if (next[n] === current) delete next[n];
+    else next[n] = current;
+    save(next);
+  };
+  const add = (e) => {
+    e.preventDefault();
+    const name = draft.replace(/\s+/g, " ").trim().slice(0, 30);
+    if (!name) return;
+    const list = names.includes(name) ? names : [...names, name];
+    setNames(list);
+    rememberNames(list);
+    setCurrent(name);
+    setDraft("");
+  };
+  const removeName = (name) => {
+    const list = names.filter((n) => n !== name);
+    setNames(list);
+    rememberNames(list);
+    if (current === name) setCurrent(null);
+    if (Object.values(waiters).includes(name)) save(Object.fromEntries(Object.entries(waiters).filter(([, n]) => n !== name)));
+  };
+  const count = (name) => Object.values(waiters).filter((n) => n === name).length;
+
+  if (!state?.serviceDate) return <p className="text-cream-100/60 py-10">Първо настройте вечерта в „Вечерта“.</p>;
+  return (
+    <div className="max-w-4xl">
+      <p className="text-sm text-cream-100/60">
+        Изберете сервитьор, после докоснете масите му. Името се вижда на всяка поръчка и сметка за масата. Важи за тази вечер ({state.serviceDate}); на нова вечер започва празно.
+      </p>
+      <form onSubmit={add} className="flex gap-2 mt-4 max-w-md">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={30} placeholder="Име на сервитьор" aria-label="Име на сервитьор" className={`${inputClass} mt-0`} />
+        <button type="submit" disabled={!draft.trim()} className="btn-gold shrink-0 px-5 rounded-sm text-sm font-medium">Добави</button>
+      </form>
+      {names.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4" role="group" aria-label="Сервитьори">
+          {names.map((name) => (
+            <span key={name} className={`inline-flex items-center rounded-full border ${current === name ? "border-gold-300 ring-2 ring-gold-300/50" : "border-gold-300/25"} ${tone(name)}`}>
+              <button type="button" aria-pressed={current === name} onClick={() => setCurrent(current === name ? null : name)} className="h-11 pl-4 pr-2 text-sm text-cream-50">
+                {name}
+                <span className="text-cream-100/60"> · {count(name)}</span>
+              </button>
+              <button type="button" onClick={() => removeName(name)} aria-label={`Махни ${name}`} className="h-11 px-3 text-cream-100/60">×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-cream-100/50 mt-4">{current ? `Докоснете масите на ${current}.` : "Изберете сервитьор, за да разпределите масите."}</p>
+      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2 mt-2">
+        {tables.map((n) => {
+          const who = waiters[n];
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => tap(n)}
+              data-table={n}
+              className={`h-20 rounded-sm border flex flex-col items-center justify-center px-1 ${who ? `${tone(who)} border-gold-300/30` : "border-gold-300/15 bg-ink-900"} ${who && who === current ? "ring-2 ring-gold-300" : ""}`}
+            >
+              <span className="font-sans font-semibold tabular-nums text-2xl text-cream-50">{n}</span>
+              <span className="text-xs text-cream-100/80 truncate max-w-full">{who || "—"}</span>
+            </button>
+          );
+        })}
+      </div>
+      {Object.keys(waiters).length > 0 && (
+        <button
+          type="button"
+          onClick={() => window.confirm("Да махна всички сервитьори от масите?") && save({})}
+          className="mt-6 h-11 px-4 rounded-sm border border-red-400/40 text-red-300 text-sm"
+        >
+          Изчисти всички маси
+        </button>
+      )}
+    </div>
   );
 }
 

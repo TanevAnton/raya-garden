@@ -150,7 +150,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 6;
+const QR_SCHEMA_VERSION = 7;
 
 function qr_db(): PDO
 {
@@ -410,6 +410,34 @@ function qr_migrate(PDO $pdo)
                     WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = orders.id AND i.station = '$station')");
             }
         }
+        if ($version < 7) {
+            // Each station closes on its own: the kitchen at 22:00, the bar at
+            // 01:00. closes_local/closes_at stay the later of the two — the
+            // end of the evening as a whole. Until set, both are that.
+            //
+            // Waiters: who serves which table tonight, for the staff screen.
+            // Kept per evening, so a new evening starts with none; an order
+            // says which evening it belongs to (orders.evening).
+            $pdo->exec("
+                ALTER TABLE settings ADD COLUMN kitchen_closes_local TEXT NOT NULL DEFAULT '';
+                ALTER TABLE settings ADD COLUMN kitchen_closes_at INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE settings ADD COLUMN bar_closes_local TEXT NOT NULL DEFAULT '';
+                ALTER TABLE settings ADD COLUMN bar_closes_at INTEGER NOT NULL DEFAULT 0;
+                UPDATE settings SET kitchen_closes_local = closes_local, kitchen_closes_at = closes_at,
+                    bar_closes_local = closes_local, bar_closes_at = closes_at;
+                ALTER TABLE orders ADD COLUMN evening TEXT NOT NULL DEFAULT '';
+                UPDATE orders SET evening = (SELECT evening FROM tabs WHERE tabs.id = orders.tab_id) WHERE tab_id > 0;
+                UPDATE orders SET evening = (SELECT service_date FROM settings WHERE id = 1)
+                    WHERE evening = '' AND created_at >= (SELECT opens_at FROM settings WHERE id = 1)
+                      AND created_at < (SELECT closes_at FROM settings WHERE id = 1);
+                CREATE TABLE IF NOT EXISTS waiters (
+                    evening TEXT NOT NULL,
+                    table_no INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    PRIMARY KEY (evening, table_no)
+                );
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -528,7 +556,11 @@ function qr_local_time(string $date, string $time)
     return $dt;
 }
 
-/** Is ordering open right now, and if not, why. */
+/**
+ * Is ordering open right now, and if not, why. Open while either station
+ * still takes orders; `stations` says which (the kitchen may close before
+ * the bar, or the other way round).
+ */
 function qr_state(array $settings, int $now): array
 {
     $tables = (int) $settings['tables'];
@@ -544,8 +576,19 @@ function qr_state(array $settings, int $now): array
     } elseif ($now >= $closesAt) {
         $reason = 'closed';
     }
+    $stations = [];
+    foreach (QR_STATIONS as $station) {
+        $at = (int) ($settings[$station . '_closes_at'] ?? 0);
+        $local = (string) ($settings[$station . '_closes_local'] ?? '');
+        if ($at === 0) {
+            $at = $closesAt;
+            $local = (string) $settings['closes_local'];
+        }
+        $stations[$station] = ['open' => $reason === null && $now < $at, 'closes' => $local, 'closesAt' => $at];
+    }
     return [
         'open' => $reason === null,
+        'stations' => $stations,
         'reason' => $reason,
         'tables' => $tables,
         'disabledTables' => qr_int_list((string) $settings['disabled_tables']),
@@ -675,6 +718,18 @@ function qr_overall_status(array $order): string
     return in_array('accepted', $live, true) || in_array('served', $live, true) ? 'accepted' : 'new';
 }
 
+/** Who serves which table on an evening: table number => name. */
+function qr_waiters(PDO $pdo, string $evening): array
+{
+    $stmt = $pdo->prepare('SELECT table_no, name FROM waiters WHERE evening = ? ORDER BY table_no');
+    $stmt->execute([$evening]);
+    $out = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $out[(int) $row['table_no']] = (string) $row['name'];
+    }
+    return $out;
+}
+
 // ── orders as JSON ───────────────────────────────────────────────────
 
 function qr_order_json(array $order, bool $withLines = true): array
@@ -698,6 +753,9 @@ function qr_order_json(array $order, bool $withLines = true): array
         'paidAt' => (int) ($order['paid_at'] ?? 0),
         'tabId' => (int) ($order['tab_id'] ?? 0),
         'guestName' => (string) ($order['guest_name'] ?? ''),
+        // The evening (service date) it was ordered on: tonight's waiters
+        // are shown only with tonight's orders.
+        'evening' => (string) ($order['evening'] ?? ''),
         // Each station's part: '' when the order has nothing for it.
         'stations' => ['kitchen' => (string) ($order['kitchen_status'] ?? ''), 'bar' => (string) ($order['bar_status'] ?? '')],
         'payerName' => (string) ($order['payer_name'] ?? ''),

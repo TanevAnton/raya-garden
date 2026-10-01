@@ -205,6 +205,27 @@ describe("a guest orders from a phone", () => {
     await page.close();
   });
 
+  it("once the kitchen has closed, food can no longer be ordered but drinks can", async () => {
+    await openEvening();
+    // The kitchen stopped a minute after midnight; the bar goes on all day.
+    const res = await api.admin("/api/qr/admin/settings.php", { date: today(), opens: "00:00", kitchenCloses: "00:01", barCloses: "23:59" });
+    assert.equal(res.status, 200, res.text);
+    const page = await phone();
+    await page.goto(`${srv.base}/menu/?lang=bg`, { waitUntil: "networkidle0" });
+    await clickText(page, "[role=dialog]", /^3$/);
+    assert.match(await page.$eval("[data-station-hours]", (e) => e.innerText), /Кухнята вече не приема поръчки\. Напитки — до 23:59/);
+    const food = await page.evaluate(() => [...document.querySelectorAll("main article")].find((a) => a.querySelector("h3")?.textContent.includes("Тирамису")).innerText);
+    assert.doesNotMatch(food, /Добави/i, "no food");
+    assert.ok(await page.$('[data-category="desserts"] [data-station-closed]'), "the dessert section says why");
+    await addToCart(page, "Минерална вода Девин");
+    await checkout(page);
+    await clickText(page, "[role=dialog]", /Изпрати поръчката/);
+    await page.waitForFunction(() => document.body.innerText.includes("Поръчката е изпратена"));
+    assert.deepEqual((await feed())[0].stations, { kitchen: "", bar: "new" });
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  });
+
   it("switches to English and keeps the choice", async () => {
     await openEvening();
     const page = await phone();
@@ -402,6 +423,31 @@ describe("the staff screen", () => {
     await kitchen.waitForSelector(`[data-order="${second.order.code}"][data-station="kitchen"]`, { timeout: 10000 });
     await kitchen.close();
     await barSession.close();
+  });
+
+  it("waiters: tables assigned on one screen, the waiter on every card for the table", async () => {
+    await openEvening();
+    const staff = await tablet();
+    await clickText(staff, "nav", /^Сервитьори$/);
+    await staff.waitForSelector('input[aria-label="Име на сервитьор"]');
+    await staff.type('input[aria-label="Име на сервитьор"]', "Иван");
+    await clickText(staff, "main", /^Добави$/);
+    await staff.click('[data-table="3"]');
+    await staff.click('[data-table="4"]');
+    await staff.waitForFunction(() => document.querySelector('[data-table="4"]').innerText.includes("Иван"), { polling: 200 });
+    await staff.click('[data-table="4"]'); // a second tap takes it back
+    await staff.waitForFunction(() => !document.querySelector('[data-table="4"]').innerText.includes("Иван"), { polling: 200 });
+    await new Promise((r) => setTimeout(r, 500));
+    assert.deepEqual((await api.get("/api/qr/admin/feed.php?since=0")).body.waiters, { 3: "Иван" });
+
+    const placed = (await placeOrder(3, [["tiramisu"], ["illy-coffee"]])).body;
+    await clickText(staff, "nav", /^Поръчки/);
+    await clickText(staff, "main", /^Двете$/); // this browser remembers an earlier test's choice
+    await staff.waitForSelector(`[data-order="${placed.order.code}"][data-station="bar"]`, { timeout: 10000 });
+    const cards = await staff.$$eval(`[data-order="${placed.order.code}"] [data-waiter]`, (els) => els.map((e) => e.innerText));
+    assert.deepEqual(cards, ["Сервитьор: Иван", "Сервитьор: Иван"], "on the kitchen's card and the bar's");
+    assert.deepEqual(staff.errors || [], []);
+    await staff.close();
   });
 
   it("pause and resume from the screen", async () => {

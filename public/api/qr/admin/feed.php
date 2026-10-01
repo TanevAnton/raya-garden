@@ -78,6 +78,8 @@ try {
         $billPayments[] = qr_bill_payment_staff_json($pdo, $p);
     }
     $soldOut = qr_sold_out();
+    // Tonight's waiters, whole each time: a few dozen names at most.
+    $waiters = qr_waiters($pdo, (string) $settings['service_date']);
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
     $pdo->exec('ROLLBACK');
@@ -90,6 +92,7 @@ qr_json(200, [
     'orders' => $orders,
     'state' => qr_state($settings, $now),
     'soldOut' => $soldOut,
+    'waiters' => (object) $waiters,
     'tabs' => $tabs,
     'billPayments' => $billPayments,
     'now' => $now,

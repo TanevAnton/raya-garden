@@ -2,6 +2,9 @@
 // POST /api/qr/admin/settings.php — the evening's set-up. Any of:
 //   {"date": "2026-10-03", "opens": "18:00", "closes": "01:00"}   window (Sofia
 //        time; a closing time at or before the opening time is the next day)
+//   {"date": …, "opens": "18:00", "kitchenCloses": "22:00", "barCloses": "01:00"}
+//        the same, with the kitchen and the bar taking orders until different
+//        times; "closes" alone is both
 //   {"tables": 24, "disabledTables": [7, 13]}
 //   {"paused": true}                                             stop / resume
 //   {"paymentMode": "on_site"|"online"|"tab"}   guests pay staff; on the phone
@@ -24,20 +27,31 @@ $now = qr_now();
 $current = qr_settings();
 $update = [];
 
-if (array_key_exists('date', $body) || array_key_exists('opens', $body) || array_key_exists('closes', $body)) {
+$windowKeys = ['date', 'opens', 'closes', 'kitchenCloses', 'barCloses'];
+if (array_intersect($windowKeys, array_keys($body))) {
     $date = $body['date'] ?? null;
     $opens = $body['opens'] ?? null;
-    $closes = $body['closes'] ?? null;
-    $window = is_string($date) && is_string($opens) && is_string($closes) ? qr_window($date, $opens, $closes) : [];
-    if (!$window || $window[1] - $window[0] > 26 * 3600) {
-        qr_fail(400, 'invalid', ['field' => 'window']);
+    $closes = ['kitchen' => $body['kitchenCloses'] ?? $body['closes'] ?? null, 'bar' => $body['barCloses'] ?? $body['closes'] ?? null];
+    $windows = [];
+    foreach ($closes as $station => $time) {
+        $window = is_string($date) && is_string($opens) && is_string($time) ? qr_window($date, $opens, $time) : [];
+        if (!$window || $window[1] - $window[0] > 26 * 3600) {
+            qr_fail(400, 'invalid', ['field' => 'window', 'station' => $station]);
+        }
+        $windows[$station] = $window;
     }
+    // The evening as a whole ends when the later of the two does.
+    $last = $windows['kitchen'][1] >= $windows['bar'][1] ? 'kitchen' : 'bar';
     $update += [
         'service_date' => $date,
         'opens_local' => $opens,
-        'closes_local' => $closes,
-        'opens_at' => $window[0],
-        'closes_at' => $window[1],
+        'closes_local' => $closes[$last],
+        'opens_at' => $windows['kitchen'][0],
+        'closes_at' => $windows[$last][1],
+        'kitchen_closes_local' => $closes['kitchen'],
+        'kitchen_closes_at' => $windows['kitchen'][1],
+        'bar_closes_local' => $closes['bar'],
+        'bar_closes_at' => $windows['bar'][1],
     ];
 }
 $tables = array_key_exists('tables', $body) ? $body['tables'] : (int) $current['tables'];

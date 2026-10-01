@@ -193,6 +193,8 @@ export default function MenuApp() {
   }, [lang]);
 
   const open = Boolean(state?.open);
+  // The kitchen and the bar can stop taking orders at different times.
+  const stationOpen = (station) => state?.stations?.[station]?.open ?? open;
   const tabMode = state?.payment === "tab";
   const soldOut = useMemo(() => new Set(state?.soldOut || []), [state]);
   const tables = useMemo(() => {
@@ -268,13 +270,15 @@ export default function MenuApp() {
         // attempt: pressing Pay again finishes this order, never a second one.
         setProblem({ kind: "payment" });
       } else if (res.error === "changed") {
-        const drop = new Set([...res.removed, ...res.soldOut].map((r) => r.line));
+        const closedNow = res.stationClosed || [];
+        const drop = new Set([...res.removed, ...res.soldOut, ...closedNow].map((r) => r.line));
         const now = new Map(res.priceChanged.map((p) => [p.line, p.now]));
         const notes = [];
         cart.forEach((l, i) => {
           const name = lineName(l, lang);
           if (res.removed.some((r) => r.line === i)) notes.push(fill(t.removedLine, { name }));
           else if (res.soldOut.some((r) => r.line === i)) notes.push(fill(t.soldOutLine, { name }));
+          else if (closedNow.some((r) => r.line === i)) notes.push(fill(t.stationClosedLine, { name, where: t.stationWhere[closedNow.find((r) => r.line === i).station] }));
           else if (now.has(i)) notes.push(fill(t.priceLine, { name, old: money(l.price, lang), now: money(now.get(i), lang) }));
         });
         setCart(cart.map((l, i) => (now.has(i) ? { ...l, price: now.get(i) } : l)).filter((_, i) => !drop.has(i)));
@@ -322,6 +326,7 @@ export default function MenuApp() {
           <section key={category.id} id={`c-${category.id}`} data-category={category.id} className="scroll-mt-28 pt-8">
             <h2 className="font-display text-3xl text-cream-50">{pick(category, lang)}</h2>
             {category.noteBg && <p className="text-sm text-cream-100/50 italic mt-1">{pick(category, lang, "note")}</p>}
+            {open && !stationOpen(category.station) && <p className="text-sm text-gold-200 mt-1" data-station-closed>{t.categoryClosed[category.station]}</p>}
             <div className="mt-4 space-y-3">
               {category.items.map((item) => (
                 <ItemCard
@@ -329,7 +334,7 @@ export default function MenuApp() {
                   item={item}
                   t={t}
                   lang={lang}
-                  canOrder={open}
+                  canOrder={open && stationOpen(category.station)}
                   soldOut={soldOut.has(item.id)}
                   cart={cart}
                   onAdd={(variant) => (item.choices ? setChoiceFor({ item, variant }) : add(item, variant))}
@@ -540,7 +545,18 @@ function StatusBanner({ t, lang, state, failed, reload }) {
     );
   }
   if (!state) return <div className="max-w-2xl mx-auto px-4 mt-4 h-12 animate-pulse bg-ink-900 rounded-sm" aria-hidden="true" />;
-  if (state.open) return null;
+  if (state.open) {
+    // Open, but the kitchen and the bar keep different hours: say so.
+    const k = state.stations?.kitchen;
+    const b = state.stations?.bar;
+    if (!k || !b || (k.open && b.open && k.closes === b.closes)) return null;
+    const text = !k.open ? fill(t.kitchenClosed, { bar: b.closes }) : !b.open ? fill(t.barClosed, { kitchen: k.closes }) : fill(t.stationHours, { kitchen: k.closes, bar: b.closes });
+    return (
+      <div role="status" className="max-w-2xl mx-auto px-4 mt-4" data-station-hours>
+        <div className="border border-gold-300/25 bg-ink-900 px-4 py-3 text-sm text-cream-50">{text}</div>
+      </div>
+    );
+  }
   let message = t.closed;
   if (state.reason === "paused") message = t.paused;
   else if (state.reason === "not_yet_open") {

@@ -76,6 +76,7 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $soldOut = array_flip(qr_sold_out());
         $removed = [];
         $soldOutLines = [];
+        $stationClosed = [];
         $priceChanged = [];
         $resolved = [];
         foreach ($lines as $n => $line) {
@@ -105,6 +106,11 @@ function qr_place_order(array $body, string $idemKey, int $now): array
                 $soldOutLines[] = ['line' => $n, 'itemId' => $item['id']];
                 continue;
             }
+            // The kitchen may close before the bar (or the bar first).
+            if (!$state['stations'][$item['station']]['open']) {
+                $stationClosed[] = ['line' => $n, 'itemId' => $item['id'], 'station' => $item['station']];
+                continue;
+            }
             if ($line['price'] !== (int) $variant['price']) {
                 $priceChanged[] = [
                     'line' => $n,
@@ -120,12 +126,13 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         foreach ($resolved as $r) {
             $total += (int) $r[2]['price'] * $r[0]['qty'];
         }
-        if ($removed || $soldOutLines || $priceChanged || $expectedTotal !== $total) {
+        if ($removed || $soldOutLines || $stationClosed || $priceChanged || $expectedTotal !== $total) {
             return [409, [
                 'ok' => false,
                 'error' => 'changed',
                 'removed' => $removed,
                 'soldOut' => $soldOutLines,
+                'stationClosed' => $stationClosed,
                 'priceChanged' => $priceChanged,
                 'total' => $total,
                 'expectedTotal' => $expectedTotal,
@@ -167,11 +174,11 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
             (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name,
-             kitchen_status, bar_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+             kitchen_status, bar_status, evening)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
             $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName,
-            $stations['kitchen'], $stations['bar']]);
+            $stations['kitchen'], $stations['bar'], (string) $settings['service_date']]);
         if ($tab) {
             qr_touch_tab($pdo, (int) $tab['id'], $seq);
         }

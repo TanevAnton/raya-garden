@@ -290,8 +290,8 @@ the phone.
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 84 tests, 44 of them paying against a fake Stripe (needs php with pdo_sqlite)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 18 tests
+npm run test:qr            # API: 90 tests, 44 of them paying against a fake Stripe (needs php with pdo_sqlite)
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 20 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

@@ -447,6 +447,26 @@ there).
   their own status for each station (schema v6).
 - Coffee and tea are the bar's; desserts the kitchen's.
 
+## Waiters per table, and closing times per station, added 01.10.2026
+
+- **Waiters belong to the evening.** `waiters (evening, table_no, name)`;
+  the staff screen gets tonight's list with every poll and shows the
+  table's waiter on each card and bill of tonight (`orders.evening`). A new
+  evening starts empty; saving deletes any earlier evening's list. Changing
+  a table's waiter shows at once on every card for it — the name is looked
+  up, not copied onto orders.
+- **Saved whole, at once.** Each tap on a table sends the full list, so the
+  last save wins and nothing is half-applied; a poll already on its way
+  while a save is pending is not allowed to put the old list back.
+- **Names are not remembered on the server** past the evening. The tablet
+  keeps the names it has seen, as suggestions, in its own storage.
+- **The kitchen and the bar close on their own.** `kitchen_closes_*` and
+  `bar_closes_*` in settings; `closes_*` stays the later of the two, the
+  end of the evening as a whole. Ordering is open while either station is;
+  a line for a closed station is answered like a sold-out item ("changed",
+  `stationClosed`), so the guest sees exactly what was taken out before
+  anything is sent. "closes" alone still sets both.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

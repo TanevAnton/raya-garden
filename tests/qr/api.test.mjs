@@ -592,6 +592,92 @@ describe("kitchen and bar", () => {
   });
 });
 
+describe("the kitchen and the bar close at different times", () => {
+  const SPLIT = { date: "2026-10-03", opens: "18:00", kitchenCloses: "22:00", barCloses: "01:00" };
+  const state = async (iso) => (await client(srv.base, { now: sofia(iso, 3) }).get("/api/qr/state.php")).body;
+  const at = (iso) => ({ at: sofia(iso, 3) });
+
+  it("after the kitchen closes, drinks can still be ordered and food cannot", async () => {
+    await setUp({ window: SPLIT });
+    const early = await state("2026-10-03T20:00");
+    assert.deepEqual([early.open, early.stations.kitchen.open, early.stations.bar.open], [true, true, true]);
+    assert.deepEqual([early.stations.kitchen.closes, early.stations.bar.closes, early.closes], ["22:00", "01:00", "01:00"], "the evening ends with the bar");
+
+    const late = await state("2026-10-03T22:30");
+    assert.deepEqual([late.open, late.stations.kitchen.open, late.stations.bar.open], [true, false, true]);
+    const guest = client(srv.base);
+    const mixed = await order(guest, 4, [["caesar", "chicken", 1], ["coca-cola-products", "std", 1, "sprite"]], at("2026-10-03T22:30"));
+    assert.equal(mixed.status, 409);
+    assert.equal(mixed.body.error, "changed");
+    assert.deepEqual(mixed.body.stationClosed, [{ line: 0, itemId: "caesar", station: "kitchen" }], "the salad, not the drink");
+    assert.equal(countOrders(), 0, "nothing placed: the guest sees what changed first");
+    const drinks = await order(guest, 4, [["coca-cola-products", "std", 1, "sprite"]], at("2026-10-03T22:30"));
+    assert.equal(drinks.status, 201, drinks.text);
+    assert.equal(drinks.body.order.evening, "2026-10-03");
+
+    assert.equal((await state("2026-10-04T01:05")).open, false, "after the bar, all closed");
+  });
+
+  it("the bar can close first too; one closing time alone is both", async () => {
+    await setUp({ window: { date: "2026-10-03", opens: "18:00", kitchenCloses: "23:00", barCloses: "21:00" } });
+    const s = await state("2026-10-03T22:00");
+    assert.deepEqual([s.stations.kitchen.open, s.stations.bar.open, s.closes], [true, false, "23:00"]);
+    const res = await order(client(srv.base), 4, [["tiramisu"], ["illy-coffee"]], at("2026-10-03T22:00"));
+    assert.deepEqual(res.body.stationClosed.map((l) => l.station), ["bar"]);
+
+    await setUp();
+    const one = await state("2026-10-03T20:00");
+    assert.deepEqual([one.stations.kitchen.closes, one.stations.bar.closes], ["01:00", "01:00"]);
+  });
+
+  it("a closing time that makes no sense is refused", async () => {
+    const admin = await setUp();
+    const res = await admin.admin("/api/qr/admin/settings.php", { date: "2026-10-03", opens: "18:00", kitchenCloses: "25:00", barCloses: "01:00" });
+    assert.equal(res.status, 400);
+    assert.deepEqual([res.body.field, res.body.station], ["window", "kitchen"]);
+  });
+});
+
+describe("waiters", () => {
+  const save = (admin, tables) => admin.admin("/api/qr/admin/waiters.php", { tables });
+  const feed = async (admin) => (await admin.get("/api/qr/admin/feed.php?since=0")).body;
+
+  it("each table can have a waiter for the evening, shown with its orders", async () => {
+    const admin = await setUp();
+    const res = await save(admin, { 3: "Иван", 4: "Иван", 7: "  Мария\u0000 " });
+    assert.equal(res.status, 200, res.text);
+    assert.deepEqual(res.body.waiters, { 3: "Иван", 4: "Иван", 7: "Мария" });
+    assert.equal(res.body.evening, "2026-10-03");
+    await order(client(srv.base, { now: AT_20H }), 3, [["tiramisu"]]);
+    const f = await feed(admin);
+    assert.deepEqual(f.waiters, { 3: "Иван", 4: "Иван", 7: "Мария" });
+    assert.equal(f.orders[0].evening, f.state.serviceDate, "tonight's order: tonight's waiter applies");
+
+    // The whole list each time: what is left out has no waiter.
+    assert.deepEqual((await save(admin, { 3: "Мария" })).body.waiters, { 3: "Мария" });
+    assert.deepEqual((await save(admin, {})).body.waiters, {});
+  });
+
+  it("names and tables are checked", async () => {
+    const admin = await setUp();
+    for (const tables of [{ 0: "Иван" }, { 301: "Иван" }, { 3: "" }, { 3: "x".repeat(31) }, { 3: 5 }, { abc: "Иван" }, "Иван"]) {
+      assert.equal((await save(admin, tables)).status, 400, JSON.stringify(tables));
+    }
+    const guest = client(srv.base, { now: AT_20H });
+    assert.equal((await guest.post("/api/qr/admin/waiters.php", { tables: { 3: "Иван" } })).status, 401, "staff only");
+  });
+
+  it("a new evening starts with no waiters", async () => {
+    const admin = await setUp();
+    await save(admin, { 3: "Иван" });
+    const nextDay = sofia("2026-10-04T17:00", 3);
+    const tomorrow = client(srv.base, { now: nextDay });
+    assert.equal((await tomorrow.login()).status, 200);
+    assert.equal((await tomorrow.admin("/api/qr/admin/settings.php", { date: "2026-10-04", opens: "18:00", closes: "23:00" })).status, 200);
+    assert.deepEqual((await feed(tomorrow)).waiters, {});
+  });
+});
+
 describe("without a configured password", () => {
   it("the admin cannot be signed into at all", async () => {
     const bare = await startServer({ withPassword: false });

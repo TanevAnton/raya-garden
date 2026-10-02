@@ -1,0 +1,543 @@
+{
+  "_readme": "One entry per film. 'shots' = edit order (src_in/len in seconds of the generated clip, x = dissolve into this shot, crop45 = top of the 1080x1350 window). 'cards' = on-screen copy; style: hook-lower | hook-top | title | tagline1 | tagline2 | end. Times: [fade-in start, fully on, fade-out start, fully off] on the 24 s output timeline. Re-run render-overlays.cjs after copy changes, build.py after timing changes.",
+  "events": {
+    "out": "RAYA-Garden-events-ad",
+    "cover": {
+      "photo": "source-photos/Raya Garden, Yalovo Winery-0069.jpg",
+      "pos916": "40%",
+      "pos45": "0%",
+      "headline": "Вашето събитие<br>в RAYA Garden"
+    },
+    "music": {
+      "file": "music/Chopin_Nocturne_Op62_No2_Musopen_CC0.mp3",
+      "start": 31.0
+    },
+    "ambience": [
+      [
+        "clips/s1_0266_kling.mp4",
+        0.15,
+        0.0,
+        3.2,
+        0.3
+      ],
+      [
+        "clips/s4b_0075_kling.mp4",
+        0.0,
+        15.1,
+        2.7,
+        0.35
+      ]
+    ],
+    "shots": [
+      {
+        "clip": "clips/s1_0266_kling.mp4",
+        "src_in": 0.15,
+        "len": 3.2,
+        "x": 0.0,
+        "crop45": 300
+      },
+      {
+        "clip": "clips/s2_0269_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 220
+      },
+      {
+        "clip": "clips/s3_0069_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 300
+      },
+      {
+        "clip": "clips/s4a_0072_kling.mp4",
+        "src_in": 0.6,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/s4b_0075_kling.mp4",
+        "src_in": 0.0,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 200
+      },
+      {
+        "clip": "clips/s5_0092_kling8s.mp4",
+        "src_in": 0.0,
+        "len": 6.6,
+        "x": 0.4,
+        "crop45": 150
+      }
+    ],
+    "cards": [
+      {
+        "id": "hook",
+        "style": "hook-lower",
+        "text": "Всеки повод заслужава<br>специално място.",
+        "t": [
+          0.15,
+          0.5,
+          2.5,
+          2.82
+        ]
+      },
+      {
+        "id": "s2",
+        "style": "title",
+        "text": "Фирмени събития",
+        "t": [
+          3.25,
+          3.6,
+          7.05,
+          7.4
+        ]
+      },
+      {
+        "id": "s3",
+        "style": "title",
+        "text": "Лични празници",
+        "t": [
+          7.85,
+          8.2,
+          11.95,
+          12.3
+        ],
+        "scrim": 0.5
+      },
+      {
+        "id": "tag1",
+        "style": "tagline1",
+        "text": "Вие създавате повода.",
+        "t": [
+          12.6,
+          12.95,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "tag2",
+        "style": "tagline2",
+        "text": "Ние — атмосферата.",
+        "t": [
+          14.1,
+          14.45,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "end",
+        "style": "end",
+        "text": "Вашето събитие<br>в RAYA Garden",
+        "t": [
+          17.85,
+          18.6,
+          99,
+          99
+        ]
+      }
+    ]
+  },
+  "birthday": {
+    "out": "RAYA-Garden-birthday-ad",
+    "cover": {
+      "photo": "source-photos/Raya Garden, Yalovo Winery-0069.jpg",
+      "pos916": "40%",
+      "pos45": "0%",
+      "headline": "Вашият рожден ден<br>в RAYA Garden"
+    },
+    "music": {
+      "file": "music/Chopin_Waltz_Op64_No3_Musopen_CC0.mp3",
+      "start": 0.9
+    },
+    "ambience": [
+      [
+        "clips/s4b_0075_kling.mp4",
+        0.0,
+        15.1,
+        2.7,
+        0.35
+      ]
+    ],
+    "shots": [
+      {
+        "clip": "clips/s3_0069_kling.mp4",
+        "src_in": 0.0,
+        "len": 3.2,
+        "x": 0.0,
+        "crop45": 300
+      },
+      {
+        "clip": "clips/b2_0039_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 120
+      },
+      {
+        "clip": "clips/b3_0024_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/s4a_0072_kling.mp4",
+        "src_in": 0.6,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/s4b_0075_kling.mp4",
+        "src_in": 0.0,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 200
+      },
+      {
+        "clip": "clips/b5_0119_kling8s.mp4",
+        "src_in": 0.0,
+        "len": 6.6,
+        "x": 0.4,
+        "crop45": 285
+      }
+    ],
+    "cards": [
+      {
+        "id": "hook",
+        "style": "hook-top",
+        "text": "Рожденият ден заслужава<br>специално място.",
+        "t": [
+          0.15,
+          0.5,
+          2.5,
+          2.82
+        ]
+      },
+      {
+        "id": "s2",
+        "style": "title-lower",
+        "text": "Наздраве за<br>още една година",
+        "t": [
+          3.25,
+          3.6,
+          7.05,
+          7.4
+        ]
+      },
+      {
+        "id": "s3",
+        "style": "title",
+        "text": "Маса за любимите хора",
+        "t": [
+          7.85,
+          8.2,
+          11.95,
+          12.3
+        ]
+      },
+      {
+        "id": "tag1",
+        "style": "tagline1",
+        "text": "Вие създавате повода.",
+        "t": [
+          12.6,
+          12.95,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "tag2",
+        "style": "tagline2",
+        "text": "Ние — атмосферата.",
+        "t": [
+          14.1,
+          14.45,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "end",
+        "style": "end",
+        "text": "Вашият рожден ден<br>в RAYA Garden",
+        "t": [
+          17.85,
+          18.6,
+          99,
+          99
+        ],
+        "scrim": 0.62
+      }
+    ]
+  },
+  "corporate": {
+    "out": "RAYA-Garden-corporate-ad",
+    "cover": {
+      "photo": "source-photos/0092_916.jpg",
+      "pos916": "50%",
+      "pos45": "20%",
+      "headline": "Вашето фирмено събитие<br>в RAYA Garden"
+    },
+    "music": {
+      "file": "music/Chopin_Nocturne_Op62_No2_Musopen_CC0.mp3",
+      "start": 31.0
+    },
+    "ambience": [
+      [
+        "clips/s1_0266_kling.mp4",
+        0.15,
+        0.0,
+        3.2,
+        0.3
+      ]
+    ],
+    "shots": [
+      {
+        "clip": "clips/s1_0266_kling.mp4",
+        "src_in": 0.15,
+        "len": 3.2,
+        "x": 0.0,
+        "crop45": 300
+      },
+      {
+        "clip": "clips/c2_0118_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/s2_0269_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 220
+      },
+      {
+        "clip": "clips/c4a_0089_kling.mp4",
+        "src_in": 0.3,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/c4b_0094_kling.mp4",
+        "src_in": 0.0,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/s5_0092_kling8s.mp4",
+        "src_in": 0.0,
+        "len": 6.6,
+        "x": 0.4,
+        "crop45": 150
+      }
+    ],
+    "cards": [
+      {
+        "id": "hook",
+        "style": "hook-lower",
+        "text": "Екипът заслужава<br>специална вечер.",
+        "t": [
+          0.15,
+          0.5,
+          2.5,
+          2.82
+        ]
+      },
+      {
+        "id": "s2",
+        "style": "title",
+        "text": "Срещи и обеди с гледка",
+        "t": [
+          3.25,
+          3.6,
+          7.05,
+          7.4
+        ]
+      },
+      {
+        "id": "s3",
+        "style": "title",
+        "text": "Фирмени вечери и партита",
+        "t": [
+          7.85,
+          8.2,
+          11.95,
+          12.3
+        ]
+      },
+      {
+        "id": "tag1",
+        "style": "tagline1",
+        "text": "Вие създавате повода.",
+        "t": [
+          12.6,
+          12.95,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "tag2",
+        "style": "tagline2",
+        "text": "Ние — атмосферата.",
+        "t": [
+          14.1,
+          14.45,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "end",
+        "style": "end",
+        "text": "Вашето фирмено събитие<br>в RAYA Garden",
+        "t": [
+          17.85,
+          18.6,
+          99,
+          99
+        ]
+      }
+    ]
+  },
+  "wedding": {
+    "out": "RAYA-Garden-wedding-ad",
+    "cover": {
+      "photo": "source-photos/IMG_3601_916.jpg",
+      "pos916": "50%",
+      "pos45": "40%",
+      "headline": "Вашата сватба<br>в RAYA Garden"
+    },
+    "music": {
+      "file": "music/Chopin_Nocturne_Op32_No2_Musopen_CC0.mp3",
+      "start": 13.9
+    },
+    "ambience": [],
+    "shots": [
+      {
+        "clip": "clips/w1_3601_kling.mp4",
+        "src_in": 0.15,
+        "len": 3.2,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/w2_0270_kling.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 200
+      },
+      {
+        "clip": "clips/w3_3603_kling_v2.mp4",
+        "src_in": 0.0,
+        "len": 5.0,
+        "x": 0.4,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/w4a_0267_kling.mp4",
+        "src_in": 0.3,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 200
+      },
+      {
+        "clip": "clips/w4b_0268_kling.mp4",
+        "src_in": 0.3,
+        "len": 2.7,
+        "x": 0.0,
+        "crop45": 285
+      },
+      {
+        "clip": "clips/w5_0265_kling8s.mp4",
+        "src_in": 0.0,
+        "len": 6.6,
+        "x": 0.4,
+        "crop45": 285
+      }
+    ],
+    "cards": [
+      {
+        "id": "hook",
+        "style": "hook-top",
+        "text": "Денят, за който<br>мечтаете.",
+        "t": [
+          0.15,
+          0.5,
+          2.5,
+          2.82
+        ],
+        "scrim": 0.8
+      },
+      {
+        "id": "s2",
+        "style": "title",
+        "text": "Церемония в градината",
+        "t": [
+          3.25,
+          3.6,
+          7.05,
+          7.4
+        ],
+        "scrim": 0.8
+      },
+      {
+        "id": "s3",
+        "style": "title",
+        "text": "Празник с любимите хора",
+        "t": [
+          7.85,
+          8.2,
+          11.95,
+          12.3
+        ]
+      },
+      {
+        "id": "tag1",
+        "style": "tagline1",
+        "text": "Вие създавате повода.",
+        "t": [
+          12.6,
+          12.95,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "tag2",
+        "style": "tagline2",
+        "text": "Ние — атмосферата.",
+        "t": [
+          14.1,
+          14.45,
+          17.15,
+          17.45
+        ]
+      },
+      {
+        "id": "end",
+        "style": "end",
+        "text": "Вашата сватба<br>в RAYA Garden",
+        "t": [
+          17.85,
+          18.6,
+          99,
+          99
+        ],
+        "scrim": 0.62
+      }
+    ]
+  }
+}

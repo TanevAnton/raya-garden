@@ -29,8 +29,9 @@ public/api/qr-menu.json          the menu: names, sizes, prices (euro cents), al
 public/api/qr/                   the PHP API (runs on the host's PHP 7.3)
   state.php, order.php, order-status.php, stripe-webhook.php
   bill.php, bill-pay.php, bill-abandon.php   the table's bill ("pay at the end")
-  admin/  login, logout, session, feed, order, settings, sold-out, till, bill
-  _lib/   core.php, order.php, auth.php, pay.php, bill.php (not reachable from the web)
+  admin/  login, logout, session, feed, order, settings, sold-out, till, bill, waiters,
+          history (past evenings), export (CSV for Excel)
+  _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php (not reachable from the web)
 src/qr/menu/, menu/index.html    the guest page
 src/qr/admin/, admin/index.html  the staff page
 scripts/qr-server-config.mjs     puts the password and Stripe keys on the server (run by the deploy)
@@ -48,6 +49,30 @@ raya-qr-data/orders.sqlite  every order, the evening's settings, the sold-out li
 
 Nothing above the web root can be downloaded. The deploy only mirrors the web
 root, so a deploy can never delete an order, the password or the keys.
+
+## History and keeping it safe
+
+Nothing deletes an order: every evening's orders, lines and payments stay in
+`orders.sqlite`, filed under the evening (service date) they were placed on.
+Only guests' and payers' names are erased, after 3 days. "История" on the
+staff screen reads any evening back, and downloads an evening or a month as
+two CSV files that open in Excel (UTF-8, ";" between cells, decimal comma):
+
+- **поръчки** — one row per order line: evening, time, code, table,
+  waiter, status, how it was paid, kitchen or bar, item, quantity, what was
+  taken off and why, amount, the guest's note;
+- **плащания с карта** — one row per payment on the phone: amount, tip,
+  refunded, kept, whether it was entered in Clock, and Stripe's payment id
+  (`pi_…`) to find it in the Stripe Dashboard.
+
+A file's figures are the database's at the moment of download, so a refund
+made later shows up when the file is downloaded again.
+
+The database file is the only full copy. It lives on SuperHosting, outside
+the site, so a deploy never touches it, and the host's backups of the
+account include it (check in SPanel how often they run and how long they
+are kept). A monthly download of both files from "История" is a copy kept
+elsewhere — for the accountant, and in case the account is ever lost.
 
 ## Server settings come from GitHub secrets
 

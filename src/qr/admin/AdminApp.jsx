@@ -36,6 +36,10 @@ import { api } from "../shared/api.js";
 // Waiters: "Сервитьори" assigns tables to tonight's waiters; every card and
 // bill for a table names its waiter. A new evening starts with none. The
 // kitchen and the bar can stop taking orders at different times (Вечерта).
+//
+// History: "История" reads back any past evening — sales, how they were
+// paid, stations, waiters, what sold, every order — and downloads an
+// evening or a month as a spreadsheet. Nothing is ever deleted.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -462,6 +466,7 @@ function Dashboard({ onSignedOut }) {
             ["waiters", "Сервитьори"],
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
+            ["history", "История"],
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
               {label}
@@ -495,6 +500,7 @@ function Dashboard({ onSignedOut }) {
         {tab === "waiters" && <Waiters state={state} waiters={waiters} onSave={saveWaiters} say={say} />}
         {tab === "tabs" && <Tabs tabs={tabs} waiterOf={(table, evening) => (evening === state?.serviceDate ? waiters[table] : "")} onAction={billAction} />}
         {tab === "till" && <Till entries={tillEntries} onTill={till} />}
+        {tab === "history" && <History onSignedOut={onSignedOut} />}
       </main>
 
       {toast && (
@@ -1454,6 +1460,246 @@ function SoldOut({ soldOut, setSoldOut, say, onSignedOut }) {
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+const EVENING_LABEL = new Intl.DateTimeFormat("bg-BG", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const MONTH_LABEL = new Intl.DateTimeFormat("bg-BG", { month: "long", year: "numeric", timeZone: "UTC" });
+const eveningLabel = (date) => EVENING_LABEL.format(new Date(`${date}T12:00:00Z`));
+const monthLabel = (month) => {
+  const label = MONTH_LABEL.format(new Date(`${month}-15T12:00:00Z`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
+const exportUrl = (kind, query) => `/api/qr/admin/export.php?kind=${kind}&${query}`;
+
+/** How an order in the history was paid, in a few words. */
+function paidLabel(order) {
+  if (order.status === "cancelled") return order.refunded > 0 ? "върната" : "";
+  if (order.tabId) return { tab: "по сметка, неплатена", tab_partial: "по сметка, частично", tab_paid: "по сметка, платена", refunded: "по сметка, върната" }[order.payStatus] || "по сметка";
+  return order.payStatus === "paid" ? "с карта онлайн" : "на персонала";
+}
+
+/**
+ * "История": every evening's orders stay; this reads them back. Pick an
+ * evening for its report — sales, how they were paid, the kitchen and the
+ * bar, waiters, what sold, every order — and download it, or a whole month,
+ * as a spreadsheet. Read on demand, not polled; "Обнови" reads again.
+ */
+function History({ onSignedOut }) {
+  const [evenings, setEvenings] = useState(null); // null: loading
+  const [chosen, setChosen] = useState("");
+  const [report, setReport] = useState(null);
+  const [error, setError] = useState("");
+  const [allItems, setAllItems] = useState(false);
+  const [reload, setReload] = useState(0);
+  const signedOut = useRef(onSignedOut);
+  signedOut.current = onSignedOut;
+
+  useEffect(() => {
+    let live = true;
+    api("admin/history.php")
+      .then((res) => {
+        if (!live) return;
+        if (res.status === 401) return signedOut.current();
+        if (!res.ok) return setError("Историята не се зареди.");
+        setError("");
+        setEvenings(res.evenings);
+        setChosen((current) => (current && res.evenings.some((e) => e.evening === current) ? current : res.evenings[0]?.evening || ""));
+      })
+      .catch(() => live && setError("Няма връзка — опитайте отново."));
+    return () => {
+      live = false;
+    };
+  }, [reload]);
+
+  useEffect(() => {
+    if (!chosen) return undefined;
+    let live = true;
+    setReport((r) => (r?.evening === chosen ? r : null));
+    api(`admin/history.php?evening=${chosen}`)
+      .then((res) => {
+        if (!live) return;
+        if (res.status === 401) return signedOut.current();
+        if (!res.ok) return setError("Вечерта не се зареди.");
+        setError("");
+        setReport(res.report);
+      })
+      .catch(() => live && setError("Няма връзка — опитайте отново."));
+    return () => {
+      live = false;
+    };
+  }, [chosen, reload]);
+
+  if (evenings === null) return <p className="text-cream-100/60 py-10 text-center">{error || "Зареждане…"}</p>;
+  if (evenings.length === 0) return <p className="text-cream-100/50 py-10 text-center" data-history-empty>Още няма поръчки в историята. Всяка вечер с поръчки ще се появи тук.</p>;
+
+  const at = evenings.findIndex((e) => e.evening === chosen);
+  const month = chosen.slice(0, 7);
+  const inMonth = evenings.filter((e) => e.evening.startsWith(month));
+  const monthSales = inMonth.reduce((s, e) => s + e.sales, 0);
+  const monthOrders = inMonth.reduce((s, e) => s + e.orders, 0);
+  const r = report?.evening === chosen ? report : null;
+  const items = r ? (allItems ? r.items : r.items.slice(0, 12)) : [];
+  const Stat = ({ label, value, sub, ...rest }) => (
+    <div className="border border-gold-300/20 bg-ink-900 rounded-sm p-3" {...rest}>
+      <div className="text-xs tracking-[0.2em] uppercase text-gold-300/70">{label}</div>
+      <div className="font-semibold tabular-nums text-2xl text-cream-50 mt-1">{value}</div>
+      {sub && <div className="text-xs text-cream-100/60 mt-0.5">{sub}</div>}
+    </div>
+  );
+  const Row = ({ label, value, tone = "text-cream-50", ...rest }) => (
+    <div className="flex justify-between gap-4 py-1.5 border-b border-gold-300/10" {...rest}>
+      <dt className="text-cream-100/70">{label}</dt>
+      <dd className={`tabular-nums ${tone}`}>{value}</dd>
+    </div>
+  );
+  const Download = ({ query, children }) => (
+    <span className="inline-flex flex-wrap gap-2">
+      <a href={exportUrl("lines", query)} download className="h-10 px-3 inline-flex items-center rounded-sm border border-gold-300/30 text-sm text-gold-100">{children}: поръчки (Excel)</a>
+      <a href={exportUrl("payments", query)} download className="h-10 px-3 inline-flex items-center rounded-sm border border-gold-300/30 text-sm text-gold-100">{children}: плащания с карта (Excel)</a>
+    </span>
+  );
+
+  return (
+    <div className="max-w-5xl" data-history>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Вечер" className="basis-full sm:basis-auto sm:flex-1">
+          <select value={chosen} onChange={(e) => setChosen(e.target.value)} className={inputClass} data-history-evening>
+            {evenings.map((e) => (
+              <option key={e.evening} value={e.evening}>
+                {eveningLabel(e.evening)} · {e.orders} {e.orders === 1 ? "поръчка" : "поръчки"} · {money(e.sales)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <button type="button" disabled={at >= evenings.length - 1} onClick={() => setChosen(evenings[at + 1].evening)} className="h-12 px-4 rounded-sm border border-gold-300/25 text-cream-100/80 disabled:opacity-30" aria-label="По-ранна вечер">◀</button>
+        <button type="button" disabled={at <= 0} onClick={() => setChosen(evenings[at - 1].evening)} className="h-12 px-4 rounded-sm border border-gold-300/25 text-cream-100/80 disabled:opacity-30" aria-label="По-късна вечер">▶</button>
+        <button type="button" onClick={() => setReload((n) => n + 1)} className="h-12 px-4 rounded-sm border border-gold-300/25 text-sm text-cream-100/80">Обнови</button>
+      </div>
+      <p className="text-sm text-cream-100/70 mt-3" data-history-month>
+        {monthLabel(month)}: {inMonth.length} {inMonth.length === 1 ? "вечер" : "вечери"} · {monthOrders} поръчки · <span className="text-cream-50 font-semibold">{money(monthSales)}</span>
+      </p>
+      {error && <p role="alert" className="text-sm text-red-300 mt-2">{error}</p>}
+
+      {!r ? (
+        <p className="text-cream-100/60 py-10 text-center">Зареждане…</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+            <Stat label="Продажби" value={money(r.sales)} data-sales={r.sales} />
+            <Stat label="Поръчки" value={r.orders} sub={r.orders ? `${r.tables} ${r.tables === 1 ? "маса" : "маси"} · ${clock(r.firstAt)}–${clock(r.lastAt)}` : ""} />
+            <Stat label="Средно" value={money(r.average)} sub="на поръчка" />
+            <Stat
+              label="Отказани"
+              value={r.cancelled}
+              sub={[r.cancelled ? `за ${money(r.cancelledTotal)}` : "", r.voided ? `„Няма“ на редове: ${money(r.voided)}` : ""].filter(Boolean).join(" · ")}
+            />
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 mt-6">
+            <section>
+              <h2 className="font-display text-2xl text-cream-50">Плащане</h2>
+              <dl className="mt-2 text-sm">
+                <Row label="На персонала (в брой или терминал)" value={money(r.pay.staff)} data-pay-staff={r.pay.staff} />
+                <Row label={`С карта онлайн${r.card.orders && r.card.bills ? ` (поръчки ${money(r.card.orders)}, сметки ${money(r.card.bills)})` : ""}`} value={money(r.pay.card)} data-pay-card={r.pay.card} />
+                {r.pay.unpaid > 0 && <Row label="Неплатено по сметки" value={money(r.pay.unpaid)} tone="text-gold-100 font-semibold" data-pay-unpaid={r.pay.unpaid} />}
+                <Row label="Бакшиши с карта (не са в продажбите)" value={money(r.tips)} tone="text-sage-200" data-tips={r.tips} />
+                {r.refunded > 0 && <Row label="Върнати на гости" value={money(r.refunded)} />}
+                {r.refundOwed > 0 && <Row label="Чакат връщане" value={money(r.refundOwed)} tone="text-red-300 font-semibold" />}
+              </dl>
+            </section>
+            <section>
+              <h2 className="font-display text-2xl text-cream-50">Кухня и бар</h2>
+              <dl className="mt-2 text-sm">
+                {Object.entries(STATIONS).map(([id, name]) => (
+                  <Row key={id} label={`${name} · ${r.stations[id].qty} бр.`} value={money(r.stations[id].sales)} data-station-sales={id} />
+                ))}
+              </dl>
+              <h2 className="font-display text-2xl text-cream-50 mt-6">Сервитьори</h2>
+              <dl className="mt-2 text-sm">
+                {r.waiters.map((w) => (
+                  <Row
+                    key={w.name}
+                    label={`${w.name || "Без сервитьор"} · ${w.orders} ${w.orders === 1 ? "поръчка" : "поръчки"} · ${w.tables.length === 1 ? "маса" : "маси"} ${w.tables.join(", ")}`}
+                    value={money(w.sales)}
+                    data-waiter-sales={w.name}
+                  />
+                ))}
+              </dl>
+            </section>
+          </div>
+
+          {r.items.length > 0 && (
+            <section className="mt-6">
+              <h2 className="font-display text-2xl text-cream-50">Продадено</h2>
+              <ul className="mt-2 text-sm">
+                {items.map((i) => (
+                  <li key={`${i.name}|${i.detail}|${i.station}`} className="flex justify-between gap-4 py-1.5 border-b border-gold-300/10" data-item={i.name}>
+                    <span className="text-cream-50">
+                      <span className="tabular-nums text-gold-100">{i.qty} ×</span> {i.name}
+                      {i.detail && <span className="text-cream-100/60"> · {i.detail}</span>}
+                      <span className="text-xs text-cream-100/40"> · {STATIONS[i.station]}</span>
+                      {i.voidQty > 0 && <span className="text-xs text-red-300"> · {i.voidQty} отказани</span>}
+                    </span>
+                    <span className="tabular-nums text-cream-100/80 shrink-0">{money(i.sales)}</span>
+                  </li>
+                ))}
+              </ul>
+              {r.items.length > 12 && (
+                <button type="button" onClick={() => setAllItems((v) => !v)} className="mt-2 text-sm text-gold-200 underline underline-offset-4">
+                  {allItems ? "Само първите 12" : `Всички ${r.items.length}`}
+                </button>
+              )}
+            </section>
+          )}
+
+          <section className="mt-6">
+            <h2 className="font-display text-2xl text-cream-50">Поръчки ({r.list.length})</h2>
+            <ul className="mt-2 space-y-2">
+              {r.list.map((o) => (
+                <li key={o.id} className="border border-gold-300/15 bg-ink-900 rounded-sm" data-history-order={o.code}>
+                  <details>
+                    <summary className="flex flex-wrap items-baseline gap-x-3 gap-y-1 p-3 cursor-pointer">
+                      <span className="text-cream-100/60 tabular-nums text-sm">{clock(o.createdAt)}</span>
+                      <span className="font-mono text-gold-100">{o.code}</span>
+                      <span className="text-cream-50">маса {o.table}</span>
+                      {o.waiter && <span className="text-sm text-cream-100/60">{o.waiter}</span>}
+                      <span className={`text-xs px-2 py-0.5 border rounded-sm ${STATUS[o.status]?.tone || ""}`}>{STATUS[o.status]?.label || o.status}</span>
+                      <span className="text-xs text-cream-100/60">{paidLabel(o)}</span>
+                      <span className={`ml-auto tabular-nums ${o.status === "cancelled" ? "text-cream-100/40 line-through" : "text-cream-50"}`}>{money(o.status === "cancelled" ? o.orderedTotal : o.total)}</span>
+                    </summary>
+                    <ul className="px-3 pb-3 text-sm space-y-1">
+                      {o.lines.map((l) => (
+                        <li key={l.line} className="flex justify-between gap-3">
+                          <span className="text-cream-100/90">
+                            {l.qty} × {l.nameBg}
+                            {l.detailBg && <span className="text-cream-100/60"> · {l.detailBg}</span>}
+                            {l.voidQty > 0 && <span className="text-xs text-red-300"> · {l.voidQty} отказани{l.voidReason ? ` (${l.voidReason})` : ""}</span>}
+                            {l.note && <span className="text-xs text-cream-100/50"> · „{l.note}“</span>}
+                          </span>
+                          <span className="tabular-nums text-cream-100/70 shrink-0">{money(l.qty * l.price)}</span>
+                        </li>
+                      ))}
+                      {o.cancelReason && <li className="text-xs text-red-300">Отказана: {o.cancelReason}</li>}
+                    </ul>
+                  </details>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="mt-8 space-y-3 text-sm">
+            <p className="text-cream-100/60">
+              Файловете се отварят в Excel или Google Sheets: по ред за всеки артикул, или по ред за всяко плащане с карта (за сверяване със Stripe и Clock). Имената на гостите не се включват.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Download query={`evening=${chosen}`}>Вечерта</Download>
+              <Download query={`month=${month}`}>{monthLabel(month)}</Download>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

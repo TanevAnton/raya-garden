@@ -150,7 +150,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 7;
+const QR_SCHEMA_VERSION = 8;
 
 function qr_db(): PDO
 {
@@ -437,6 +437,23 @@ function qr_migrate(PDO $pdo)
                     PRIMARY KEY (evening, table_no)
                 );
             ");
+        }
+        if ($version < 8) {
+            // History ("История", _lib/history.php): nothing is deleted, and
+            // past evenings are looked up by their date. Orders from before
+            // v7 have none: they get the Sofia date six hours before they
+            // were placed, so an order at 00:40 belongs to the evening before.
+            // Waiters' lists are kept per evening from now on.
+            $pdo->exec("
+                CREATE INDEX IF NOT EXISTS orders_evening ON orders (evening, created_at);
+                CREATE INDEX IF NOT EXISTS tabs_evening ON tabs (evening);
+            ");
+            $set = $pdo->prepare('UPDATE orders SET evening = ? WHERE id = ?');
+            $tz = new DateTimeZone(QR_TZ);
+            foreach ($pdo->query("SELECT id, created_at FROM orders WHERE evening = ''")->fetchAll() as $row) {
+                $local = (new DateTime('@' . ((int) $row['created_at'] - 6 * 3600)))->setTimezone($tz);
+                $set->execute([$local->format('Y-m-d'), (int) $row['id']]);
+            }
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');

@@ -5,7 +5,8 @@
 // order card and bill for it.
 //
 // Waiters belong to the evening (the service date): a new evening starts
-// with none, and an earlier evening's list is deleted on the next save.
+// with none. Each evening's list is kept, as it stood at the end, for the
+// history ("История" names each table's waiter).
 //
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
 
@@ -41,7 +42,7 @@ if ($evening === '') {
     qr_fail(409, 'not_configured');
 }
 $seq = qr_write(function (PDO $pdo) use ($clean, $evening) {
-    $pdo->exec('DELETE FROM waiters');
+    $pdo->prepare('DELETE FROM waiters WHERE evening = ?')->execute([$evening]);
     $insert = $pdo->prepare('INSERT INTO waiters (evening, table_no, name) VALUES (?, ?, ?)');
     foreach ($clean as $table => $name) {
         $insert->execute([$evening, $table, $name]);

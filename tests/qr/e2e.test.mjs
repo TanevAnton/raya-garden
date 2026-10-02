@@ -450,6 +450,55 @@ describe("the staff screen", () => {
     await staff.close();
   });
 
+  it("history: past evenings' figures and orders, and the spreadsheet downloads", async () => {
+    // Yesterday: one order. Today: two, one of them for Иван's table.
+    await openEvening();
+    const then = Math.floor(Date.now() / 1000) - 86400;
+    const yesterday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia" }).format(new Date(then * 1000));
+    const past = client(srv.base, { now: then });
+    assert.equal((await past.login()).status, 200);
+    assert.equal((await past.admin("/api/qr/admin/settings.php", { date: yesterday, opens: "00:00", closes: "23:59", tables: 12, disabledTables: [] })).status, 200);
+    const old = (await past.post("/api/qr/order.php", orderBody(menu, 2, [["caesar", "chicken"]]), { headers: { "Idempotency-Key": newKey() } })).body.order;
+    assert.equal((await api.admin("/api/qr/admin/settings.php", { date: today(), opens: "00:00", closes: "23:59" })).status, 200);
+    assert.equal((await api.admin("/api/qr/admin/waiters.php", { tables: { 3: "Иван" } })).status, 200);
+    const a = (await placeOrder(3, [["tiramisu", "std", 2], ["illy-coffee"]])).body.order;
+    const b = (await placeOrder(4, [["illy-coffee"]])).body.order;
+
+    const staff = await tablet();
+    const errors = [];
+    staff.on("pageerror", (e) => errors.push(e.message));
+    await clickText(staff, "nav", /^История$/);
+    await staff.waitForSelector("[data-history] [data-sales]");
+    const evenings = await staff.$$eval("[data-history-evening] option", (os) => os.map((o) => o.value));
+    assert.deepEqual(evenings, [today(), yesterday], "newest first");
+    assert.equal(Number(await staff.$eval("[data-sales]", (e) => e.dataset.sales)), a.total + b.total);
+    assert.equal(Number(await staff.$eval("[data-pay-staff]", (e) => e.dataset.payStaff)), a.total + b.total);
+    assert.deepEqual(await staff.$$eval("[data-waiter-sales]", (els) => els.map((e) => e.dataset.waiterSales)), ["Иван", ""]);
+    assert.deepEqual(await staff.$$eval("[data-history-order]", (els) => els.map((e) => e.dataset.historyOrder)), [a.code, b.code]);
+    await staff.click(`[data-history-order="${a.code}"] summary`);
+    assert.match(await staff.$eval(`[data-history-order="${a.code}"]`, (e) => e.innerText), /2 × Тирамису/);
+
+    // The older evening, one tap back.
+    await staff.click('button[aria-label="По-ранна вечер"]');
+    await staff.waitForSelector(`[data-history-order="${old.code}"]`);
+    assert.equal(Number(await staff.$eval("[data-sales]", (e) => e.dataset.sales)), old.total);
+    const sameMonth = yesterday.slice(0, 7) === today().slice(0, 7); // not on the 1st
+    assert.match(await staff.$eval("[data-history-month]", (e) => e.innerText), sameMonth ? /2 вечери · 3 поръчки/ : /1 вечер · 1 поръчки/);
+
+    // The downloads are links the signed-in browser can follow.
+    const href = await staff.$eval('a[href*="kind=lines&evening="]', (a) => a.getAttribute("href"));
+    assert.equal(href, `/api/qr/admin/export.php?kind=lines&evening=${yesterday}`);
+    const csv = await staff.evaluate(async (url) => {
+      const res = await fetch(url);
+      return [res.status, res.headers.get("content-disposition"), await res.text()];
+    }, href);
+    assert.equal(csv[0], 200);
+    assert.match(csv[1], /attachment; filename="raya-poruchki-/);
+    assert.match(csv[2], new RegExp(`${old.code};2;;нова;на персонала;кухня;Салата „Цезар“;с пиле;1;0;`));
+    assert.deepEqual(errors, []);
+    await staff.close();
+  });
+
   it("pause and resume from the screen", async () => {
     await openEvening();
     const staff = await tablet();

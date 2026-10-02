@@ -452,14 +452,16 @@ there).
 - **Waiters belong to the evening.** `waiters (evening, table_no, name)`;
   the staff screen gets tonight's list with every poll and shows the
   table's waiter on each card and bill of tonight (`orders.evening`). A new
-  evening starts empty; saving deletes any earlier evening's list. Changing
+  evening starts empty; each evening's list is kept as it stood at the end,
+  for the history (since 02.10.2026 — before that, saving deleted earlier
+  evenings' lists). Changing
   a table's waiter shows at once on every card for it — the name is looked
   up, not copied onto orders.
 - **Saved whole, at once.** Each tap on a table sends the full list, so the
   last save wins and nothing is half-applied; a poll already on its way
   while a save is pending is not allowed to put the old list back.
-- **Names are not remembered on the server** past the evening. The tablet
-  keeps the names it has seen, as suggestions, in its own storage.
+- **The tablet keeps the names it has seen**, as suggestions, in its own
+  storage.
 - **The kitchen and the bar close on their own.** `kitchen_closes_*` and
   `bar_closes_*` in settings; `closes_*` stays the later of the two, the
   end of the evening as a whole. Ordering is open while either station is;
@@ -467,9 +469,46 @@ there).
   `stationClosed`), so the guest sees exactly what was taken out before
   anything is sent. "closes" alone still sets both.
 
+## History of past evenings, added 02.10.2026
+
+**Why.** Every order was already kept, but only tonight's could be seen.
+"История" reads any evening back, and exports CSV for a spreadsheet.
+
+- **Read from the orders, not saved as a separate report.** Nothing is
+  deleted, so a report is worked out when asked for (`_lib/history.php`):
+  one query per kind of row, under the `orders (evening, created_at)`
+  index. No nightly job to miss, nothing to fall out of step — a refund or
+  a line taken off later shows in that evening's figures. A frozen
+  end-of-night total is the till's job (Clock), not this system's.
+- **The evening is the unit**, as everywhere else: an order at 00:40 belongs
+  to the evening before. Orders from before `orders.evening` existed (v7)
+  got one in v8: the Sofia date six hours before they were placed.
+- **How it was paid, from what the system knows.** To staff (orders on a
+  "pay staff" evening, bill lines settled on the spot — cash or terminal,
+  which it cannot tell apart), by card on the phone (after refunds owed),
+  and still unpaid on a bill. The three add up to the sales; tips are
+  apart. Tests check the sum on all three payment modes.
+- **A waiter is the table's waiter at the end of the evening.** The name is
+  looked up, as on the live screen; the list can change mid-evening, and
+  copying it onto orders would only move the question.
+- **CSV, not .xlsx.** Excel in Bulgarian opens it with the right columns
+  and numbers (BOM, ";", decimal comma); no library on a PHP 7.3 host. A
+  cell that begins like a formula (`=`, `+`, `-`, `@`) is written as text —
+  a guest's note is guest input.
+- **No names in the files.** The database erases names after 3 days; a
+  downloaded file would keep them for good. Staff see names on screen
+  within those 3 days, as they do on the live screen.
+- **Staff only, the same password.** Everyone with the staff password sees
+  the takings. Separate manager access would need accounts — left out, as
+  below, until it is needed.
+- **Backups stay with the host.** The SQLite file is outside the site, so
+  deploys never touch it, and the host's account backups include it. Monthly CSV
+  downloads are the copy kept elsewhere. Copying the database to GitHub or
+  e-mailing it would send guests' data to more places; not done.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.
-- **Per-person accounts, reports and exports.** Orders are kept in the
-  SQLite file, which can be downloaded over FTP if a report is ever needed.
-- **Per-seat ordering, splitting bills and tips.**
+- **Per-person accounts.** One staff password; a manager-only view of the
+  takings would need accounts.
+- **Per-seat ordering and splitting one line between people.**

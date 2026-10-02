@@ -7,7 +7,7 @@
 // daylight-saving change. Production never sets it.
 
 import { spawn, execFileSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync, readdirSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import net from "node:net";
@@ -55,6 +55,8 @@ export async function startServer({ docroot = "public", withPassword = true, str
       RAYA_QR_TEST: "1",
       RAYA_QR_CONFIG: config,
       RAYA_QR_DATA_DIR: path.join(work, "data"),
+      // E-mail is written here instead of sent (_lib/report.php, test mode only).
+      RAYA_QR_MAIL_DIR: path.join(work, "data", "mail"),
       PHP_CLI_SERVER_WORKERS: "10",
       ...(stripe ? { RAYA_QR_STRIPE_API: stripe.api } : {}),
     },
@@ -78,6 +80,19 @@ export async function startServer({ docroot = "public", withPassword = true, str
     menu: () => JSON.parse(readFileSync(menuPath, "utf8")),
     writeMenu: (menu) => writeFileSync(menuPath, JSON.stringify(menu)),
     reset: () => rmSync(path.join(work, "data"), { recursive: true, force: true }),
+    /** E-mails the server "sent", oldest first, decoded (parseMail). */
+    mails: () => {
+      const dir = path.join(work, "data", "mail");
+      if (!existsSync(dir)) return [];
+      return readdirSync(dir).filter((f) => f.endsWith(".eml")).sort().map((f) => parseMail(readFileSync(path.join(dir, f), "latin1")));
+    },
+    /** Make the next sends fail (true) or work again (false). */
+    mailFails: (fail) => {
+      const dir = path.join(work, "data", "mail");
+      mkdirSync(dir, { recursive: true });
+      if (fail) writeFileSync(path.join(dir, "FAIL"), "");
+      else rmSync(path.join(dir, "FAIL"), { force: true });
+    },
     sqlite: (sql) => execFileSync("php", ["-r", `
       $db = new PDO('sqlite:' . ${JSON.stringify(path.join(work, "data", "orders.sqlite"))});
       echo json_encode($db->query(${JSON.stringify(sql)})->fetchAll(PDO::FETCH_ASSOC));`]).toString(),
@@ -85,6 +100,41 @@ export async function startServer({ docroot = "public", withPassword = true, str
       proc.kill();
       rmSync(work, { recursive: true, force: true });
     },
+  };
+}
+
+/**
+ * Just enough MIME for the server's own mail: headers, the base64 text and
+ * HTML parts, and the attachments by file name.
+ */
+export function parseMail(raw) {
+  const [head, ...rest] = raw.split("\r\n\r\n");
+  const headers = {};
+  for (const line of head.replace(/\r\n[ \t]+/g, " ").split("\r\n")) {
+    const at = line.indexOf(":");
+    headers[line.slice(0, at).toLowerCase()] = line.slice(at + 1).trim();
+  }
+  const words = (v) => v.replace(/=\?UTF-8\?B\?([^?]*)\?=\s*/gi, (_, b) => Buffer.from(b, "base64").toString("latin1"));
+  const utf8 = (latin1) => Buffer.from(latin1, "latin1").toString("utf8");
+  const body = rest.join("\r\n\r\n");
+  const parts = [];
+  const walk = (text, boundary) => {
+    for (const chunk of text.split(`--${boundary}`).slice(1)) {
+      if (chunk.startsWith("--")) break;
+      const [h, ...b] = chunk.replace(/^\r\n/, "").split("\r\n\r\n");
+      const inner = h.match(/boundary="([^"]+)"/);
+      if (inner) walk(b.join("\r\n\r\n"), inner[1]);
+      else parts.push({ type: (h.match(/Content-Type: ([^;\r]+)/i) || [])[1], name: (h.match(/filename="([^"]+)"/) || [])[1], data: Buffer.from(b.join("").replace(/\s+/g, ""), "base64") });
+    }
+  };
+  walk(body, headers["content-type"].match(/boundary="([^"]+)"/)[1]);
+  return {
+    to: headers.to,
+    from: headers.from,
+    subject: utf8(words(headers.subject)),
+    text: parts.find((p) => p.type === "text/plain" && !p.name)?.data.toString("utf8"),
+    html: parts.find((p) => p.type === "text/html")?.data.toString("utf8"),
+    files: Object.fromEntries(parts.filter((p) => p.name).map((p) => [p.name, p.data])),
   };
 }
 

@@ -11,6 +11,9 @@
 // or voided there after a refund, or still owed a refund — are always
 // included, however old.
 //
+// On the 1st, the first poll from 06:00 also sends last month's summary by
+// e-mail — after its own answer has gone back (_lib/report.php).
+//
 // The read is one snapshot (BEGIN … COMMIT), so the counter and the rows
 // agree. A screen that was offline for a minute simply asks with its old
 // number and gets everything it missed.
@@ -24,6 +27,8 @@ require dirname(__DIR__) . '/_lib/core.php';
 require dirname(__DIR__) . '/_lib/auth.php';
 require dirname(__DIR__) . '/_lib/pay.php';
 require dirname(__DIR__) . '/_lib/bill.php';
+require dirname(__DIR__) . '/_lib/history.php';
+require dirname(__DIR__) . '/_lib/report.php';
 
 qr_require_method('GET');
 qr_require_admin(false);
@@ -80,10 +85,14 @@ try {
     $soldOut = qr_sold_out();
     // Tonight's waiters, whole each time: a few dozen names at most.
     $waiters = qr_waiters($pdo, (string) $settings['service_date']);
+    $reportDue = qr_report_auto_due($pdo, (string) ($settings['report_email'] ?? ''), $now) !== null;
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
     $pdo->exec('ROLLBACK');
     throw $e;
+}
+if ($reportDue) {
+    register_shutdown_function('qr_report_after_response', $now);
 }
 qr_json(200, [
     'ok' => true,

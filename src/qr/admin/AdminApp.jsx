@@ -39,7 +39,8 @@ import { api } from "../shared/api.js";
 //
 // History: "История" reads back any past evening — sales, how they were
 // paid, stations, waiters, what sold, every order — and downloads an
-// evening or a month as a spreadsheet. Nothing is ever deleted.
+// evening or a month as a spreadsheet. Nothing is ever deleted. On the 1st
+// the month's summary goes by e-mail to the address set there.
 
 const POLL_MS = 4000;
 const STATUS = {
@@ -1532,7 +1533,14 @@ function History({ onSignedOut }) {
   }, [chosen, reload]);
 
   if (evenings === null) return <p className="text-cream-100/60 py-10 text-center">{error || "Зареждане…"}</p>;
-  if (evenings.length === 0) return <p className="text-cream-100/50 py-10 text-center" data-history-empty>Още няма поръчки в историята. Всяка вечер с поръчки ще се появи тук.</p>;
+  if (evenings.length === 0) {
+    return (
+      <div className="max-w-5xl" data-history>
+        <p className="text-cream-100/50 py-10 text-center" data-history-empty>Още няма поръчки в историята. Всяка вечер с поръчки ще се появи тук.</p>
+        <MonthlyEmail month={sofiaDate(Math.floor(Date.now() / 1000)).slice(0, 7)} signedOut={signedOut} />
+      </div>
+    );
+  }
 
   const at = evenings.findIndex((e) => e.evening === chosen);
   const month = chosen.slice(0, 7);
@@ -1700,6 +1708,106 @@ function History({ onSignedOut }) {
           </section>
         </>
       )}
+      <MonthlyEmail month={month} signedOut={signedOut} />
     </div>
+  );
+}
+
+const DAY_MONTH = new Intl.DateTimeFormat("bg-BG", { day: "numeric", month: "numeric", timeZone: "Europe/Sofia" });
+const MAIL_STATUS = { sent: "изпратен", failed: "неуспешен", empty: "без поръчки — не е изпращан", sending: "изпраща се…" };
+
+/**
+ * The monthly summary by e-mail: the address it goes to on the 1st, a
+ * button to send a month at once (which tests the address), and what was
+ * sent lately.
+ */
+function MonthlyEmail({ month, signedOut }) {
+  const [saved, setSaved] = useState(null); // null: loading
+  const [draft, setDraft] = useState("");
+  const [mails, setMails] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const apply = (res) => {
+    if (res.email !== undefined) {
+      setSaved(res.email);
+      setDraft(res.email);
+    }
+    if (res.mails) setMails(res.mails);
+  };
+  useEffect(() => {
+    api("admin/report.php")
+      .then((res) => (res.status === 401 ? signedOut.current() : res.ok && apply(res)))
+      .catch(() => setNote("Няма връзка — опитайте отново."));
+  }, [signedOut]);
+  async function post(body, timeout) {
+    setBusy(true);
+    setNote("");
+    try {
+      const res = await api("admin/report.php", { method: "POST", body, headers: { "X-Raya-Admin": "1" }, timeout });
+      if (res.status === 401) return signedOut.current();
+      apply(res);
+      return res;
+    } catch {
+      setNote("Няма връзка — опитайте отново.");
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function save(e) {
+    e.preventDefault();
+    const res = await post({ email: draft.trim() });
+    if (!res) return;
+    if (res.ok) setNote(res.email ? `Записано. Отчетът ще отива до ${res.email}.` : "Записано. Отчетът няма да се изпраща.");
+    else setNote("Това не прилича на имейл адрес.");
+  }
+  async function sendNow() {
+    const res = await post({ send: month }, 90000);
+    if (!res) return;
+    if (res.ok) setNote(`Изпратен до ${saved}. Проверете пощата — и папката „Спам“ първия път.`);
+    else if (res.error === "empty") setNote(`Няма поръчки за ${monthLabel(month).toLowerCase()}.`);
+    else if (res.error === "rate_limited") setNote("Изпратихте го няколко пъти — опитайте пак след час.");
+    else if (res.error === "send_failed") setNote(`Не можа да се изпрати: ${res.detail || "сървърът за поща отказа"}.`);
+    else setNote("Не успях да изпратя.");
+  }
+  if (saved === null) return null;
+  return (
+    <section className="mt-10 pt-6 border-t border-gold-300/15 max-w-2xl" data-monthly-email>
+      <h2 className="font-display text-2xl text-cream-50">Месечен отчет по имейл</h2>
+      <p className="text-sm text-cream-100/60 mt-1">
+        На 1-во число отчетът за изминалия месец — продажби, плащания, вечери, сервитьори, най-продавани — отива на този адрес, с двата файла за Excel.
+      </p>
+      <form onSubmit={save} className="flex flex-wrap gap-2 mt-3">
+        <input
+          type="email"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="имейл адрес"
+          aria-label="Имейл за месечния отчет"
+          className={`${inputClass} mt-0 flex-1 min-w-[14rem]`}
+        />
+        <button type="submit" disabled={busy || draft.trim() === saved} className="btn-gold h-12 px-4 rounded-sm text-sm disabled:opacity-40">
+          Запази
+        </button>
+      </form>
+      <p className="text-sm mt-2 text-cream-100/80">{saved ? <>Изпраща се до <span className="text-cream-50">{saved}</span>.</> : "Не се изпраща — няма адрес."}</p>
+      {saved && (
+        <button type="button" onClick={sendNow} disabled={busy} className="mt-3 h-11 px-4 rounded-sm border border-gold-300/30 text-sm text-gold-100 disabled:opacity-40">
+          {busy ? "Изпращане…" : `Изпрати отчета за ${monthLabel(month).toLowerCase()} сега`}
+        </button>
+      )}
+      {note && <p role="status" className="text-sm text-gold-100 mt-3" data-report-note>{note}</p>}
+      {mails.length > 0 && (
+        <ul className="mt-4 text-sm space-y-1" data-report-log>
+          {mails.map((m, i) => (
+            <li key={i} className="flex flex-wrap gap-x-2 text-cream-100/70">
+              <span className="text-cream-50">{monthLabel(m.month)}{m.complete ? "" : " (до момента)"}</span>
+              <span className={m.status === "failed" ? "text-red-300" : m.status === "sent" ? "text-sage-200" : ""}>· {MAIL_STATUS[m.status] || m.status}{m.status === "failed" && m.error ? `: ${m.error}` : ""}</span>
+              <span>· {DAY_MONTH.format(new Date(m.at * 1000))} {clock(m.at)}{m.manual ? ", ръчно" : ""}{m.status !== "empty" ? ` · ${m.recipient}` : ""}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

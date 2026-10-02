@@ -66,10 +66,31 @@ function qr_history_evenings(PDO $pdo): array
 /** One evening, in full: the figures, and every order with its lines. */
 function qr_history_report(PDO $pdo, string $evening): array
 {
-    $stmt = $pdo->prepare("SELECT * FROM orders WHERE evening = ? AND status NOT IN ('pending_payment', 'expired') ORDER BY created_at, id");
-    $stmt->execute([$evening]);
+    return ['evening' => $evening] + qr_history_figures($pdo, $evening, $evening, true);
+}
+
+/** An evening's own line in a longer stretch (a month). */
+function qr_history_day(string $evening): array
+{
+    return ['evening' => $evening, 'orders' => 0, 'cancelled' => 0, 'sales' => 0, 'staff' => 0, 'card' => 0, 'unpaid' => 0, 'tips' => 0];
+}
+
+/**
+ * The figures for the evenings from $from to $to — one evening, or a month —
+ * and each evening's own (days). With $withList, every order and its lines.
+ */
+function qr_history_figures(PDO $pdo, string $from, string $to, bool $withList = false): array
+{
+    $waiters = [];
+    $stmt = $pdo->prepare('SELECT evening, table_no, name FROM waiters WHERE evening BETWEEN ? AND ?');
+    $stmt->execute([$from, $to]);
+    foreach ($stmt->fetchAll() as $w) {
+        $waiters[$w['evening']][(int) $w['table_no']] = (string) $w['name'];
+    }
+    $stmt = $pdo->prepare("SELECT * FROM orders WHERE evening BETWEEN ? AND ? AND status NOT IN ('pending_payment', 'expired')
+        ORDER BY evening, created_at, id");
+    $stmt->execute([$from, $to]);
     $orders = $stmt->fetchAll();
-    $waiters = qr_waiters($pdo, $evening);
 
     $sales = 0;
     $count = 0;
@@ -82,50 +103,61 @@ function qr_history_report(PDO $pdo, string $evening): array
     $refundOwed = 0;
     $tables = [];
     $byWaiter = [];
+    $days = [];
     $first = 0;
     $last = 0;
     $list = [];
     foreach ($orders as $o) {
-        $json = qr_order_json($o);
-        $json['waiter'] = $waiters[(int) $o['table_no']] ?? '';
-        $list[] = $json;
+        $e = (string) $o['evening'];
+        $days[$e] = $days[$e] ?? qr_history_day($e);
+        $waiter = $waiters[$e][(int) $o['table_no']] ?? '';
+        if ($withList) {
+            $json = qr_order_json($o);
+            $json['waiter'] = $waiter;
+            $list[] = $json;
+        }
         $refunded += (int) $o['refunded_cents'];
         $refundOwed += max(0, (int) $o['refund_due_cents'] - (int) $o['refunded_cents']);
         if ($o['status'] === 'cancelled') {
             $cancelled++;
             $cancelledTotal += (int) $o['total_cents'];
+            $days[$e]['cancelled']++;
             continue;
         }
         $net = (int) $o['total_cents'] - (int) $o['void_cents'];
         $count++;
         $sales += $net;
         $voided += (int) $o['void_cents'];
-        $tables[(int) $o['table_no']] = true;
+        $tables[$e . '|' . $o['table_no']] = true;
         $first = $first ?: (int) $o['created_at'];
         $last = (int) $o['created_at'];
-        $w = $json['waiter'];
-        if (!isset($byWaiter[$w])) {
-            $byWaiter[$w] = ['name' => $w, 'orders' => 0, 'tables' => [], 'sales' => 0];
+        $days[$e]['orders']++;
+        $days[$e]['sales'] += $net;
+        if (!isset($byWaiter[$waiter])) {
+            $byWaiter[$waiter] = ['name' => $waiter, 'orders' => 0, 'tables' => [], 'evenings' => [], 'sales' => 0];
         }
-        $byWaiter[$w]['orders']++;
-        $byWaiter[$w]['tables'][(int) $o['table_no']] = true;
-        $byWaiter[$w]['sales'] += $net;
+        $byWaiter[$waiter]['orders']++;
+        $byWaiter[$waiter]['tables'][(int) $o['table_no']] = true;
+        $byWaiter[$waiter]['evenings'][$e] = true;
+        $byWaiter[$waiter]['sales'] += $net;
         if ((int) $o['tab_id'] === 0) {
             // A table's bill is paid line by line, below; anything else
             // was paid on the phone before it went out, or to staff.
             if ($o['pay_status'] === 'paid') {
                 $card['orders'] += $net;
+                $days[$e]['card'] += $net;
             } else {
                 $pay['staff'] += $net;
+                $days[$e]['staff'] += $net;
             }
         }
     }
 
     // Lines of the orders still standing: stations, items, and how the
     // lines of tables' bills were paid.
-    $stmt = $pdo->prepare("SELECT i.*, o.tab_id FROM order_items i JOIN orders o ON o.id = i.order_id
-        WHERE o.evening = ? AND o.status NOT IN ('pending_payment', 'expired', 'cancelled') ORDER BY i.order_id, i.line");
-    $stmt->execute([$evening]);
+    $stmt = $pdo->prepare("SELECT i.*, o.tab_id, o.evening FROM order_items i JOIN orders o ON o.id = i.order_id
+        WHERE o.evening BETWEEN ? AND ? AND o.status NOT IN ('pending_payment', 'expired', 'cancelled') ORDER BY i.order_id, i.line");
+    $stmt->execute([$from, $to]);
     $stations = [];
     foreach (QR_STATIONS as $station) {
         $stations[$station] = ['qty' => 0, 'sales' => 0];
@@ -147,8 +179,10 @@ function qr_history_report(PDO $pdo, string $evening): array
         if ((int) $i['tab_id'] > 0) {
             if ($i['paid_via'] === 'staff') {
                 $pay['staff'] += $amount;
+                $days[$i['evening']]['staff'] += $amount;
             } elseif ($i['paid_via'] === '') {
                 $pay['unpaid'] += $amount;
+                $days[$i['evening']]['unpaid'] += $amount;
             }
             // 'online': in the bill payments below, at what was kept.
         }
@@ -160,24 +194,30 @@ function qr_history_report(PDO $pdo, string $evening): array
 
     // Payments from tables' bills: what was kept after anything owed back,
     // and the tips on top.
-    $stmt = $pdo->prepare("SELECT p.* FROM bill_payments p JOIN tabs t ON t.id = p.tab_id
-        WHERE t.evening = ? AND p.status = 'paid' ORDER BY p.paid_at");
-    $stmt->execute([$evening]);
+    $stmt = $pdo->prepare("SELECT p.*, t.evening FROM bill_payments p JOIN tabs t ON t.id = p.tab_id
+        WHERE t.evening BETWEEN ? AND ? AND p.status = 'paid' ORDER BY p.paid_at");
+    $stmt->execute([$from, $to]);
     $tips = 0;
     $billPayments = 0;
     foreach ($stmt->fetchAll() as $p) {
         $json = qr_bill_payment_json($p);
+        $e = (string) $p['evening'];
+        $days[$e] = $days[$e] ?? qr_history_day($e);
         $card['bills'] += $json['net'];
         $tips += $json['tipNet'];
+        $days[$e]['card'] += $json['net'];
+        $days[$e]['tips'] += $json['tipNet'];
         $refunded += (int) $p['refunded_cents'];
         $refundOwed += max(0, (int) $p['refund_due_cents'] - (int) $p['refunded_cents']);
         $billPayments++;
     }
     $pay['card'] = $card['orders'] + $card['bills'];
+    ksort($days);
 
     $waiterList = array_values(array_map(function ($w) {
         $w['tables'] = array_keys($w['tables']);
         sort($w['tables']);
+        $w['evenings'] = count($w['evenings']);
         return $w;
     }, $byWaiter));
     usort($waiterList, function ($a, $b) {
@@ -186,10 +226,12 @@ function qr_history_report(PDO $pdo, string $evening): array
     });
 
     return [
-        'evening' => $evening,
+        'from' => $from,
+        'to' => $to,
         'orders' => $count,
         'sales' => $sales,
         'average' => $count ? intdiv($sales + intdiv($count, 2), $count) : 0,
+        // Tables served: one table on two evenings counts twice.
         'tables' => count($tables),
         'voided' => $voided,
         'cancelled' => $cancelled,
@@ -205,6 +247,7 @@ function qr_history_report(PDO $pdo, string $evening): array
         'stations' => $stations,
         'waiters' => $waiterList,
         'items' => $items,
+        'days' => array_values($days),
         'list' => $list,
     ];
 }

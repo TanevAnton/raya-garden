@@ -499,6 +499,29 @@ describe("the staff screen", () => {
     await staff.close();
   });
 
+  it("monthly summary: the address is saved, and a month can be sent at once", async () => {
+    await openEvening();
+    await placeOrder(3, [["tiramisu"]]);
+    const staff = await tablet();
+    const errors = [];
+    staff.on("pageerror", (e) => errors.push(e.message));
+    await clickText(staff, "nav", /^История$/);
+    await staff.waitForSelector("[data-monthly-email] input[type=email]");
+    assert.match(await staff.$eval("[data-monthly-email]", (e) => e.innerText), /Не се изпраща — няма адрес/);
+    await staff.type("[data-monthly-email] input[type=email]", "manager@example.com");
+    await clickText(staff, "[data-monthly-email]", /^Запази$/);
+    await staff.waitForFunction(() => /Изпраща се до manager@example\.com/.test(document.querySelector("[data-monthly-email]").innerText));
+    await clickText(staff, "[data-monthly-email]", /^Изпрати отчета за/);
+    await staff.waitForFunction(() => /Изпратен до manager@example\.com/.test(document.querySelector("[data-report-note]")?.innerText || ""), { timeout: 15000 });
+    const mails = srv.mails();
+    assert.equal(mails.length, 1);
+    assert.equal(mails[0].to, "manager@example.com");
+    assert.match(mails[0].subject, /^RAYA Garden · Поръчки от масата — .+ \(до \d+ .+\)$/, "this month, so far");
+    assert.match(await staff.$eval("[data-report-log]", (e) => e.innerText), /до момента.*изпратен/s);
+    assert.deepEqual(errors, []);
+    await staff.close();
+  });
+
   it("pause and resume from the screen", async () => {
     await openEvening();
     const staff = await tablet();

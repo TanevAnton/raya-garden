@@ -30,8 +30,9 @@ public/api/qr/                   the PHP API (runs on the host's PHP 7.3)
   state.php, order.php, order-status.php, stripe-webhook.php
   bill.php, bill-pay.php, bill-abandon.php   the table's bill ("pay at the end")
   admin/  login, logout, session, feed, order, settings, sold-out, till, bill, waiters,
-          history (past evenings), export (CSV for Excel)
-  _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php (not reachable from the web)
+          history (past evenings), export (CSV for Excel), report (monthly e-mail)
+  _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php, report.php
+          (not reachable from the web)
 src/qr/menu/, menu/index.html    the guest page
 src/qr/admin/, admin/index.html  the staff page
 scripts/qr-server-config.mjs     puts the password and Stripe keys on the server (run by the deploy)
@@ -67,6 +68,30 @@ two CSV files that open in Excel (UTF-8, ";" between cells, decimal comma):
 
 A file's figures are the database's at the moment of download, so a refund
 made later shows up when the file is downloaded again.
+
+### The monthly summary by e-mail
+
+Staff set an address at the bottom of "История". On the 1st, from 06:00
+Sofia time, the first poll of a staff tablet sends last month's summary
+there: the figures (sales, payments, each evening, waiters, best sellers)
+and both CSV files attached. The tablet gets its answer first; the e-mail
+goes after it (PHP-FPM's `fastcgi_finish_request`), so nothing waits on it.
+There is no cron job — if no tablet is opened on the 1st, it goes the next
+time one is. A refused send is tried again an hour later, up to 6 times;
+every attempt is listed under the address, with the mail server's reason
+when it failed. "Изпрати … сега" sends the chosen month at once (at most 5
+an hour) — use it to test a new address.
+
+It is sent with the host's own mail (PHP `mail()`), from
+`no-reply@rayagarden.bg`: rayagarden.bg's mail is on the same server, and
+its SPF record (`+a +mx`) allows it. If that ever stops working, put SMTP
+settings in `raya-mailer-config.php` above the web root (the same file as
+wedding enquiries would use: host, port, secure, username, password,
+from_email) and the report uses SMTP instead. `/api/php-check.php` shows
+which one is in use (`report_mail`). A different sender address can be set
+with `'report_from'` in `raya-qr-config.php`.
+
+### Keeping it safe
 
 The database file is the only full copy. It lives on SuperHosting, outside
 the site, so a deploy never touches it, and the host's backups of the

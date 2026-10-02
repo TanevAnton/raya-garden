@@ -36,6 +36,7 @@ if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
     $files = array(
         'wedding-enquiry.php', '_lib/quote.php', '_lib/smtp.php',
         'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/_lib/pay.php',
+        'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php',
         'qr/order.php', 'qr/stripe-webhook.php',
     );
     foreach ($files as $rel) {
@@ -94,6 +95,12 @@ $out['qr'] = array(
             : 'not a Stripe key'),
     'stripe_webhook_secret_set' => !empty($qrConfig['stripe_webhook_secret']),
     'curl_reaches_stripe' => 'not tested',
+    // The monthly summary e-mail: SMTP when raya-mailer-config.php has a
+    // host, else the host's own mail().
+    'report_mail' => is_readable($above . '/raya-mailer-config.php') ? 'SMTP config found (raya-mailer-config.php)'
+        : (function_exists('mail') && !in_array('mail', array_map('trim', explode(',', (string) ini_get('disable_functions'))), true)
+            ? 'PHP mail() available' . (ini_get('sendmail_path') ? '' : ' (no sendmail_path)')
+            : 'PHP mail() DISABLED'),
 );
 if (function_exists('curl_init') && !empty($qrConfig['stripe_secret_key'])) {
     // Connection only: no key is sent, so Stripe answers 401.

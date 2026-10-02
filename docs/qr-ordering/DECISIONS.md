@@ -506,6 +506,39 @@ there).
   downloads are the copy kept elsewhere. Copying the database to GitHub or
   e-mailing it would send guests' data to more places; not done.
 
+### The monthly summary by e-mail, added 02.10.2026
+
+**Why.** The venue asked for a monthly summary rather than a daily one: the
+month's figures and both files in the inbox, without opening the tablet.
+
+- **Sent by the staff screen's own poll, after its answer.** No cron job to
+  set up in SPanel: the first poll from 06:00 on the 1st (Sofia) sends last
+  month's summary, once `fastcgi_finish_request` has handed the tablet its
+  answer. A tablet opened on the 1st is all it needs; a day with none sends
+  it the next time one is. 06:00, so the last evening of the month (and
+  orders after midnight) are in it.
+- **Once, and safe from two tablets at once.** The send is claimed inside
+  the write lock (`report_mails`, status 'sending'); a second poll sees it
+  and does nothing. A month already sent, or without orders ('empty'), is
+  not looked at again; the check on every poll is one indexed read, and
+  only while an address is set.
+- **Failures are visible and retried.** A refused send is logged with the
+  mail server's reason and tried again an hour later, up to 6 times. Staff
+  see every attempt under the address.
+- **"Send now" tests the address**, and sends any month — one not over yet
+  says "до <date>" and does not count as that month's report, so the real
+  one still goes on the 1st. At most 5 an hour, so the button cannot flood
+  an inbox.
+- **The host's own mail, or SMTP if set up.** rayagarden.bg's mail is on the
+  same server and its SPF allows it, so PHP `mail()` needs no account or
+  password. `raya-mailer-config.php`, if present, switches it to SMTP.
+- **The same figures as История, and no names.** Built from
+  `qr_history_figures` over the month; the attachments are the export's own
+  CSV files. An HTML version and a plain-text one, for any mail program.
+- **Staff set the address.** Everyone with the staff password sees the
+  takings anyway (a choice made on 02.10.2026), so the address sits with the
+  rest of История.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

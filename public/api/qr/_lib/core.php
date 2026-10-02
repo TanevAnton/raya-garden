@@ -150,7 +150,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 8;
+const QR_SCHEMA_VERSION = 9;
 
 function qr_db(): PDO
 {
@@ -454,6 +454,27 @@ function qr_migrate(PDO $pdo)
                 $local = (new DateTime('@' . ((int) $row['created_at'] - 6 * 3600)))->setTimezone($tz);
                 $set->execute([$local->format('Y-m-d'), (int) $row['id']]);
             }
+        }
+        if ($version < 9) {
+            // The monthly summary by e-mail (_lib/report.php): where it goes
+            // (report_email, '' for nowhere), and every attempt to send one —
+            // complete: the month had ended when it was sent; status
+            // 'sending' while it is under way, then 'sent', 'failed' or
+            // 'empty' (no orders that month: nothing sent).
+            $pdo->exec("
+                ALTER TABLE settings ADD COLUMN report_email TEXT NOT NULL DEFAULT '';
+                CREATE TABLE IF NOT EXISTS report_mails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    month TEXT NOT NULL,
+                    recipient TEXT NOT NULL,
+                    manual INTEGER NOT NULL DEFAULT 0,
+                    complete INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL,
+                    error TEXT NOT NULL DEFAULT '',
+                    at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS report_mails_month ON report_mails (month, id);
+            ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');

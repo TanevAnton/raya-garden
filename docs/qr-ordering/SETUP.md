@@ -336,7 +336,8 @@ it at 100 % ("actual size").
 - **Every card has the same code.** Staff write the table number in the box on
   the day.
 - **Numbered cards:** run `npm run qr:print -- --tables 40`.
-- **Bare code:** `raya-menu-qr.svg`, for any other design. Keep it at least
+- **Bare code:** `raya-menu-qr.pdf` (the code alone on a 100 × 100 mm page,
+  vector) or `raya-menu-qr.svg`, for any other design. Keep it at least
   2.5 cm wide, dark on light, with the white margin around it.
 
 ## Changing the menu

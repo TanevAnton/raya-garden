@@ -12,6 +12,8 @@
 // Writes into docs/qr-ordering/print/:
 //   raya-menu-qr.svg     the code alone, vector — for any other design
 //   raya-menu-qr.png     the same, 1200 px, for tools that want a picture
+//   raya-menu-qr.pdf     the code alone on a 100 × 100 mm page, vector —
+//                        scale it to any size; nothing else on it
 //   table-card-a6.pdf    (or table-cards-a6-1-40.pdf) 105 × 148 mm, print at
 //                        100 % / "actual size"
 //
@@ -99,7 +101,14 @@ try {
   await page.evaluate(() => document.fonts.ready);
   const name = tables ? `table-cards-a6-1-${tables}.pdf` : "table-card-a6.pdf";
   await page.pdf({ path: path.join(OUT, name), width: "105mm", height: "148mm", printBackground: true });
-  console.log(`${OUT}/raya-menu-qr.svg\n${OUT}/raya-menu-qr.png\n${OUT}/${name}  → ${URL}`);
+
+  // The code alone, its white quiet zone included, filling a square page.
+  await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>
+    @page { size: 100mm 100mm; margin: 0; }
+    * { margin: 0; } svg { width: 100mm; height: 100mm; display: block; }
+  </style></head><body>${svg}</body></html>`);
+  await page.pdf({ path: path.join(OUT, "raya-menu-qr.pdf"), width: "100mm", height: "100mm", printBackground: true, pageRanges: "1" });
+  console.log(`${OUT}/raya-menu-qr.svg\n${OUT}/raya-menu-qr.png\n${OUT}/raya-menu-qr.pdf\n${OUT}/${name}  → ${URL}`);
 } finally {
   await browser.close();
 }

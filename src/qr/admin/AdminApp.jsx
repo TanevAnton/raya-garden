@@ -732,6 +732,7 @@ function OrderCard({ job, waiter, flash, onMove, onCancel, onVoid, onRefund }) {
             {order.voided > 0 && order.status !== "cancelled" && !other && <span className="text-xs text-cream-100/60"> (отказано {money(order.voided)})</span>}
           </span>
           <PayChip order={order} />
+          {order.tipNet > 0 && <span className="text-xs text-sage-200" data-card-tip>+ бакшиш {money(order.tipNet)}</span>}
           {order.payerName && <span className="text-xs text-cream-100/70">платил: {order.payerName}</span>}
         </span>
         <span className={`text-xs px-3 py-1 border rounded-full ${s.tone}`}>{s.label}</span>
@@ -777,7 +778,7 @@ function CancelDialog({ job, onClose, onConfirm }) {
     if (order.payStatus === "paid") moneyNote = `Гостът е платил онлайн: ${money(part)} ще му бъдат върнати автоматично.`;
     else if (lines.some((l) => l.paidVia === "online")) moneyNote = "Платеното от сметката на масата за тези редове ще бъде върнато автоматично на платилия.";
     else if (lines.some((l) => l.paidVia === "staff")) moneyNote = "Част от тези редове е платена на място — таблетът ще каже колко да върнете.";
-  } else if (order.payStatus === "paid") moneyNote = `Гостът е платил ${money(order.total)} онлайн. Сумата ще му бъде върната автоматично.`;
+  } else if (order.payStatus === "paid") moneyNote = `Гостът е платил ${money(order.total + (order.tip || 0))} онлайн${order.tip ? ` (с бакшиш ${money(order.tip)})` : ""}. Сумата ще му бъде върната автоматично.`;
   else if (order.payStatus === "tab_paid" || order.payStatus === "tab_partial") moneyNote = "Част от поръчката е платена от сметката на масата. Платеното онлайн ще бъде върнато автоматично на платилия.";
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Отказ на поръчка">
@@ -1053,7 +1054,7 @@ function tillList(orders, billPayments) {
     entries.push({
       kind: "order", id: o.id, code: o.code, table: o.table, at: o.paidAt || o.createdAt,
       text: (o.payerName ? `${o.payerName} · ` : "") + lines(o.lines),
-      amount: o.tillAt ? o.tillCents : o.net, voidAmount, tip: 0, tillAt: o.tillAt,
+      amount: o.tillAt ? o.tillCents : o.net, voidAmount, tip: o.tipNet || 0, tillAt: o.tillAt,
       toEnter: o.payStatus === "paid" && !o.tillAt && o.net > 0, toVoid: o.tillAt > 0 && voidAmount > 0,
     });
   }
@@ -1081,7 +1082,8 @@ function Till({ entries, onTill }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
   const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
   const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
-  // Tips paid with bills today, for sharing out at the end of the evening.
+  // Card tips today — with orders paid on the phone and with bills — for
+  // sharing out at the end of the evening.
   const today = sofiaDate(Math.floor(Date.now() / 1000));
   const tipped = entries.filter((e) => e.tip > 0 && sofiaDate(e.at) === today);
   const tips = tipped.reduce((sum, e) => sum + e.tip, 0);

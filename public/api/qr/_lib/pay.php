@@ -5,14 +5,15 @@
 //
 //   1. order.php stores the order as 'pending_payment' — invisible to staff —
 //      and asks Stripe for a Checkout Session for exactly the order's lines
-//      and total, priced by the server (qr_checkout_for).
+//      and total, priced by the server (qr_checkout_for), and the guest's tip
+//      if they chose one, as a line of its own.
 //   2. The phone goes to Stripe's page (card, Apple Pay, Google Pay …).
 //   3. Stripe tells stripe-webhook.php, signed. Only that makes an order
 //      'new' and 'paid' (qr_stripe_event) — never the phone coming back to
 //      the menu, which can fail to happen after a successful payment.
-//   4. A paid order cancelled by staff is refunded first (qr_refund). One
-//      line of it cancelled is owed back and refunded right after, for that
-//      line only (qr_order_refund_due).
+//   4. A paid order cancelled by staff is refunded first (qr_refund), tip
+//      and all. One line of it cancelled is owed back and refunded right
+//      after, for that line only (qr_order_refund_due); the tip stays.
 //
 // No card data ever reaches this server. No Stripe SDK either: the host runs
 // PHP 7.3 without Composer, so this is Stripe's REST API over cURL — three
@@ -145,6 +146,16 @@ function qr_checkout_for(int $orderId, int $now): string
             ],
         ];
     }
+    if ((int) $order['tip_cents'] > 0) {
+        $params['line_items'][] = [
+            'quantity' => 1,
+            'price_data' => [
+                'currency' => 'eur',
+                'unit_amount' => (int) $order['tip_cents'],
+                'product_data' => ['name' => $lang === 'en' ? 'Tip for the team' : 'Бакшиш за екипа'],
+            ],
+        ];
+    }
     // No payment_method_types: the methods offered are chosen in the Stripe
     // Dashboard (cards, Apple Pay, Google Pay …), not hard-coded here.
 
@@ -154,7 +165,7 @@ function qr_checkout_for(int $orderId, int $now): string
             . ' ' . (string) ($session['error']['code'] ?? $session['error']['message'] ?? ''));
         return '';
     }
-    if ((int) ($session['amount_total'] ?? -1) !== (int) $order['total_cents']) {
+    if ((int) ($session['amount_total'] ?? -1) !== (int) $order['total_cents'] + (int) $order['tip_cents']) {
         error_log('raya-qr: checkout session ' . $session['id'] . ' total differs from order ' . $orderId);
         return '';
     }
@@ -278,7 +289,7 @@ function qr_stripe_event(array $event, int $now): array
             if (($object['payment_status'] ?? '') !== 'paid' || $order['pay_status'] === 'paid' || $order['pay_status'] === 'refunded') {
                 return [];
             }
-            if ((int) ($object['amount_total'] ?? -1) !== (int) $order['total_cents'] || ($object['currency'] ?? '') !== 'eur') {
+            if ((int) ($object['amount_total'] ?? -1) !== (int) $order['total_cents'] + (int) $order['tip_cents'] || ($object['currency'] ?? '') !== 'eur') {
                 error_log('raya-qr: paid session ' . $object['id'] . ' does not match order ' . $orderId);
                 return [];
             }

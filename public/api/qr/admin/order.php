@@ -190,9 +190,10 @@ list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action
     $pdo->prepare('UPDATE orders SET status = ?, cancel_reason = ?, kitchen_status = ?, bar_status = ?, updated_at = ?, seq = ? WHERE id = ?')
         ->execute([$to, $action === 'cancel' ? $reason : '', $order['kitchen_status'], $order['bar_status'], $now, $seq, $id]);
     if ($refundId !== null) {
-        // Refunded in full: whatever was still owed for single lines is in it.
+        // Refunded in full, tip included: whatever was still owed for single
+        // lines is in it.
         $pdo->prepare("UPDATE orders SET pay_status = 'refunded', refund_id = ?,
-            refund_due_cents = total_cents, refunded_cents = total_cents, refund_error = 0 WHERE id = ?")
+            refund_due_cents = total_cents + tip_cents, refunded_cents = total_cents + tip_cents, refund_error = 0 WHERE id = ?")
             ->execute([$refundId === 'already' ? '' : $refundId, $id]);
     }
     $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)')

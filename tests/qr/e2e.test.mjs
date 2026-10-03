@@ -226,6 +226,35 @@ describe("a guest orders from a phone", () => {
     await page.close();
   });
 
+  it("a tab far down the menu lands on its section, even when the phone cuts the scroll short", async () => {
+    await openEvening();
+    const page = await phone();
+    await page.goto(`${srv.base}/menu/?lang=bg`, { waitUntil: "networkidle0" });
+    await page.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent.trim() === "3")?.click());
+    const tabs = await page.$$eval("nav a[data-tab]", (as) => as.map((a) => a.dataset.tab));
+    for (const [target, cut] of [[tabs.at(-1), false], [tabs.at(-3), true], [tabs[12], true]]) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await sleep(300);
+      await page.click(`nav a[data-tab="${target}"]`);
+      if (cut) {
+        // What a phone may do to a long smooth scroll: something else scrolls, and it stops where it is.
+        await sleep(250);
+        await page.evaluate(() => window.scrollTo({ top: window.scrollY, behavior: "instant" }));
+      }
+      await page.waitForFunction(
+        (t) => {
+          const top = document.getElementById(`c-${t}`).getBoundingClientRect().top;
+          const tabs = document.querySelector("nav[aria-label] a.text-gold-100")?.dataset.tab;
+          return top > 60 && top < 140 && tabs === t;
+        },
+        { timeout: 6000, polling: 100 },
+        target
+      );
+    }
+    assert.deepEqual(page.errors, []);
+    await page.close();
+  });
+
   it("switches to English and keeps the choice", async () => {
     await openEvening();
     const page = await phone();

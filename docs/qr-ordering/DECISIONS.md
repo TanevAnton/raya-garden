@@ -539,6 +539,49 @@ month's figures and both files in the inbox, without opening the tablet.
   takings anyway (a choice made on 02.10.2026), so the address sits with the
   rest of История.
 
+## Tips when paying an order, and the menu's section jump, added 03.10.2026
+
+### A tip with an order paid on the phone
+
+**Why.** Guests could tip when paying a table's bill, but not when paying
+as they order.
+
+- **The same rules as the bill's tip.** Optional, none to start with; 5, 10,
+  15 % (rounded to 10 cents) or an amount of the guest's own, at most the
+  order and 500 €. One picker for both (`src/qr/menu/Tip.jsx`).
+- **Its own line on Stripe's page** ("Бакшиш за екипа"); the session's and
+  the webhook's amount checks expect the order plus the tip
+  (`orders.tip_cents`, schema v10).
+- **Apart from the till.** The till amount stays the order's own (`net`);
+  the tip shows beside it, on the card, and in the day's card tips.
+- **Given back only with the whole order.** One line taken off refunds that
+  line; cancelling the order refunds everything (Stripe's full refund), and
+  the order's refund figures say so (`refund_due = refunded = total + tip`).
+- **Part of what the guest asked for.** The tip is in the order's
+  fingerprint: the same Idempotency-Key with another tip is refused as a
+  different order, and the phone makes a new key when the tip changes.
+- **Only where money is taken.** On a "pay staff" or "pay at the end"
+  evening a tip sent with an order is ignored — the phone takes no money
+  then, so nothing could be added to.
+- **История and the files count it**: in the evening's and month's card
+  tips, and in the payments file's tip column.
+
+### The menu's section jump
+
+**Why.** Tapping a tab far down the menu could leave the guest a few
+sections short on their phone.
+
+- **The cause.** A long smooth scroll on a phone can be cut off part-way —
+  by a flick still running, or by another scroll starting. The tab bar
+  started one itself: it re-centred the highlighted tab with
+  `scrollIntoView`, which also scrolls the page.
+- **The fix.** The tab bar scrolls only itself, sideways. The tapped tab
+  stays highlighted while the page moves. When the page has stood still for
+  a moment, the jump checks where the section is and finishes it if it fell
+  short. The guest touching the page ends the jump at once.
+- **Tested** by cutting the scroll off on purpose: the old menu stopped in
+  the starters on the way to the beer; the new one lands on the beer.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

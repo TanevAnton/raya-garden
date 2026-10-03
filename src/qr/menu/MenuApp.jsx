@@ -4,6 +4,7 @@ import { strings, fill } from "./strings.js";
 import { money, size, clock, sofiaDate, pick } from "../shared/format.js";
 import { api, newIdempotencyKey, session } from "../shared/api.js";
 import Sheet from "./Sheet.jsx";
+import { TipPicker, useTip } from "./Tip.jsx";
 import BillSheet, { abandonBillPayment } from "./BillSheet.jsx";
 import ThankYou from "./ThankYou.jsx";
 
@@ -20,7 +21,8 @@ import ThankYou from "./ThankYou.jsx";
 // matters (prices, availability, the table); this page only reflects it.
 //
 // On evenings when guests pay on the phone (state.payment === "online") the
-// order is sent to Stripe's payment page and comes back to
+// order — with a tip on top if the guest chose one (Tip.jsx) — is sent to
+// Stripe's payment page and comes back to
 // /menu/?paid=<code> or ?unpaid=<code>. Coming back proves nothing: the
 // order counts as paid only when the server says so, after Stripe's own
 // signed confirmation.
@@ -214,6 +216,9 @@ export default function MenuApp() {
 
   const total = cart.reduce((sum, l) => sum + l.price * l.qty, 0);
   const count = cart.reduce((sum, l) => sum + l.qty, 0);
+  // Paying on the phone as the order is sent: an optional tip on top.
+  const payOnline = state?.payment === "online";
+  const tip = useTip(total);
 
   const add = (item, variant, choiceId = "") => {
     setProblem(null);
@@ -237,12 +242,14 @@ export default function MenuApp() {
   };
 
   async function submit() {
-    if (!table || !confirmed || submitting || !cart.length) return;
+    if (!table || !confirmed || submitting || !cart.length || (payOnline && tip.bad)) return;
     const lines = cart.map((l) => ({ itemId: l.itemId, variantId: l.variantId, choiceId: l.choiceId || "", qty: l.qty, note: l.note.trim(), price: l.price }));
-    const body = { table, lang, expectedTotal: total, lines, name: guestName.trim().slice(0, 40), website: honeypot.current?.value || "" };
+    const tipCents = payOnline ? tip.tip : 0;
+    const body = { table, lang, expectedTotal: total, lines, name: guestName.trim().slice(0, 40), website: honeypot.current?.value || "", ...(tipCents ? { tip: tipCents } : {}) };
     // One key per attempt: a retry of the very same order reuses it, so the
-    // server can never make two; any change to the order makes a new one.
-    const sig = JSON.stringify([table, lines]);
+    // server can never make two; any change to the order (or the tip) makes
+    // a new one.
+    const sig = JSON.stringify(tipCents ? [table, lines, tipCents] : [table, lines]);
     if (attempt.current.sig !== sig) attempt.current = { key: newIdempotencyKey(), sig };
     setSubmitting(true);
     setProblem(null);
@@ -253,6 +260,7 @@ export default function MenuApp() {
         setOrders((list) => (list.some((o) => o.token === entry.token) ? list : [...list, entry]));
         setCart([]);
         setConfirmed(false);
+        tip.reset();
         attempt.current = { key: null, sig: null };
         if (res.checkoutUrl) {
           // To Stripe's page. The order is saved on this phone first, so
@@ -386,6 +394,7 @@ export default function MenuApp() {
             lang={lang}
             cart={cart}
             total={total}
+            tip={tip}
             table={table}
             open={open}
             confirmed={confirmed}
@@ -575,26 +584,83 @@ function StatusBanner({ t, lang, state, failed, reload }) {
   );
 }
 
-/** Sticky category tabs; the one in view is highlighted, a tap scrolls to it. */
+/**
+ * Sticky category tabs; the one in view is highlighted, a tap scrolls to it.
+ *
+ * A tap scrolls the page smoothly to the section, then checks where it
+ * stopped and finishes the jump if it fell short: a phone's browser can cut
+ * a long smooth scroll off part-way (a flick still running, another scroll
+ * started meanwhile), which left guests a few sections before the one they
+ * tapped. While it runs, the tapped tab stays highlighted, and the tab bar
+ * only ever scrolls itself sideways — never the page.
+ */
 function CategoryTabs({ lang, label }) {
   const [active, setActive] = useState(menu.categories[0].id);
   const bar = useRef(null);
+  const jumping = useRef(null); // { id, stop } while a tap's scroll is under way
   useEffect(() => {
     const seen = new Map();
     const observer = new IntersectionObserver(
       (entries) => {
         for (const e of entries) seen.set(e.target.dataset.category, e.isIntersecting ? e.boundingClientRect.top : null);
+        if (jumping.current) return;
         const first = menu.categories.find((c) => seen.get(c.id) != null);
         if (first) setActive(first.id);
       },
       { rootMargin: "-120px 0px -55% 0px" }
     );
     document.querySelectorAll("[data-category]").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      jumping.current?.stop();
+    };
   }, []);
   useEffect(() => {
-    bar.current?.querySelector(`[data-tab="${active}"]`)?.scrollIntoView({ inline: "center", block: "nearest" });
+    const row = bar.current;
+    const tab = row?.querySelector(`[data-tab="${active}"]`);
+    if (!tab) return;
+    const left = tab.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft - (row.clientWidth - tab.offsetWidth) / 2;
+    row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
   }, [active]);
+
+  function jump(id) {
+    const section = document.getElementById(`c-${id}`);
+    if (!section) return;
+    jumping.current?.stop();
+    setActive(id);
+    // Where the section should end up: just under the sticky header and tabs.
+    const target = () => {
+      const below = bar.current.closest("nav").getBoundingClientRect().bottom + 8;
+      return Math.max(0, Math.min(section.getBoundingClientRect().top + window.scrollY - below, document.documentElement.scrollHeight - window.innerHeight));
+    };
+    window.scrollTo({ top: target(), behavior: "smooth" });
+    // Once the page has stood still for a moment, put the section in place
+    // if the scroll stopped short. The guest touching the page ends it all.
+    let last = -1;
+    let still = 0;
+    let tries = 0;
+    const timer = setInterval(() => {
+      still = Math.abs(window.scrollY - last) < 1 ? still + 1 : 0;
+      last = window.scrollY;
+      if (still < 3) return;
+      if (Math.abs(window.scrollY - target()) > 4 && tries++ < 3) {
+        window.scrollTo({ top: target(), behavior: "auto" });
+        still = 0;
+        return;
+      }
+      stop();
+    }, 100);
+    const stop = () => {
+      clearInterval(timer);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("wheel", stop);
+      if (jumping.current?.stop === stop) jumping.current = null;
+    };
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("wheel", stop, { passive: true });
+    jumping.current = { id, stop };
+  }
+
   return (
     <nav aria-label={label} className="sticky top-14 z-10 bg-ink-950/95 backdrop-blur border-b border-gold-300/10">
       <div ref={bar} className="no-scrollbar max-w-2xl mx-auto px-2 flex gap-1 overflow-x-auto">
@@ -605,7 +671,7 @@ function CategoryTabs({ lang, label }) {
             href={`#c-${c.id}`}
             onClick={(e) => {
               e.preventDefault();
-              document.getElementById(`c-${c.id}`)?.scrollIntoView({ behavior: "smooth" });
+              jump(c.id);
             }}
             className={`shrink-0 px-3 py-3 text-xs tracking-[0.1em] uppercase whitespace-nowrap border-b-2 ${active === c.id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/50"}`}
           >
@@ -698,7 +764,7 @@ function Stepper({ value, onChange, t }) {
   );
 }
 
-function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state, guestName, setGuestName }) {
+function Review({ t, lang, cart, total, tip, table, open, confirmed, setConfirmed, submitting, redirecting, problem, onQty, onNote, onTable, onSubmit, honeypot, state, guestName, setGuestName }) {
   const closedNow = state && !state.open;
   const online = state?.payment === "online";
   const onTab = state?.payment === "tab";
@@ -749,6 +815,7 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
         <span className="font-display text-3xl text-gold-100">{money(total, lang)}</span>
       </div>
       <p className="text-sm text-cream-100/60 mt-2">{online ? t.payOnline : onTab && table ? fill(t.payTab, { n: table }) : t.payment}</p>
+      {online && cart.length > 0 && <TipPicker t={t} lang={lang} amount={total} tip={tip} tooBig={t.tipTooBigOrder} />}
 
       {cart.length > 0 && (
         <label className="block mt-5">
@@ -774,10 +841,10 @@ function Review({ t, lang, cart, total, table, open, confirmed, setConfirmed, su
 
       <button
         type="submit"
-        disabled={!table || !confirmed || submitting || !cart.length || !open || closedNow}
+        disabled={!table || !confirmed || submitting || !cart.length || !open || closedNow || (online && tip.bad)}
         className="btn-gold w-full mt-5 py-4 rounded-sm text-sm tracking-[0.15em] uppercase font-medium"
       >
-        {redirecting ? t.toPayment : submitting ? t.sending : online ? fill(t.payButton, { total: money(total, lang) }) : t.send}
+        {redirecting ? t.toPayment : submitting ? t.sending : online ? fill(t.payButton, { total: money(total + tip.tip, lang) }) : t.send}
       </button>
     </form>
   );
@@ -859,7 +926,7 @@ function OrderCard({ t, lang, order, big = false }) {
       )}
       {status === "pending_payment" && order.payUrl && (
         <a href={order.payUrl} className="btn-gold block text-center w-full mt-3 py-3 rounded-sm text-sm tracking-[0.15em] uppercase font-medium">
-          {order.total != null ? fill(t.payButton, { total: money(order.total, lang) }) : t.payNow}
+          {order.total != null ? fill(t.payButton, { total: money(order.total + (order.tip || 0), lang) }) : t.payNow}
         </a>
       )}
       {order.createdAt && <p className="text-xs text-cream-100/40 mt-1">{fill(t.orderedAt, { time: clock(order.createdAt) })}</p>}
@@ -885,10 +952,16 @@ function OrderCard({ t, lang, order, big = false }) {
           ))}
         </ul>
       )}
+      {order.tip > 0 && (
+        <div className={`flex justify-between mt-1 text-sm text-cream-100/80 ${order.payStatus === "refunded" ? "line-through opacity-60" : ""}`} data-order-tip>
+          <span>{t.tip}</span>
+          <span>{money(order.tip, lang)}</span>
+        </div>
+      )}
       {order.total != null && (
         <div className="flex justify-between border-t border-gold-300/15 mt-3 pt-2 text-cream-50">
           <span>{t.total}</span>
-          <span>{money(order.total, lang)}</span>
+          <span>{money(order.total + (order.payStatus === "refunded" ? 0 : order.tip || 0), lang)}</span>
         </div>
       )}
       {order.payStatus === "paid" && order.refunded > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.voidRefunded, { amount: money(order.refunded, lang) })}</p>}

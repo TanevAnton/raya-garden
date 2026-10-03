@@ -104,6 +104,7 @@ function qr_history_figures(PDO $pdo, string $from, string $to, bool $withList =
     $tables = [];
     $byWaiter = [];
     $days = [];
+    $tips = 0; // with orders paid on the phone, and with bill payments
     $first = 0;
     $last = 0;
     $list = [];
@@ -146,6 +147,8 @@ function qr_history_figures(PDO $pdo, string $from, string $to, bool $withList =
             if ($o['pay_status'] === 'paid') {
                 $card['orders'] += $net;
                 $days[$e]['card'] += $net;
+                $tips += (int) $o['tip_cents'];
+                $days[$e]['tips'] += (int) $o['tip_cents'];
             } else {
                 $pay['staff'] += $net;
                 $days[$e]['staff'] += $net;
@@ -197,7 +200,6 @@ function qr_history_figures(PDO $pdo, string $from, string $to, bool $withList =
     $stmt = $pdo->prepare("SELECT p.*, t.evening FROM bill_payments p JOIN tabs t ON t.id = p.tab_id
         WHERE t.evening BETWEEN ? AND ? AND p.status = 'paid' ORDER BY p.paid_at");
     $stmt->execute([$from, $to]);
-    $tips = 0;
     $billPayments = 0;
     foreach ($stmt->fetchAll() as $p) {
         $json = qr_bill_payment_json($p);
@@ -347,7 +349,7 @@ function qr_export_payments(PDO $pdo, string $from, string $to, callable $out)
 {
     $out(qr_csv_row(['Вечер', 'Платено', 'Код', 'Маса', 'Вид', 'Сума', 'Бакшиш', 'Общо платено', 'Върнато',
         'Остава за връщане', 'Задържано', 'Въведено в Clock', 'Stripe плащане']));
-    $stmt = $pdo->prepare("SELECT 'order' AS kind, evening, code, paid_at, table_no, total_cents AS amount, 0 AS tip,
+    $stmt = $pdo->prepare("SELECT 'order' AS kind, evening, code, paid_at, table_no, total_cents AS amount, tip_cents AS tip,
             refund_due_cents AS due, refunded_cents AS refunded, till_at, payment_intent
         FROM orders WHERE evening BETWEEN ? AND ? AND paid_at > 0 AND pay_status IN ('paid', 'refunded')
         UNION ALL

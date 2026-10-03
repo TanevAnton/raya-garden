@@ -37,10 +37,18 @@ function qr_place_order(array $body, string $idemKey, int $now): array
     if (mb_strlen($guestName) > QR_MAX_NAME) {
         return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'name']];
     }
-    $payloadHash = hash('sha256', json_encode([$table, $lines], JSON_UNESCAPED_UNICODE));
+    // A tip, when paying on the phone (optional, cents): at most the order's
+    // total and QR_TIP_MAX. On any other evening it is left out — no money
+    // is taken then, so there is nothing to add it to.
+    $tip = $body['tip'] ?? 0;
+    if (!is_int($tip) || $tip < 0 || $tip > QR_TIP_MAX) {
+        return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
+    }
+    // Without a tip the hash is what it always was.
+    $payloadHash = hash('sha256', json_encode($tip > 0 ? [$table, $lines, $tip] : [$table, $lines], JSON_UNESCAPED_UNICODE));
     $expectedTotal = $body['expectedTotal'] ?? null;
 
-    return qr_write(function (PDO $pdo) use ($lines, $table, $lang, $guestName, $payloadHash, $idemKey, $now, $expectedTotal) {
+    return qr_write(function (PDO $pdo) use ($lines, $table, $lang, $guestName, $payloadHash, $idemKey, $now, $expectedTotal, $tip) {
         $secret = qr_secret();
         $token = hash_hmac('sha256', 'order|' . $idemKey, $secret);
 
@@ -165,6 +173,11 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         //    Food goes to the kitchen and drinks to the bar: each station
         //    with something to make starts at 'new'.
         $status = $state['payment'] === 'online' ? 'pending_payment' : 'new';
+        if ($status !== 'pending_payment') {
+            $tip = 0;
+        } elseif ($tip > $total) {
+            return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
+        }
         $tab = $state['payment'] === 'tab' ? qr_open_tab($pdo, $table, (string) $settings['service_date'], true, $now) : null;
         $stations = array_fill_keys(QR_STATIONS, '');
         foreach ($resolved as $r) {
@@ -174,11 +187,11 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
             (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name,
-             kitchen_status, bar_status, evening)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+             kitchen_status, bar_status, evening, tip_cents)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
             $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName,
-            $stations['kitchen'], $stations['bar'], (string) $settings['service_date']]);
+            $stations['kitchen'], $stations['bar'], (string) $settings['service_date'], $tip]);
         if ($tab) {
             qr_touch_tab($pdo, (int) $tab['id'], $seq);
         }

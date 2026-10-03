@@ -33,8 +33,7 @@ if (!defined('RAYA_QR')) {
 
 const QR_BILL_ATTEMPTS = 10;     // payment attempts per table per 5 minutes
 const QR_BILL_PENDING_HINT = 600; // "being paid…" shown for 10 minutes at most
-const QR_TIP_MAX = 50000;         // a tip: at most 500 € …
-// … and at most the amount it is added to; anything more is a slip of the finger.
+// A tip: at most QR_TIP_MAX (core.php), and at most the amount it is added to.
 
 /** The open tab of a table tonight, or null; with $create, made if missing. Inside qr_write() only. */
 function qr_open_tab(PDO $pdo, int $table, string $evening, bool $create, int $now)

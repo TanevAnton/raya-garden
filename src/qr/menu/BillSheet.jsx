@@ -3,6 +3,7 @@ import { fill } from "./strings.js";
 import { money } from "../shared/format.js";
 import { api, newIdempotencyKey, session } from "../shared/api.js";
 import Sheet from "./Sheet.jsx";
+import { TipPicker, useTip } from "./Tip.jsx";
 
 // The table's bill, on a "pay at the end" evening: every line ordered for
 // this table tonight, from every phone. The guest ticks what they are paying
@@ -14,22 +15,12 @@ import Sheet from "./Sheet.jsx";
 // do pay for the same line, the second gets that share back automatically.
 // The server has the last word on what is paid; this sheet polls it.
 //
-// A tip is optional and starts at none: 5, 10 or 15 % of what is chosen
-// (rounded to 10 cents), or an amount of the guest's own, at most the amount
-// chosen. It is its own line on Stripe's page and goes to staff apart from
-// the bill.
+// A tip is optional and starts at none (Tip.jsx): 5, 10 or 15 % of what is
+// chosen, or an amount of the guest's own, at most the amount chosen. It is
+// its own line on Stripe's page and goes to staff apart from the bill.
 
 const key = (l) => `${l.code}:${l.line}`;
 const BILLS = "raya.qr.bills"; // this phone's bill payments: [{ token, code }]
-const TIP_PERCENTS = [5, 10, 15];
-const TIP_MAX = 50000; // the server's limit too
-
-/** "2,50" or "2.5" → 250 cents; NaN when it is not an amount. */
-function cents(text) {
-  const value = text.trim().replace(",", ".");
-  if (!/^\d{1,4}(\.\d{0,2})?$/.test(value)) return value === "" ? 0 : NaN;
-  return Math.round(Number(value) * 100);
-}
 
 export default function BillSheet({ t, lang, table, myCodes, returned, onClose, onOrders }) {
   const [data, setData] = useState(null);
@@ -39,8 +30,6 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   const [problem, setProblem] = useState(null);
   const attempt = useRef({ key: null, sig: null });
   const touched = useRef(false);
-  const [tipChoice, setTipChoice] = useState(0); // 0 = none, a percent, or "other"
-  const [tipText, setTipText] = useState("");
 
   const refresh = useCallback(async () => {
     if (!table) return;
@@ -96,8 +85,8 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   };
   const selected = payable.filter((l) => picked.has(key(l)));
   const amount = selected.reduce((s, l) => s + l.amount, 0);
-  const tip = tipChoice === "other" ? cents(tipText) : Math.round((amount * tipChoice) / 1000) * 10;
-  const tipBad = Number.isNaN(tip) || tip > amount || tip > TIP_MAX;
+  const tipState = useTip(amount);
+  const { tip, bad: tipBad } = tipState;
 
   async function pay() {
     if (!selected.length || busy || tipBad) return;
@@ -230,42 +219,7 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
                 </dl>
               )}
               {selected.length > 0 && (
-                <fieldset className="mt-5" data-tip>
-                  <legend className="text-sm text-cream-50">
-                    {t.tip} <span className="text-cream-100/50">· {t.tipHint}</span>
-                  </legend>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {[0, ...TIP_PERCENTS, "other"].map((choice) => {
-                      const label = choice === 0 ? t.tipNone : choice === "other" ? t.tipOther : `${choice}% · ${money(Math.round((amount * choice) / 1000) * 10, lang)}`;
-                      return (
-                        <button
-                          key={choice}
-                          type="button"
-                          aria-pressed={tipChoice === choice}
-                          onClick={() => setTipChoice(choice)}
-                          className={`h-10 px-3 rounded-full text-xs border ${tipChoice === choice ? "border-gold-300 bg-gold-300/15 text-gold-100" : "border-gold-300/25 text-cream-100/70"}`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {tipChoice === "other" && (
-                    <label className="block mt-3">
-                      <span className="text-xs text-cream-100/60">{t.tipOtherLabel}</span>
-                      <input
-                        value={tipText}
-                        onChange={(e) => setTipText(e.target.value)}
-                        inputMode="decimal"
-                        autoComplete="off"
-                        placeholder="2,00"
-                        className="mt-1 w-32 bg-ink-950 border border-gold-300/25 rounded-sm px-3 py-2 text-cream-50"
-                        aria-invalid={tipBad}
-                      />
-                    </label>
-                  )}
-                  {tipBad && <p role="alert" className="text-xs text-red-300 mt-2">{t.tipTooBig}</p>}
-                </fieldset>
+                <TipPicker t={t} lang={lang} amount={amount} tip={tipState} tooBig={t.tipTooBig} />
               )}
               {problem && <p role="alert" className="border border-red-300/30 bg-red-950/30 rounded-sm px-4 py-3 mt-4 text-sm text-cream-50">{problem}</p>}
               {payable.length === 0 ? (

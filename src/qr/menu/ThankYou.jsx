@@ -67,7 +67,8 @@ export default function ThankYou({ t, lang, kind, code, table, since, order, onM
   if (kind === "bill" && payment) state = payment.status === "paid" ? "paid" : payment.status === "pending" ? "waiting" : "failed";
   const slow = state === "waiting" && Date.now() - since >= SLOW_MS;
 
-  const amount = kind === "order" ? order?.orderedTotal ?? order?.total : payment ? payment.amount + payment.tip : null;
+  const amount = kind === "order" ? (order?.orderedTotal ?? order?.total) + (order?.tip || 0) : payment ? payment.amount + payment.tip : null;
+  const tipPaid = kind === "order" ? order?.tip || 0 : payment?.tip || 0;
   const left = bill?.bill?.totals?.unpaid;
 
   return (
@@ -100,7 +101,7 @@ export default function ThankYou({ t, lang, kind, code, table, since, order, onM
                   <dt className="text-cream-100/60">{t.thanksPaid}</dt>
                   <dd className="text-cream-50">
                     {money(amount, lang)}
-                    {kind === "bill" && payment?.tip > 0 && <span className="block text-xs text-cream-100/50">{fill(t.paymentTip, { amount: money(payment.tip, lang) })}</span>}
+                    {tipPaid > 0 && <span className="block text-xs text-cream-100/50">{fill(t.paymentTip, { amount: money(tipPaid, lang) })}</span>}
                   </dd>
                 </div>
               )}

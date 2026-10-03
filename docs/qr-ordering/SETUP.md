@@ -189,7 +189,8 @@ before index.html switches.
    screen with *Платена онлайн*.
    - The guest's phone coming back to the menu proves nothing: a guest can pay
      and then lose signal.
-   - The server also checks that the amount paid is the order's total.
+   - The server also checks that the amount paid is the order's total (plus
+     the tip, if the guest added one).
 4. **Cancelling a paid order refunds it in full, automatically.** If the refund
    fails, the order is **not** cancelled, and staff try again.
    **Taking one line off** ("Няма") refunds just that line (or the part of it
@@ -211,6 +212,13 @@ before index.html switches.
 
 Prices are fixed by the server when the order is placed, and Stripe charges
 exactly that. The payment page shows each line.
+
+**Tips.** Before paying, the guest may add a tip for the team: 5, 10 or 15 %,
+or an amount of their own, at most the order. It is a line of its own on
+Stripe's page, shown to staff as "+ бакшиш" on the order and in "За касата",
+and left out of the amount entered in Clock. Taking one line off refunds that
+line only; cancelling the whole order refunds the tip too. История and the
+monthly e-mail count card tips apart from the sales.
 
 **Names.** Staff see the name entered on Stripe's payment page (*платил: …*)
 on the order, the bill and the till list, plus the name a guest may type when

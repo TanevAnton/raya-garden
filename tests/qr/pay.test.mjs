@@ -450,3 +450,71 @@ describe("paying on the phone needs Stripe configured", () => {
     }
   });
 });
+
+describe("paying on the phone: a tip with the order", () => {
+  const items = () => new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
+  const price = (id, variant = "std") => items().get(id).variants.find((v) => v.id === variant).price;
+  const tipped = (c, table, lines, tip, { key = newKey() } = {}) =>
+    c.post("/api/qr/order.php", { ...orderBody(menu, table, lines), tip }, { headers: { "Idempotency-Key": key } });
+  const cancel = (admin, id, from = "new") => admin.admin("/api/qr/admin/order.php", { id, action: "cancel", from, reason: "Гостът се отказа" });
+
+  it("is its own line on Stripe's page, and stays apart from the till amount", async () => {
+    const admin = await setUp();
+    const total = price("caesar", "chicken") + 2 * price("illy-coffee");
+    const res = await tipped(guest(), 6, [["caesar", "chicken"], ["illy-coffee", "std", 2]], 150);
+    assert.equal(res.status, 201, res.text);
+    assert.deepEqual([res.body.order.total, res.body.order.tip], [total, 150]);
+    const [call] = stripe.calls("/v1/checkout/sessions");
+    const last = call.params.line_items.at(-1);
+    assert.deepEqual([last.quantity, last.price_data.unit_amount, last.price_data.product_data.name], ["1", "150", "Бакшиш за екипа"]);
+    assert.equal(sessionOf(res).amount_total, total + 150);
+
+    await stripe.pay(sessionOf(res).id);
+    const o = (await feed(admin)).orders[0];
+    assert.deepEqual([o.payStatus, o.total, o.tip, o.tipNet, o.net], ["paid", total, 150, 150, total], "the till enters the order without the tip");
+    const status1 = await status(guest(), res.body.token);
+    assert.equal(status1.tip, 150, "the guest sees their tip");
+  });
+
+  it("taking a line off refunds just the line; cancelling the order gives the tip back too", async () => {
+    const admin = await setUp();
+    const res = await tipped(guest(), 6, [["caesar", "chicken"], ["illy-coffee", "std", 2]], 200);
+    await stripe.pay(sessionOf(res).id);
+    const { id } = res.body.order;
+    const pi = row(id).payment_intent;
+    const v = await admin.admin("/api/qr/admin/order.php", { id, action: "void", line: 1, qty: 1, have: 2, reason: "Изчерпан продукт" });
+    assert.equal(v.status, 200, v.text);
+    assert.equal(stripe.refunded(pi), price("illy-coffee"), "the coffee only");
+    assert.equal(v.body.order.tipNet, 200, "the tip stands with the order");
+
+    const c = await cancel(admin, id);
+    assert.equal(c.status, 200, c.text);
+    const total = price("caesar", "chicken") + 2 * price("illy-coffee");
+    assert.equal(stripe.refunded(pi), total + 200, "everything back, tip included");
+    assert.deepEqual([c.body.order.payStatus, c.body.order.refunded, c.body.order.tipNet], ["refunded", total + 200, 0]);
+    assert.deepEqual([row(id).refund_due_cents, row(id).refunded_cents], [total + 200, total + 200]);
+  });
+
+  it("is checked, counts in the history, and is left out when guests do not pay on the phone", async () => {
+    const admin = await setUp();
+    const coffee = price("illy-coffee");
+    for (const tip of [-1, "1,50", 1.5, coffee + 1, 50001]) {
+      assert.equal((await tipped(guest(), 6, [["illy-coffee"]], tip)).status, 400, String(tip));
+    }
+    const key = newKey();
+    assert.equal((await tipped(guest(), 6, [["illy-coffee"]], 50, { key })).status, 201);
+    assert.equal((await tipped(guest(), 6, [["illy-coffee"]], 60, { key })).status, 409, "a different tip is a different order");
+    await stripe.pay(sessionOf(await tipped(guest(), 6, [["illy-coffee"]], 50, { key })).id);
+
+    const report = (await admin.get("/api/qr/admin/history.php?evening=2026-10-03")).body.report;
+    assert.deepEqual([report.sales, report.pay.card, report.tips], [coffee, coffee, 50]);
+    const csv = (await admin.get("/api/qr/admin/export.php?kind=payments&evening=2026-10-03")).text.trimEnd().split("\r\n");
+    assert.deepEqual(csv[1].split(";").slice(4, 8), ["поръчка", "2,50", "0,50", "3,00"]);
+
+    // Paying staff tonight: no money is taken by the phone, so no tip either.
+    assert.equal((await admin.admin("/api/qr/admin/settings.php", { paymentMode: "on_site" })).status, 200);
+    const plain = await tipped(guest(), 7, [["illy-coffee"]], 50);
+    assert.equal(plain.status, 201, plain.text);
+    assert.deepEqual([plain.body.order.status, plain.body.order.tip], ["new", 0]);
+  });
+});

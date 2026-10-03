@@ -39,6 +39,8 @@ const QR_IP_LIMIT = 60;      // … and per network address (a whole restaurant 
 const QR_LIMIT_WINDOW = 300; // … per 5 minutes
 const QR_MAX_NAME = 40;      // the guest's own name on an order, optional
 const QR_NAME_DAYS = 3;      // names (the guest's, the payer's) are erased after this
+const QR_TIP_MAX = 50000;    // a tip (paying an order, or a table's bill): at most 500 € …
+// … and at most the amount it is added to; anything more is a slip of the finger.
 
 /** Send JSON and stop. */
 function qr_json(int $status, array $body)
@@ -150,7 +152,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 9;
+const QR_SCHEMA_VERSION = 10;
 
 function qr_db(): PDO
 {
@@ -475,6 +477,12 @@ function qr_migrate(PDO $pdo)
                 );
                 CREATE INDEX IF NOT EXISTS report_mails_month ON report_mails (month, id);
             ");
+        }
+        if ($version < 10) {
+            // A tip when paying for an order on the phone, on top of its
+            // lines: a line of its own on Stripe's page, kept apart from the
+            // till amount, and refunded only with the whole order.
+            $pdo->exec('ALTER TABLE orders ADD COLUMN tip_cents INTEGER NOT NULL DEFAULT 0');
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
@@ -809,6 +817,10 @@ function qr_order_json(array $order, bool $withLines = true): array
     ];
     // For the till: what a phone-paid order comes to after refunds.
     $out['net'] = $out['payStatus'] === 'paid' ? $out['total'] : 0;
+    // A tip paid with it, apart from the till amount; given back only with
+    // the whole order (tipNet is what is kept of it).
+    $out['tip'] = (int) ($order['tip_cents'] ?? 0);
+    $out['tipNet'] = $out['payStatus'] === 'paid' ? $out['tip'] : 0;
     if ($withLines) {
         $stmt = qr_db()->prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY line');
         $stmt->execute([(int) $order['id']]);

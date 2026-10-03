@@ -124,6 +124,50 @@ describe("paying on the phone", () => {
     await staff.close();
   });
 
+  it("a tip with the order: chosen on the phone, on Stripe's page, shown to staff apart from the till amount", async () => {
+    await openEvening();
+    const page = await phone();
+    await orderTiramisu(page);
+    await page.waitForSelector("[role=dialog] [data-tip]");
+    await clickText(page, "[role=dialog] [data-tip]", /^10%/);
+    await page.waitForFunction(() => /Плати 6,50\s€/.test(document.querySelector("[role=dialog] button[type=submit]").textContent), { timeout: 3000 }); // 5,90 + 0,60
+    await clickText(page, "[role=dialog] [data-tip]", /Друга сума/);
+    await page.type("[role=dialog] [data-tip] input", "9");
+    assert.match(await page.$eval("[role=dialog]", (d) => d.innerText), /най-много колкото поръчката/);
+    assert.equal(await page.$eval("[role=dialog] button[type=submit]", (b) => b.disabled), true, "a tip above the order is refused");
+    await page.focus("[role=dialog] [data-tip] input");
+    await page.keyboard.press("Backspace");
+    await page.type("[role=dialog] [data-tip] input", "1");
+    await page.waitForFunction(() => /Плати 6,90\s€/.test(document.querySelector("[role=dialog] button[type=submit]").textContent), { timeout: 3000 });
+
+    await Promise.all([page.waitForNavigation(), clickText(page, "[role=dialog]", /Плати/)]);
+    const session = [...stripe.sessions.values()].at(-1);
+    assert.equal(session.amount_total, 690);
+    await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("#pay")]);
+    await page.waitForSelector('[data-thanks="paid"]', { timeout: 15000 });
+    const thanks = await page.$eval("[data-thanks]", (d) => d.innerText);
+    assert.match(thanks, /Платено\s*6,90/);
+    assert.match(thanks, /в т\.ч\. бакшиш 1,00/);
+
+    const [o] = await feed();
+    assert.deepEqual([o.total, o.tip, o.net], [590, 100, 590]);
+    const staff = await phone();
+    await staff.setViewport({ width: 1280, height: 900 });
+    await staff.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
+    await staff.type("input[type=password]", ADMIN_PASSWORD);
+    await staff.click("button[type=submit]");
+    await staff.waitForSelector(`[data-order="${o.code}"] [data-card-tip]`);
+    assert.match(await staff.$eval(`[data-order="${o.code}"] [data-card-tip]`, (e) => e.innerText), /бакшиш 1,00/);
+    await clickText(staff, "nav", /За касата \(1\)/);
+    await staff.waitForSelector(`[data-till="${o.code}"]`);
+    const row = await staff.$eval(`[data-till="${o.code}"]`, (e) => e.innerText);
+    assert.match(row, /5,90\s€/, "the till amount is the order");
+    assert.match(row, /\+ бакшиш 1,00/);
+    assert.deepEqual([...page.errors, ...staff.errors], []);
+    await page.close();
+    await staff.close();
+  });
+
   it("backing out of Stripe's page: nothing is sent, and the guest can still pay", async () => {
     await openEvening();
     const page = await phone();

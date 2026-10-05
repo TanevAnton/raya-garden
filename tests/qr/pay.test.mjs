@@ -82,16 +82,28 @@ describe("paying on the phone: placing an order", () => {
     assert.equal((await status(guest(), res.body.token)).payUrl, res.body.checkoutUrl);
   });
 
-  it("names each line on Stripe's page with its size, once", async () => {
+  it("names each line on Stripe's page with its size, once, in the guest's language", async () => {
     await setUp();
-    const res = await order(guest(), 7, [["caesar", "chicken", 1], ["burgas-63", "100ml", 1], ["tiramisu"]]);
+    const lines = [["caesar", "chicken", 1], ["burgas-63", "100ml", 1], ["tiramisu"]];
+    const res = await order(guest(), 7, lines);
     assert.equal(res.status, 201, res.text);
     const items = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
+    const tiramisu = items.get("tiramisu").variants[0].size; // "… g" in the menu file
+    assert.match(tiramisu, / g$/);
     const [call] = stripe.calls("/v1/checkout/sessions");
     assert.deepEqual(call.params.line_items.map((l) => l.price_data.product_data.name), [
-      `${items.get("caesar").bg} · с пиле 400 g`,
+      `${items.get("caesar").bg} · с пиле 400 г`,
       `${items.get("burgas-63").bg} · 100 мл`,
-      `${items.get("tiramisu").bg} · ${items.get("tiramisu").variants[0].size}`,
+      `${items.get("tiramisu").bg} · ${tiramisu.replace(/ g$/, " г")}`,
+    ]);
+    // An English guest gets English units.
+    const en = await guest().post("/api/qr/order.php", { ...orderBody(menu, 8, lines), lang: "en" }, { headers: { "Idempotency-Key": newKey() } });
+    assert.equal(en.status, 201, en.text);
+    const enCall = stripe.calls("/v1/checkout/sessions").at(-1);
+    assert.deepEqual(enCall.params.line_items.map((l) => l.price_data.product_data.name), [
+      `${items.get("caesar").en} · with chicken 400 g`,
+      `${items.get("burgas-63").en} · 100 ml`,
+      `${items.get("tiramisu").en} · ${tiramisu}`,
     ]);
   });
 

@@ -178,19 +178,28 @@ function qr_checkout_for(int $orderId, int $now): string
 }
 
 /**
- * A line as Stripe's payment page shows it: "Бургас 63 · 100 мл",
- * "Салата „Цезар“ · с пиле 400 g". The size is added unless the detail
- * already says it (a size choice such as "100 мл").
+ * A line as Stripe's payment page and receipt show it: "Бургас 63 · 100 мл",
+ * "Салата „Цезар“ · с пиле 400 г". The size is added, in the guest's
+ * language, unless the detail already says it (a size choice such as
+ * "100 мл").
  */
 function qr_stripe_line_name(array $line, string $lang): string
 {
     $name = (string) ($lang === 'en' ? $line['name_en'] : $line['name_bg']);
     $detail = (string) ($lang === 'en' ? $line['detail_en'] : $line['detail_bg']);
-    $size = (string) $line['size'];
+    $size = qr_size_label((string) $line['size'], $lang);
     if ($size !== '' && strpos($detail, (string) strtok($size, ' ')) === false) {
         $detail = trim($detail . ' ' . $size);
     }
     return $detail !== '' ? $name . ' · ' . $detail : $name;
+}
+
+/** "250 g" → "250 г" in Bulgarian, as the menu writes it; unchanged in English. */
+function qr_size_label(string $size, string $lang): string
+{
+    $units = $lang === 'en' ? ['g' => 'g', 'ml' => 'ml', 'pc' => 'pc'] : ['g' => 'г', 'ml' => 'мл', 'pc' => 'бр.'];
+    $parts = explode(' ', $size, 2);
+    return count($parts) === 2 && isset($units[$parts[1]]) ? $parts[0] . ' ' . $units[$parts[1]] : $size;
 }
 
 /**

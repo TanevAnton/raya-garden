@@ -276,7 +276,20 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
    and a **live** webhook, with its own signing secret.
 3. Replace both GitHub secrets with the live values, and run the deploy.
    `php-check.php` shows `LIVE restricted key`.
-4. Which payment methods appear is set in Stripe → Settings → Payment methods;
+4. **Branding and receipts** (Settings → Business; they apply to test and live
+   alike):
+   - *Branding*: icon `docs/qr-ordering/stripe-branding/raya-stripe-icon-256.png`,
+     logo `raya-stripe-logo.png` (light lettering — it needs the dark accent),
+     brand colour `#a87f28`, accent colour `#100e0c`.
+   - *Customer emails*: turn on **Successful payments** and **Refunds**, so
+     guests get Stripe's receipt (and a refund receipt) by email. Stripe sends
+     them for live payments only; a test receipt is sent by hand from the
+     payment's *Receipt history*.
+   - *Public details*: the statement descriptor (e.g. `RAYA GARDEN`) and the
+     contact shown at the foot of receipts.
+   Stripe's receipt confirms the payment; it is not the fiscal receipt, which
+   still comes from Clock ("За касата").
+5. Which payment methods appear is set in Stripe → Settings → Payment methods;
    cards, Apple Pay and Google Pay are on by default. The code doesn't restrict
    it, and Stripe's own page needs no domain verification for Apple Pay.
 

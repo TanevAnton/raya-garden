@@ -59,8 +59,10 @@ export function PrivacyBg() {
           ако го въведете — Вашето име. Когато плащате с карта в телефона,
           пазим и името, въведено на платежната страница на Stripe, за да знае
           персоналът чие е плащането. Данните на картата въвеждате директно при
-          Stripe и ние не ги получаваме; имейла от платежната страница не
-          пазим.
+          Stripe и ние не ги получаваме. Имейла, който давате на платежната
+          страница, получаваме от Stripe и го използваме само за да Ви
+          изпратим електронна бележка за плащането — и документ за всяка
+          върната сума.
         </Row>
         <Row label="Кой ги вижда">
           Персоналът, на екрана за поръчки. На вечери със „сметка накрая“
@@ -68,9 +70,12 @@ export function PrivacyBg() {
           които отворят сметката.
         </Row>
         <Row label="Основание">
-          Изпълнение на договор — чл. 6, пар. 1, б. „б“ от ОРЗД. За защита от
-          злоупотреби за 5 минути пазим и необратим отпечатък на IP адреса —
-          легитимен интерес, чл. 6, пар. 1, б. „е“ от ОРЗД.
+          Изпълнение на договор — чл. 6, пар. 1, б. „б“ от ОРЗД. Електронната
+          бележка издаваме, за да документираме продажбата, както изисква
+          данъчното законодателство — законово задължение, чл. 6, пар. 1, б.
+          „в“ от ОРЗД. За защита от злоупотреби за 5 минути пазим и необратим
+          отпечатък на IP адреса — легитимен интерес, чл. 6, пар. 1, б. „е“ от
+          ОРЗД.
         </Row>
       </Card>
 
@@ -216,9 +221,11 @@ export function PrivacyBg() {
           туризма.
         </li>
         <li>
-          Имената при поръчки от масата (Вашето и това на платеца) — изтриват
-          се автоматично 3 дни след поръчката. Самите поръчки и плащания, вече
-          без имена, пазим според счетоводното законодателство.
+          Имената при поръчки от масата (Вашето и това на платеца) и имейлът,
+          на който сме изпратили електронната бележка — изтриват се
+          автоматично 3 дни след поръчката. Самите поръчки, плащания и
+          бележки, вече без имена и имейли, пазим според счетоводното
+          законодателство.
         </li>
         <li>
           Данни за анализ и реклама — според настройките на съответния
@@ -309,8 +316,9 @@ export function PrivacyEn() {
           enter it — your name. When you pay by card on your phone we also
           keep the name entered on Stripe's payment page, so staff know whose
           payment it is. You enter your card details directly with Stripe and
-          we never receive them; we do not keep the email from the payment
-          page.
+          we never receive them. Stripe passes us the email you give on the
+          payment page, and we use it only to send you an electronic receipt
+          for the payment — and a document for any amount refunded.
         </Row>
         <Row label="Who sees it">
           Staff, on the order screen. On "pay at the end" evenings, the name
@@ -318,9 +326,11 @@ export function PrivacyEn() {
           who open the bill.
         </Row>
         <Row label="Legal basis">
-          Performance of a contract — GDPR Art. 6(1)(b). To prevent abuse we
-          also keep a one-way fingerprint of your IP address for 5 minutes —
-          legitimate interest, GDPR Art. 6(1)(f).
+          Performance of a contract — GDPR Art. 6(1)(b). We issue the
+          electronic receipt to document the sale, as tax law requires — a
+          legal obligation, GDPR Art. 6(1)(c). To prevent abuse we also keep a
+          one-way fingerprint of your IP address for 5 minutes — legitimate
+          interest, GDPR Art. 6(1)(f).
         </Row>
       </Card>
 
@@ -460,9 +470,10 @@ export function PrivacyEn() {
           Guest registration data — as long as the Tourism Act requires.
         </li>
         <li>
-          Names on orders from the table (yours and the payer's) — erased
-          automatically 3 days after the order. The orders and payments
-          themselves, without names, as long as accounting law requires.
+          Names on orders from the table (yours and the payer's), and the
+          email we sent the electronic receipt to — erased automatically 3
+          days after the order. The orders, payments and receipts themselves,
+          without names or emails, as long as accounting law requires.
         </li>
         <li>
           Analytics and advertising data — according to each tool's settings.

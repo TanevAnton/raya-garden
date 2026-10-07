@@ -288,7 +288,10 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
    - *Public details*: the statement descriptor (e.g. `RAYA GARDEN`) and the
      contact shown at the foot of receipts.
    Stripe's receipt confirms the payment; it is not the fiscal receipt, which
-   still comes from Clock ("За касата").
+   still comes from Clock ("За касата") — unless the guest's e-receipt
+   replaces it (see below).
+6. The guest's e-receipt stays off with live keys until it is switched to
+   `'live'` (see *The guest's e-receipt*).
 5. Which payment methods appear is set in Stripe → Settings → Payment methods;
    cards, Apple Pay and Google Pay are on by default. The code doesn't restrict
    it, and Stripe's own page needs no domain verification for Apple Pay.
@@ -349,6 +352,51 @@ Choose *Сметка накрая* in `/admin` → **Вечерта**.
   the secret, and deploy.
 - Use passkeys or an authenticator app for the Stripe login, not SMS.
 
+### The guest's e-receipt („Електронна бележка“)
+
+After every phone payment the guest gets an e-mail like the one Randevue
+sends: „ЕЛЕКТРОННА БЕЛЕЖКА“ with a 10-digit number, the seller's details,
+each line with its unit price without VAT, tax group and total, the VAT,
+the order number, Stripe's transaction reference and Наредба Н-18's QR code.
+A refund gets a „СТОРНО ДОКУМЕНТ“ for exactly what went back. The thank-you
+screen and "Моите поръчки" link to the same document as a page
+(`/api/qr/receipt.php`). Stripe can't send this document itself: its receipts
+have no unbroken numbering and no QR code. The code is
+`public/api/qr/_lib/ereceipt.php`; the QR code is drawn by
+`_lib/qrcode.php`, with no library.
+
+**It runs in test mode only.** `public/api/qr/_lib/ereceipt-settings.php`
+has `'mode' => 'test'`: documents are issued only while Stripe runs on test
+keys, every one says „ТЕСТ — НЕ Е ДАНЪЧЕН ДОКУМЕНТ“, and they are numbered
+apart from real ones. With live keys, none are issued until the mode is
+`'live'`.
+
+**To test it:** order on the test site with "Плащане в телефона" switched
+on, pay with Stripe's test card `4242 4242 4242 4242` and your own e-mail
+address on Stripe's page. The e-mail comes from `no-reply@rayagarden.bg`
+(check the spam folder the first time). Take a line off the order on the
+tablet ("Няма") and a storno document follows.
+
+**Before `'live'`:**
+1. The accountant confirms that phone payments may be documented this way
+   (Н-18's rules for e-shops: card payments at a distance, delivered
+   electronically) instead of a fiscal receipt from Clock, and how tips are
+   treated.
+2. The shop is registered with НАП as an e-shop. Its number goes in
+   `'eshop_number'`, the first field of the QR code.
+3. The seller's details in the settings file are checked: name, ЕИК, VAT
+   number (assumed `BG203389338`), address, and the tax groups (food and
+   drinks `Б`, 20 %).
+4. **The monthly audit file to НАП (by the 15th) is not built yet.** It is
+   needed before going live, from this system or from a service such as
+   Take a NAP.
+
+Each document is e-mailed after the answer that issued it has gone back,
+so neither Stripe nor the tablet waits for the mail. A send that fails is
+tried again from the staff screen's poll, ten minutes apart, up to 4 times.
+The guest's address is erased 3 days later, like names; the document stays.
+`/api/php-check.php` shows the mode (`ereceipt_mode`).
+
 ## Printing the cards
 
 `docs/qr-ordering/print/table-card-a6.pdf` is an A6 card (105 × 148 mm). Print
@@ -384,8 +432,9 @@ the phone.
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 90 tests, 44 of them paying against a fake Stripe (needs php with pdo_sqlite)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 20 tests
+npm run test:qr            # API: 111 tests, most of them paying against a fake Stripe (needs php with pdo_sqlite;
+                           # zbarimg, from zbar-tools, reads the e-receipt's QR code back where it is installed)
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 24 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

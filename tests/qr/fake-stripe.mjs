@@ -76,13 +76,13 @@ export async function startFakeStripe({ webhookSecret }) {
   }
 
   /** Complete a session as a successful card payment, and tell the webhook. */
-  async function pay(id, { paymentStatus = "paid", type = "checkout.session.completed", amount, name = "Test Guest" } = {}) {
+  async function pay(id, { paymentStatus = "paid", type = "checkout.session.completed", amount, name = "Test Guest", email = "guest@example.com" } = {}) {
     const s = sessions.get(id);
     s.status = "complete";
     s.payment_status = paymentStatus;
     s.payment_intent ??= `pi_test_${++n}`;
     // What Stripe's page collected: the cardholder's (or wallet's) name, and an email.
-    s.customer_details = { name, email: "guest@example.com" };
+    s.customer_details = { name, email };
     charged.set(s.payment_intent, s.amount_total);
     const object = { ...s, ...(amount !== undefined ? { amount_total: amount } : {}) };
     return deliver(event(type, object));

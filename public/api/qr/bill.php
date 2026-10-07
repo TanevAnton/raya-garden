@@ -46,6 +46,7 @@ try {
                 $json['net'], $json['refundError'], $json['payerName']);
             $json['token'] = $token;
             $json['payUrl'] = $p['status'] === 'pending' && (int) $p['checkout_expires'] > $now ? (string) $p['checkout_url'] : '';
+            $json['receiptUrl'] = $p['status'] === 'paid' ? qr_ereceipt_url_for($pdo, 'bill', (int) $p['id']) : '';
             $payments[] = $json;
         }
     }

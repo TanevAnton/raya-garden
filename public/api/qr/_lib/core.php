@@ -38,7 +38,7 @@ const QR_TABLE_LIMIT = 5;    // orders per table …
 const QR_IP_LIMIT = 60;      // … and per network address (a whole restaurant can share one Wi-Fi address) …
 const QR_LIMIT_WINDOW = 300; // … per 5 minutes
 const QR_MAX_NAME = 40;      // the guest's own name on an order, optional
-const QR_NAME_DAYS = 3;      // names (the guest's, the payer's) are erased after this
+const QR_NAME_DAYS = 3;      // names (the guest's, the payer's) and e-receipt addresses are erased after this
 const QR_TIP_MAX = 50000;    // a tip (paying an order, or a table's bill): at most 500 € …
 // … and at most the amount it is added to; anything more is a slip of the finger.
 
@@ -152,7 +152,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 10;
+const QR_SCHEMA_VERSION = 11;
 
 function qr_db(): PDO
 {
@@ -484,6 +484,44 @@ function qr_migrate(PDO $pdo)
             // till amount, and refunded only with the whole order.
             $pdo->exec('ALTER TABLE orders ADD COLUMN tip_cents INTEGER NOT NULL DEFAULT 0');
         }
+        if ($version < 11) {
+            // The guest's e-receipt for a phone payment (_lib/ereceipt.php):
+            // kind 'sale', or 'storno' for money given back (sale_id: the
+            // sale it corrects); source 'order' or 'bill' (a bill payment)
+            // and its id. number: the document's place in its series — test
+            // documents (made with Stripe's test keys) have a series of
+            // their own. lines_json: the lines as printed, frozen. email:
+            // where it was sent, erased after QR_NAME_DAYS; mail_status
+            // 'pending' → 'sending' → 'sent' or 'failed' (tried again), or
+            // 'none' when there was no address.
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS ereceipts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    test INTEGER NOT NULL,
+                    number INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    sale_id INTEGER NOT NULL DEFAULT 0,
+                    source TEXT NOT NULL,
+                    source_id INTEGER NOT NULL,
+                    order_no TEXT NOT NULL,
+                    payment_intent TEXT NOT NULL,
+                    lang TEXT NOT NULL DEFAULT 'bg',
+                    lines_json TEXT NOT NULL,
+                    total_cents INTEGER NOT NULL,
+                    ordered_at INTEGER NOT NULL,
+                    issued_at INTEGER NOT NULL,
+                    email TEXT NOT NULL DEFAULT '',
+                    mail_status TEXT NOT NULL DEFAULT '',
+                    mail_tries INTEGER NOT NULL DEFAULT 0,
+                    mail_at INTEGER NOT NULL DEFAULT 0,
+                    mail_error TEXT NOT NULL DEFAULT '',
+                    UNIQUE (test, number)
+                );
+                CREATE INDEX IF NOT EXISTS ereceipts_source ON ereceipts (source, source_id);
+                CREATE INDEX IF NOT EXISTS ereceipts_sale ON ereceipts (sale_id);
+                CREATE INDEX IF NOT EXISTS ereceipts_mail ON ereceipts (mail_status, mail_at);
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -548,8 +586,9 @@ function qr_clean_name(string $name, int $max): string
 
 /**
  * Names are only for the evening: erase them from orders and bill payments
- * older than QR_NAME_DAYS. Called from the busy write paths (placing an
- * order, paying a bill), inside their transaction.
+ * older than QR_NAME_DAYS, and the addresses e-receipts were e-mailed to.
+ * Called from the busy write paths (placing an order, paying a bill),
+ * inside their transaction.
  */
 function qr_forget_names(PDO $pdo, int $now)
 {
@@ -557,6 +596,7 @@ function qr_forget_names(PDO $pdo, int $now)
     $pdo->prepare("UPDATE orders SET guest_name = '', payer_name = '' WHERE created_at < ? AND (guest_name <> '' OR payer_name <> '')")
         ->execute([$before]);
     $pdo->prepare("UPDATE bill_payments SET payer_name = '' WHERE created_at < ? AND payer_name <> ''")->execute([$before]);
+    $pdo->prepare("UPDATE ereceipts SET email = '' WHERE issued_at < ? AND email <> ''")->execute([$before]);
 }
 
 /** A stable, non-reversible stand-in for the caller's network address. */

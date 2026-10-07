@@ -22,6 +22,8 @@ $out = array(
         'openssl' => extension_loaded('openssl'),
         'mbstring' => function_exists('mb_substr'),
         'json' => function_exists('json_encode'),
+        // The e-receipt's QR code is a PNG; without zlib it is stored uncompressed.
+        'zlib' => function_exists('gzcompress'),
     ),
     'allow_url_fopen' => (bool) ini_get('allow_url_fopen'),
     'offer_config_readable' => is_readable($here . '/wedding-offer.json'),
@@ -36,8 +38,9 @@ if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
     $files = array(
         'wedding-enquiry.php', '_lib/quote.php', '_lib/smtp.php',
         'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/_lib/pay.php',
-        'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php',
-        'qr/order.php', 'qr/stripe-webhook.php',
+        'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php', 'qr/_lib/mail.php',
+        'qr/_lib/ereceipt.php', 'qr/_lib/qrcode.php', 'qr/_lib/ereceipt-settings.php',
+        'qr/order.php', 'qr/stripe-webhook.php', 'qr/receipt.php',
     );
     foreach ($files as $rel) {
         $path = $here . '/' . $rel;
@@ -101,7 +104,18 @@ $out['qr'] = array(
         : (function_exists('mail') && !in_array('mail', array_map('trim', explode(',', (string) ini_get('disable_functions'))), true)
             ? 'PHP mail() available' . (ini_get('sendmail_path') ? '' : ' (no sendmail_path)')
             : 'PHP mail() DISABLED'),
+    // The guest's e-receipt (qr/_lib/ereceipt.php): 'test' issues them only
+    // with Stripe's test keys, 'live' with live keys too, 'off' never.
+    'ereceipt_mode' => 'unknown',
 );
+if (!defined('RAYA_QR')) {
+    define('RAYA_QR', true); // the settings file is a library file
+}
+$ereceipt = is_readable($here . '/qr/_lib/ereceipt-settings.php') ? include $here . '/qr/_lib/ereceipt-settings.php' : null;
+if (is_array($ereceipt)) {
+    $out['qr']['ereceipt_mode'] = (isset($ereceipt['mode']) ? $ereceipt['mode'] : 'off')
+        . (empty($ereceipt['eshop_number']) ? ', no NAP e-shop number yet' : ', NAP e-shop number set');
+}
 if (function_exists('curl_init') && !empty($qrConfig['stripe_secret_key'])) {
     // Connection only: no key is sent, so Stripe answers 401.
     $ch = curl_init('https://api.stripe.com/v1/checkout/sessions');

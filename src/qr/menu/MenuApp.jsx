@@ -966,6 +966,11 @@ function OrderCard({ t, lang, order, big = false }) {
       )}
       {order.payStatus === "paid" && order.refunded > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.voidRefunded, { amount: money(order.refunded, lang) })}</p>}
       {order.payStatus === "paid" && order.refundDue > 0 && <p className="text-xs text-gold-200 mt-1">{fill(t.voidRefunding, { amount: money(order.refundDue, lang) })}</p>}
+      {order.receiptUrl && (
+        <a href={order.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs text-gold-200 underline underline-offset-4" data-order-receipt>
+          {t.receiptLink}
+        </a>
+      )}
     </div>
   );
 }

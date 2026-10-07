@@ -137,6 +137,7 @@ describe("pay at the end: the table's bill", () => {
     assert.match(thanks, /Платено\s*12,00/);
     assert.match(thanks, /в т.ч. бакшиш 1,10/);
     assert.match(thanks, /Сметката на масата е платена/);
+    assert.match(await page.$eval("[data-receipt] a", (a) => a.href), /\/api\/qr\/receipt\.php\?n=\d+&t=[0-9a-f]{32}$/, "the e-receipt");
     await clickText(page, "[data-thanks]", /Обратно към менюто/);
     await page.waitForFunction(() => !document.querySelector("[data-thanks]"));
 

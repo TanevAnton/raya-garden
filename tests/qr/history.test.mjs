@@ -176,7 +176,9 @@ describe("history of past evenings", () => {
     const bill = lines.filter((r) => r[2] === e.code).map((r) => r[6]);
     assert.deepEqual(bill, ["сметка, с карта", "сметка, на място"]);
     assert.ok(!month.text.includes("Ана Петрова") && !month.text.includes("Иван Иванов"), "no guest or payer names in a file");
-    const raw = await fetch(`${srv.base}/api/qr/admin/export.php?kind=lines&month=2026-10`, { headers: { Cookie: mon.cookie } });
+    const raw = await fetch(`${srv.base}/api/qr/admin/export.php?kind=lines&month=2026-10`, {
+      headers: { Cookie: mon.cookie, "X-Test-Now": String(at("2026-10-05T23:00")) },
+    });
     assert.equal(raw.headers.get("content-type"), "text/csv; charset=utf-8");
     assert.equal(raw.headers.get("content-disposition"), 'attachment; filename="raya-poruchki-2026-10-01_2026-10-31.csv"');
     assert.deepEqual([...new Uint8Array(await raw.arrayBuffer()).slice(0, 3)], [0xef, 0xbb, 0xbf], "a byte-order mark, for Excel");
@@ -215,8 +217,9 @@ describe("history of past evenings", () => {
     const early = (await order(at("2026-10-03T19:00"), 3, [["tiramisu"]])).body.order;
     const late = (await order(at("2026-10-04T00:40"), 3, [["tiramisu"]])).body.order;
     srv.sqlite("UPDATE orders SET evening = ''");
-    // Back to how a v7 database looks: without what v8, v9 and v10 add.
+    // Back to how a v7 database looks: without what v8 to v11 add.
     srv.sqlite("DROP INDEX orders_evening");
+    srv.sqlite("DROP TABLE ereceipts");
     srv.sqlite("ALTER TABLE orders DROP COLUMN tip_cents");
     srv.sqlite("DROP TABLE report_mails");
     srv.sqlite("ALTER TABLE settings DROP COLUMN report_email");
@@ -225,7 +228,7 @@ describe("history of past evenings", () => {
     assert.equal(res.status, 200, res.text);
     const got = JSON.parse(srv.sqlite(`SELECT id, evening FROM orders ORDER BY id`));
     assert.deepEqual(got.map((r) => [r.id, r.evening]), [[early.id, "2026-10-03"], [late.id, "2026-10-03"]]);
-    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 10);
+    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 11);
   });
 });
 
@@ -237,6 +240,8 @@ describe("the monthly summary by e-mail", () => {
     return c;
   };
   const poll = async (c, when) => assert.equal((await c.get("/api/qr/admin/feed.php?since=0", { at: when })).status, 200);
+  // The summaries only: guests paying on the phone get their e-receipts by e-mail too.
+  const mails = () => srv.mails().filter((m) => m.subject.startsWith("RAYA Garden · "));
   const setEmail = (c, email) => c.admin("/api/qr/admin/report.php", { email });
   const sendNow = (c, month, when) => c.admin("/api/qr/admin/report.php", { send: month }, { at: when });
   const text = (buffer) => buffer.toString("utf8").replace(/^﻿/, "");
@@ -250,15 +255,15 @@ describe("the monthly summary by e-mail", () => {
     const sales = T + K + C + K + (C + 2 * K) + (T + K);
     const nov1 = await staff(winter("2026-11-01T05:00"));
     await poll(nov1, winter("2026-11-01T07:00"));
-    assert.equal(srv.mails().length, 0, "no address, no e-mail");
+    assert.equal(mails().length, 0, "no address, no e-mail");
 
     assert.equal((await setEmail(nov1, "  manager@example.com ")).body.email, "manager@example.com");
     await poll(nov1, winter("2026-11-01T05:30"));
-    assert.equal(srv.mails().length, 0, "not before 06:00: the last evening may still be on (it is still September's turn — no orders, nothing sent)");
+    assert.equal(mails().length, 0, "not before 06:00: the last evening may still be on (it is still September's turn — no orders, nothing sent)");
     await poll(nov1, winter("2026-11-01T07:00"));
-    const mails = srv.mails();
-    assert.equal(mails.length, 1);
-    const [mail] = mails;
+    const sent = mails();
+    assert.equal(sent.length, 1);
+    const [mail] = sent;
     assert.equal(mail.to, "manager@example.com");
     assert.equal(mail.from, "RAYA Garden <no-reply@rayagarden.bg>");
     assert.equal(mail.subject, "RAYA Garden · Поръчки от масата — октомври 2026");
@@ -277,7 +282,7 @@ describe("the monthly summary by e-mail", () => {
 
     await poll(nov1, winter("2026-11-01T07:01"));
     await poll(nov1, winter("2026-11-01T09:00"));
-    assert.equal(srv.mails().length, 1, "once");
+    assert.equal(mails().length, 1, "once");
     const log = (await nov1.get("/api/qr/admin/report.php")).body.mails;
     assert.deepEqual(log.map((m) => [m.month, m.status, m.complete, m.manual, m.recipient]), [
       ["2026-10", "sent", true, false, "manager@example.com"],
@@ -295,13 +300,13 @@ describe("the monthly summary by e-mail", () => {
     assert.deepEqual(log.map((m) => [m.status, m.error]), [["failed", "test: the mail server refused"]]);
     srv.mailFails(false);
     await poll(nov1, winter("2026-11-01T07:30"));
-    assert.equal(srv.mails().length, 0, "not again within the hour");
+    assert.equal(mails().length, 0, "not again within the hour");
     await poll(nov1, winter("2026-11-01T08:01"));
-    assert.equal(srv.mails().length, 1);
+    assert.equal(mails().length, 1);
 
     const at = winter("2026-11-01T08:10");
     assert.equal((await sendNow(nov1, "2026-10", at)).status, 200);
-    assert.equal(srv.mails().length, 2, "sent again on request");
+    assert.equal(mails().length, 2, "sent again on request");
     const empty = await sendNow(nov1, "2026-11", at);
     assert.deepEqual([empty.status, empty.body.error], [409, "empty"], "November has no orders yet");
     for (const month of ["2026-12", "2026-13", "October", ""]) {
@@ -323,10 +328,10 @@ describe("the monthly summary by e-mail", () => {
     const oct20 = await staff(at("2026-10-20T12:00"));
     await setEmail(oct20, "manager@example.com");
     assert.equal((await sendNow(oct20, "2026-10", at("2026-10-20T12:00"))).status, 200);
-    assert.equal(srv.mails()[0].subject, "RAYA Garden · Поръчки от масата — октомври 2026 (до 20 октомври)");
+    assert.equal(mails()[0].subject, "RAYA Garden · Поръчки от масата — октомври 2026 (до 20 октомври)");
     const nov1 = await staff(winter("2026-11-01T07:00"));
     await poll(nov1, winter("2026-11-01T07:00"));
-    assert.deepEqual(srv.mails().map((m) => m.subject), [
+    assert.deepEqual(mails().map((m) => m.subject), [
       "RAYA Garden · Поръчки от масата — октомври 2026 (до 20 октомври)",
       "RAYA Garden · Поръчки от масата — октомври 2026",
     ]);

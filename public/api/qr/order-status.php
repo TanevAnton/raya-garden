@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
+require __DIR__ . '/_lib/pay.php';
 
 qr_require_method('GET');
 $raw = isset($_GET['t']) ? (string) $_GET['t'] : '';
@@ -33,6 +34,8 @@ foreach ($tokens as $token) {
         // Still waiting for the phone payment: where to finish it.
         $order['payUrl'] = $row['status'] === 'pending_payment' && (int) $row['checkout_expires'] > qr_now()
             ? (string) $row['checkout_url'] : '';
+        // Paid on the phone: the e-receipt's page (_lib/ereceipt.php), once issued.
+        $order['receiptUrl'] = $row['pay_status'] !== '' ? qr_ereceipt_url_for(qr_db(), 'order', (int) $row['id']) : '';
         $orders[] = $order;
     }
 }

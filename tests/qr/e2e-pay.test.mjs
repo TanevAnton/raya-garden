@@ -98,6 +98,14 @@ describe("paying on the phone", () => {
     assert.match(thanks, /Ще я донесем на маса №6/);
     assert.match(thanks, /R-[A-Z0-9]{4}/);
     assert.match(thanks, /Платено\s*5,90/);
+    // The e-receipt: a link to it, and the same document by e-mail.
+    assert.match(thanks, /Електронна бележка\s*Изпратихме я и на имейла/);
+    const receipt = await page.$eval("[data-receipt] a", (a) => a.href);
+    assert.match(receipt, /\/api\/qr\/receipt\.php\?n=1&t=[0-9a-f]{32}$/);
+    const doc = await (await fetch(receipt)).text();
+    assert.match(doc, /ЕЛЕКТРОННА БЕЛЕЖКА/);
+    assert.match(doc, /№ 0000000001/);
+    assert.deepEqual(srv.mails().map((m) => m.subject), ["ТЕСТ · Електронна бележка № 0000000001 — RAYA Garden"]);
     await clickText(page, "[data-thanks]", /Обратно към менюто/);
     await page.waitForFunction(() => !document.querySelector("[data-thanks]") && !document.querySelector("[role=dialog]"));
     assert.ok(await page.$("main article"), "the menu");

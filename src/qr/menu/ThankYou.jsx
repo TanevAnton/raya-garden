@@ -69,6 +69,9 @@ export default function ThankYou({ t, lang, kind, code, table, since, order, onM
 
   const amount = kind === "order" ? (order?.orderedTotal ?? order?.total) + (order?.tip || 0) : payment ? payment.amount + payment.tip : null;
   const tipPaid = kind === "order" ? order?.tip || 0 : payment?.tip || 0;
+  // The e-receipt for the payment, once the server has issued it (see
+  // public/api/qr/_lib/ereceipt.php); it is e-mailed as well.
+  const receiptUrl = kind === "order" ? order?.receiptUrl : payment?.receiptUrl;
   const left = bill?.bill?.totals?.unpaid;
 
   return (
@@ -109,6 +112,14 @@ export default function ThankYou({ t, lang, kind, code, table, since, order, onM
                 <div className="px-4 py-3 text-sm text-cream-100/70">{left > 0 ? fill(t.thanksBillLeft, { amount: money(left, lang) }) : t.thanksBillDone}</div>
               )}
             </dl>
+            {receiptUrl && (
+              <p className="mt-4 text-sm text-cream-100/60 leading-relaxed" data-receipt>
+                <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-gold-200 underline underline-offset-4">
+                  {t.receiptLink}
+                </a>
+                <span className="block mt-1">{t.receiptEmailed}</span>
+              </p>
+            )}
           </>
         )}
         {state === "failed" && (

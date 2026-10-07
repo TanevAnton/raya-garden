@@ -582,6 +582,46 @@ sections short on their phone.
 - **Tested** by cutting the scroll off on purpose: the old menu stopped in
   the starters on the way to the beer; the new one lands on the beer.
 
+## The guest's e-receipt, added 07.10.2026
+
+**Why.** A guest who pays on the phone gets Stripe's receipt, which is not
+a fiscal document, and nothing from a till. Another QR-ordering place sent
+the owner an „Електронна бележка“ by e-mail: the document Наредба Н-18 lets
+an e-shop issue for card payments made at a distance. Stripe can't make it
+(no unbroken numbering, no QR code), so it is our own code, built test-only
+until the accountant decides.
+
+- **Issued where the payment is confirmed**: in the webhook's transaction,
+  with the order going to staff, so there is exactly one document per
+  payment however often Stripe repeats itself. Its lines are frozen
+  (`ereceipts.lines_json`, schema v11): a later menu change doesn't alter
+  an issued document.
+- **One unbroken series**, numbered inside the write lock (`MAX + 1`, with
+  a unique index). Test documents have their own series, so the first real
+  one is 0000000001.
+- **A storno for money that actually went back**, issued in the refund's
+  own transaction: a failed refund issues nothing until the retry works.
+  Its lines are the ones refunded where they add up to the amount (a line
+  taken off, the rest on cancelling, a line paid twice on a bill), else one
+  line "Върната сума". A full refund in Stripe's Dashboard is covered;
+  a partial one made there is not (make it from the tablet instead).
+- **VAT per tax group, on the group's total**: rounded once, so the net and
+  VAT add up to what was paid. Unit prices without VAT are shown rounded.
+- **The order number is `R-4K7Q-12`**: the code the guest and staff know,
+  plus the order's id, because the short codes repeat after two days.
+- **The QR code is drawn here** (`_lib/qrcode.php`): byte mode, level M,
+  versions 1–10, after Nayuki's reference encoder. The host has PHP 7.3 and
+  no Composer. Tests read it back with zbarimg.
+- **E-mailed after the answer**, like the monthly summary
+  (`fastcgi_finish_request`): Stripe's webhook and the tablet never wait
+  for a mail server. The QR code and the logo are inline pictures
+  (`multipart/related`), which mail programs show; `data:` images they
+  don't.
+- **The address**: from Stripe's page (`customer_details.email`), used for
+  this only, erased after 3 days like names. The privacy policy says so.
+- **Not built yet**: the monthly audit file for НАП (Appendix 38). It is
+  needed before `'live'`, here or through a service such as Take a NAP.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

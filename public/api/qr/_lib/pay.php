@@ -14,6 +14,8 @@
 //   4. A paid order cancelled by staff is refunded first (qr_refund), tip
 //      and all. One line of it cancelled is owed back and refunded right
 //      after, for that line only (qr_order_refund_due); the tip stays.
+//   5. Paid, and each refund after it: the guest's e-receipt and its storno
+//      documents, e-mailed (_lib/ereceipt.php).
 //
 // No card data ever reaches this server. No Stripe SDK either: the host runs
 // PHP 7.3 without Composer, so this is Stripe's REST API over cURL — three
@@ -35,6 +37,8 @@ if (!defined('RAYA_QR')) {
     http_response_code(404);
     exit;
 }
+
+require_once __DIR__ . '/ereceipt.php';
 
 const QR_STRIPE_VERSION = '2026-08-26.dahlia';
 // Tags these sessions in the Stripe Dashboard, to tell this flow apart.
@@ -272,6 +276,7 @@ function qr_stripe_event(array $event, int $now): array
                     $seq = qr_bump_seq($pdo);
                     $pdo->prepare("UPDATE orders SET pay_status = 'refunded', updated_at = ?, seq = ? WHERE id = ?")
                         ->execute([$now, $seq, $order['id']]);
+                    qr_ereceipt_refunds($pdo, 'order', (int) $order['id'], $now);
                 }
             }
             return [];
@@ -310,6 +315,7 @@ function qr_stripe_event(array $event, int $now): array
                 ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $now, $seq, $orderId]);
             $pdo->prepare("INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, 'new', 'paid', ?)")
                 ->execute([$orderId, $order['status'], $now]);
+            qr_ereceipt_sale($pdo, 'order', $order, $object, $now);
             return [];
         }
         if ($type === 'checkout.session.async_payment_failed' || $type === 'checkout.session.expired') {
@@ -400,6 +406,7 @@ function qr_order_refund_due(int $orderId): bool
             $pdo->prepare("UPDATE orders SET refunded_cents = refunded_cents + ?, refund_error = 0, seq = ?
                 WHERE id = ? AND refunded_cents = ? AND pay_status = 'paid'")
                 ->execute([$due, $seq, $orderId, $before]);
+            qr_ereceipt_refunds($pdo, 'order', $orderId, qr_now());
         } else {
             $pdo->prepare('UPDATE orders SET refund_error = 1, seq = ? WHERE id = ?')->execute([$seq, $orderId]);
         }

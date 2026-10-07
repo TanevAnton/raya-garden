@@ -105,7 +105,8 @@ export async function startServer({ docroot = "public", withPassword = true, str
 
 /**
  * Just enough MIME for the server's own mail: headers, the base64 text and
- * HTML parts, and the attachments by file name.
+ * HTML parts, the attachments by file name and the inline pictures by
+ * content id.
  */
 export function parseMail(raw) {
   const [head, ...rest] = raw.split("\r\n\r\n");
@@ -124,7 +125,14 @@ export function parseMail(raw) {
       const [h, ...b] = chunk.replace(/^\r\n/, "").split("\r\n\r\n");
       const inner = h.match(/boundary="([^"]+)"/);
       if (inner) walk(b.join("\r\n\r\n"), inner[1]);
-      else parts.push({ type: (h.match(/Content-Type: ([^;\r]+)/i) || [])[1], name: (h.match(/filename="([^"]+)"/) || [])[1], data: Buffer.from(b.join("").replace(/\s+/g, ""), "base64") });
+      else {
+        parts.push({
+          type: (h.match(/Content-Type: ([^;\r]+)/i) || [])[1],
+          name: (h.match(/filename="([^"]+)"/) || [])[1],
+          cid: (h.match(/Content-ID: <([^>]+)>/i) || [])[1],
+          data: Buffer.from(b.join("").replace(/\s+/g, ""), "base64"),
+        });
+      }
     }
   };
   walk(body, headers["content-type"].match(/boundary="([^"]+)"/)[1]);
@@ -135,6 +143,8 @@ export function parseMail(raw) {
     text: parts.find((p) => p.type === "text/plain" && !p.name)?.data.toString("utf8"),
     html: parts.find((p) => p.type === "text/html")?.data.toString("utf8"),
     files: Object.fromEntries(parts.filter((p) => p.name).map((p) => [p.name, p.data])),
+    // Pictures the HTML shows (src="cid:…"), by content id.
+    inline: Object.fromEntries(parts.filter((p) => p.cid).map((p) => [p.cid, { type: p.type, data: p.data }])),
   };
 }
 

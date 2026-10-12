@@ -290,8 +290,9 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
    Stripe's receipt confirms the payment; it is not the fiscal receipt, which
    still comes from Clock ("За касата") — unless the guest's e-receipt
    replaces it (see below).
-6. The guest's e-receipt stays off with live keys until it is switched to
-   `'live'` (see *The guest's e-receipt*).
+6. The guest's e-receipt is off (see *The guest's e-receipt*). Fiscal
+   receipts for phone payments come from Clock: by hand from „За касата“
+   for now, and through Clock's API once that integration is built.
 5. Which payment methods appear is set in Stripe → Settings → Payment methods;
    cards, Apple Pay and Google Pay are on by default. The code doesn't restrict
    it, and Stripe's own page needs no domain verification for Apple Pay.
@@ -365,19 +366,18 @@ have no unbroken numbering and no QR code. The code is
 `public/api/qr/_lib/ereceipt.php`; the QR code is drawn by
 `_lib/qrcode.php`, with no library.
 
-**It runs in test mode only.** `public/api/qr/_lib/ereceipt-settings.php`
-has `'mode' => 'test'`: documents are issued only while Stripe runs on test
-keys, every one says „ТЕСТ — НЕ Е ДАНЪЧЕН ДОКУМЕНТ“, and they are numbered
-apart from real ones. With live keys, none are issued until the mode is
-`'live'`.
+**It is switched off** (`'mode' => 'off'` in
+`public/api/qr/_lib/ereceipt-settings.php`, since 12.10.2026). The e-shop
+rules are for sales made at a distance; guests here order and pay at the
+table, so their fiscal receipt has to come from the till — Clock. The code
+stays for now, unused, and its tests still run (in test mode). The privacy
+policy says the payment page's e-mail is not kept; switching this on again
+means changing that too.
 
-**To test it:** order on the test site with "Плащане в телефона" switched
-on, pay with Stripe's test card `4242 4242 4242 4242` and your own e-mail
-address on Stripe's page. The e-mail comes from `no-reply@rayagarden.bg`
-(check the spam folder the first time). Take a line off the order on the
-tablet ("Няма") and a storno document follows.
+`'test'` would issue documents only while Stripe runs on test keys, each
+marked „ТЕСТ — НЕ Е ДАНЪЧЕН ДОКУМЕНТ“ and numbered apart from real ones.
 
-**Before `'live'`:**
+**What `'live'` would need, if it ever applied:**
 1. The accountant confirms that phone payments may be documented this way
    (Н-18's rules for e-shops: card payments at a distance, delivered
    electronically) instead of a fiscal receipt from Clock, and how tips are

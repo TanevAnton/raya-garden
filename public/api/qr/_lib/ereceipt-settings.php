@@ -19,7 +19,11 @@ return [
     //         documented this way (the e-shop rules of Наредба Н-18), and
     //         the shop is registered with НАП: its number goes below.
     // 'off'   none.
-    'mode' => 'test',
+    //
+    // Off since 12.10.2026: the e-shop rules are for sales made at a
+    // distance, and guests here order and pay at the table. Their fiscal
+    // receipt comes from Clock (docs/qr-ordering/DECISIONS.md).
+    'mode' => 'off',
 
     // The e-shop's unique number, given by НАП when it is registered — the
     // first field of the document's QR code. Test documents use "TEST".

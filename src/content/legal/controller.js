@@ -37,6 +37,6 @@ export const CONTROLLER = {
 
 // Shown at the top of both pages. Bump it whenever either text changes.
 export const LAST_UPDATED = {
-  bg: "7 октомври 2026 г.",
-  en: "7 October 2026",
+  bg: "12 октомври 2026 г.",
+  en: "12 October 2026",
 };

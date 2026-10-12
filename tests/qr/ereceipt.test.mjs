@@ -29,7 +29,8 @@ before(async () => {
   menu = srv.menu();
   const items = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, i])));
   price = (id, variant = "std") => items.get(id).variants.find((v) => v.id === variant).price;
-  settings = readFileSync(settingsFile(), "utf8");
+  // Off on the live site; these tests switch it to test mode.
+  settings = readFileSync(settingsFile(), "utf8").replace(/'mode' => '\w+'/, "'mode' => 'test'");
 });
 after(async () => {
   srv.stop();

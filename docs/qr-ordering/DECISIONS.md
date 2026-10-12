@@ -622,6 +622,17 @@ until the accountant decides.
 - **Not built yet**: the monthly audit file for НАП (Appendix 38). It is
   needed before `'live'`, here or through a service such as Take a NAP.
 
+**Switched off, 12.10.2026.** The e-shop rules cover sales made at a
+distance; RAYA's guests order and pay at the table, so the restaurant isn't
+an e-shop and this document can't stand in for the fiscal receipt.
+(Randevue's „Електронна бележка“ was for its own service fee, which it does
+sell at a distance.) `'mode' => 'off'`, and the privacy policy is back to
+"the payment page's e-mail is not kept". The code and its tests stay, unused.
+Instead, phone payments are to be sent to Clock through its API: a POS
+bill with the lines, paid and closed, which Clock fiscalises on the
+restaurant's printer. Clock has confirmed both; its API documentation and
+access are to follow.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

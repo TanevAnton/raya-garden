@@ -150,6 +150,46 @@ export function trackEventEnquiry({ method, event_type } = {}) {
 }
 
 /**
+ * Is this link a way into booking a room? Every «Резервирай» button on the
+ * site is a link to /book, which opens Clock's booking window on the same
+ * page. A direct link to Clock's booking engine counts too — there are none
+ * in the code, but one could be added to a page in Sanity.
+ */
+export function isBookingHref(href = "", origin = "https://rayagarden.bg") {
+  let url;
+  try {
+    url = new URL(String(href).trim(), origin);
+  } catch {
+    return false;
+  }
+  if (/(^|\.)clock-software\.com$/.test(url.hostname)) {
+    return url.pathname.includes("/pms-wbe");
+  }
+  const ours = url.origin === origin || /^(www\.)?rayagarden\.bg$/.test(url.hostname);
+  return ours && url.pathname.replace(/\/+$/, "") === "/book";
+}
+
+/**
+ * BookingIntent — a guest heading for a room booking, as one custom event,
+ * because the booking itself happens in Clock's window and Meta sees it only
+ * if Clock reports it back (index.html, clockPmsWbePageViewCallback):
+ *
+ *   page    the path the guest was on
+ *   source  button — tapped a «Резервирай» link (to /book, or to Clock);
+ *           search — the /book form, which opens Clock's window with dates
+ *
+ * One per tap or submit.
+ */
+export function trackBookingIntent({ page, source } = {}) {
+  return send("trackCustom", "BookingIntent", { page, source });
+}
+
+/** PhoneClick — any tel: link tapped, with the path it was on. Sent beside Contact. */
+export function trackPhoneClick({ page } = {}) {
+  return send("trackCustom", "PhoneClick", { page });
+}
+
+/**
  * Fire one event per distinct `key`, once.
  *
  * `key` carries the identity of what is being viewed (the slug, the page) —

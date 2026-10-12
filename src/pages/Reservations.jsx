@@ -7,6 +7,7 @@ import {
   searchAvailability,
   trackCheckoutStarted,
 } from "../lib/clockWbe.js";
+import { trackBookingIntent } from "../lib/metaPixel.js";
 
 function isoDate(d) {
   return d.toISOString().slice(0, 10);
@@ -58,6 +59,8 @@ export default function Reservations() {
 
   const onSubmit = (e) => {
     e.preventDefault();
+    // The button that opens Clock's window — or, without it, a new tab.
+    trackBookingIntent({ page: window.location.pathname, source: "search" });
     const ok = searchAvailability({
       arrival,
       departure,

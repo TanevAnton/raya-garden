@@ -8,7 +8,9 @@ of this. Events go through code.
 
 ```
 src/lib/metaPixel.js        trackMeta() / useMetaEvent() — every site event
-  ├── Layout.jsx            PageView (per route), Contact (any tel: link)
+  ├── Layout.jsx            PageView (per route), Contact + PhoneClick (tel: links),
+  │                         BookingIntent (any «Резервирай» link)
+  ├── Reservations.jsx      BookingIntent (the /book form)
   ├── Hotel.jsx             ViewContent
   ├── Restaurant.jsx        ViewContent
   ├── EventPage.jsx         ViewContent
@@ -38,6 +40,27 @@ would race it. That is why the funnel is not in the React bundle.
 | `Lead` | /events enquiry block | `content_name: 'Events enquiry form'`, `content_category: 'events'`, `event_type` (`corporate` / `wedding` / `birthday` / `other`), `lang` |
 | `Contact` | any `tel:`, `mailto:`, `viber:` or WhatsApp (`wa.me`, `api.whatsapp.com`, `whatsapp:`) link | `method`, `content_category` by page, `lang` |
 | `EventEnquiry` (custom, `trackCustom`) | see below | `method`, `event_type` |
+| `BookingIntent` (custom) | a tap on any link to `/book` or to Clock's engine; the `/book` form's button | `page` (the path), `source` (`button` / `search`) |
+| `PhoneClick` (custom) | a tap on any `tel:` link — beside `Contact`, not instead | `page` |
+
+### `BookingIntent` and `PhoneClick`
+
+Added 12.10.2026, so the room campaigns (New Year, autumn weekends) have a
+booking signal that does not depend on Clock. Every «Резервирай» button on
+the site is a link to `/book` (nav, mobile menu, home page ×2, each room on
+`/hotel`, the event pages), and `/book` opens Clock's booking window on the
+same page — so no navigation leaves the site and nothing is lost. One
+delegated listener in `Layout.jsx` covers them all, and any `/book` link
+added later. `source: search` is the `/book` form's «Виж свободни стаи»,
+which actually opens Clock: the stronger of the two signals.
+
+A direct link to Clock's engine (`*.clock-software.com/…/pms-wbe…`) counts
+as well — there are none today, but one could be pasted into a Sanity page.
+In the same tab its navigation is held 150 ms so the pixel's request goes
+out first; in a new tab it is left alone.
+
+`PhoneClick` is the phone half of `Contact` under its own name, for a custom
+conversion that counts calls only.
 
 ### `EventEnquiry`
 
@@ -102,7 +125,17 @@ and retire the dead field. Scoped separately.
 
 ## Booking funnel
 
-`window.clockPmsWbePageViewCallback` is called by Clock on each step.
+`window.clockPmsWbePageViewCallback` is called by Clock on each step — **if
+Clock sends it.** Clock's integration script calls it only when the booking
+window posts it a `track` message (its `postMessageClient.addHandler('track',
+…)`); opening the window sends none (checked 12.10.2026: only
+`windowLocationRead` / `windowLocationReplace`). Whether the later steps do
+is set on Clock's side, and Clock refuses automated browsers (403), so it
+can't be checked from here. If Events Manager shows no `Search` /
+`InitiateCheckout` / `Purchase` from real bookings, ask Clock to enable the
+page-view callback (`track` events) for the website integration of hotel
+15003. The completed booking happens inside Clock's window on rayagarden.bg,
+so once Clock sends the steps, `Purchase` is reported from our own page.
 
 | `pageName` | Event | Notes |
 | --- | --- | --- |
@@ -164,6 +197,11 @@ every event with its params and asserts:
   nothing sent at all when a field, the event type or consent is missing;
   the call buttons send `Contact` only, and the bar's «Запитване» sends
   nothing
+- `BookingIntent` exactly once, with `page` and `source`, for each of the 13
+  booking actions (every «Резервирай» button at desktop and phone width, the
+  `/book` form, a link straight to Clock in this tab and in a new one) — and
+  nowhere else; the same-tab Clock link held, then followed
+- `PhoneClick` exactly once beside every `tel:` tap, and nowhere else
 - `9900` → `99`, never `9900`
 - nulls and empty strings stripped rather than sent
 - an `eventID` on every site event, and `clock-<numbers>` on `Purchase`

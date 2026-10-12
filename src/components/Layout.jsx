@@ -9,7 +9,24 @@ import {
   contactMethodForHref,
   isEventEnquiryPage,
   eventTypeForTap,
+  isBookingHref,
+  trackBookingIntent,
+  trackPhoneClick,
 } from "../lib/metaPixel.js";
+
+// A booking link that leaves the site in this tab (a direct link to Clock's
+// engine, should one be added in Sanity) would unload the page before the
+// pixel's request is out: hold the navigation for 150 ms. Links within the
+// site (/book) don't unload anything, and a new tab leaves this page open.
+function leaveAfterPixel(event, link) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return;
+  }
+  const target = (link.getAttribute("target") || "").toLowerCase();
+  if (link.origin === window.location.origin || (target && target !== "_self")) return;
+  event.preventDefault();
+  setTimeout(() => window.location.assign(link.href), 150);
+}
 
 export default function Layout({ lang, setLang, t }) {
   const { pathname } = useLocation();
@@ -68,6 +85,13 @@ export default function Layout({ lang, setLang, t }) {
     const onClick = (event) => {
       const link = event.target?.closest?.("a[href]");
       if (!link) return;
+      // «Резервирай»: every link to /book (the nav, the home page, /hotel,
+      // the event pages) or to Clock's engine.
+      if (isBookingHref(link.getAttribute("href"), window.location.origin)) {
+        trackBookingIntent({ page: window.location.pathname, source: "button" });
+        leaveAfterPixel(event, link);
+        return;
+      }
       const method = contactMethodForHref(link.getAttribute("href"));
       if (!method) return;
       trackMeta("Contact", {
@@ -75,6 +99,7 @@ export default function Layout({ lang, setLang, t }) {
         method,
         lang,
       });
+      if (method === "phone") trackPhoneClick({ page: window.location.pathname });
       // On /events, the event pages and the wedding configurator the same
       // tap is also an event enquiry — the mobile bar's call button
       // included, being a tel: link.

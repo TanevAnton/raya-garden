@@ -46,10 +46,10 @@ before(async () => {
   const items = new Map(menu.categories.flatMap((c) => c.items.map((i) => [i.id, { ...i, category: c.id }])));
   item = (id) => items.get(id);
   price = (id, variant = "std") => items.get(id).variants.find((v) => v.id === variant).price;
-  // The live file has no templates yet (0): these tests give the stations and desserts theirs.
+  // Whatever ids the file holds, these tests give the stations and desserts their own.
   settings = readFileSync(settingsFile(), "utf8")
-    .replace("'kitchen' => 0", `'kitchen' => ${T.kitchen}`)
-    .replace("'bar' => 0", `'bar' => ${T.bar}`)
+    .replace(/'kitchen' => \d+/, `'kitchen' => ${T.kitchen}`)
+    .replace(/'bar' => \d+/, `'bar' => ${T.bar}`)
     .replace("'tip' => 0,", `'tip' => 0,\n        '${"desserts"}' => ${T.desserts},`);
 });
 after(async () => {

@@ -233,7 +233,7 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
     const fake = await startFakeClock();
     const settingsFile = path.join(srv.root, "api", "qr", "_lib", "clock-settings.php");
     const settings = readFileSync(settingsFile, "utf8");
-    writeFileSync(settingsFile, settings.replace("'kitchen' => 0", "'kitchen' => 1001").replace("'bar' => 0", "'bar' => 1002"));
+    writeFileSync(settingsFile, settings.replace(/'kitchen' => \d+/, "'kitchen' => 1001").replace(/'bar' => \d+/, "'bar' => 1002"));
     // Folios left for staff to close in Clock (no clock_close).
     srv.config({ clock_mode: "test", clock_base_url: fake.base, clock_api_user: fake.user, clock_api_key: fake.key, clock_company_id: 500 });
     const staff = await phone();

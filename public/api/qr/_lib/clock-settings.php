@@ -23,8 +23,11 @@ if (!defined('RAYA_QR')) {
 return [
     'templates' => [
         // Defaults per station: everything made in the kitchen, at the bar.
-        'kitchen' => 0,
-        'bar' => 0,
+        // ⚠ SANDBOX ONLY (14.10.2026): Clock's sandbox has demo spa services
+        // alone, so "Massage" and "Sauna" stand in for food and drinks. Put
+        // the live account's template ids here before QR_CLOCK_MODE = live.
+        'kitchen' => 1508201,
+        'bar' => 1508202,
         // Per category, overriding its station's default, e.g. 'wines' => 0.
         // The tip: 0 sends it as a plain surcharge with no VAT.
         'tip' => 0,

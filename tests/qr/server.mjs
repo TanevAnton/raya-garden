@@ -27,8 +27,10 @@ const freePort = () =>
  * stripe: { key, webhookSecret, api, publicUrl } adds payments to the config
  * and points the API at a fake Stripe (tests/qr/fake-stripe.mjs). publicUrl
  * "self" sends the guest back to this test server after paying.
+ * clock: { api, ...config } adds Clock PMS+ settings (clock_mode, clock_api_user,
+ * …) to the config and points the API at a fake Clock (tests/qr/fake-clock.mjs).
  */
-export async function startServer({ docroot = "public", withPassword = true, stripe = null } = {}) {
+export async function startServer({ docroot = "public", withPassword = true, stripe = null, clock = null } = {}) {
   const work = mkdtempSync(path.join(tmpdir(), "raya-qr-"));
   const root = path.join(work, "www");
   cpSync(path.join(docroot, "api"), path.join(root, "api"), { recursive: true });
@@ -46,10 +48,19 @@ export async function startServer({ docroot = "public", withPassword = true, str
   const settings = {
     ...(withPassword ? { admin_password_hash: hash } : {}),
     ...(stripe ? { stripe_secret_key: stripe.key, stripe_webhook_secret: stripe.webhookSecret, public_url: publicUrl } : {}),
+    ...(clock ? Object.fromEntries(Object.entries(clock).filter(([k]) => k !== "api")) : {}),
   };
-  const php = Object.entries(settings).map(([k, v]) => `'${k}' => ${JSON.stringify(v).replace(/\$/g, "\\$")}`);
-  writeFileSync(config, `<?php return [${php.join(", ")}];\n`);
-  const proc = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", root], {
+  const writeConfig = (values) => {
+    const php = Object.entries(values).map(([k, v]) => `'${k}' => ${JSON.stringify(v).replace(/\$/g, "\\$")}`);
+    writeFileSync(config, `<?php return [${php.join(", ")}];\n`);
+  };
+  writeConfig(settings);
+  // PHP's notices go to the log, never into an answer: a newer PHP than the
+  // host's (e.g. 8.5 deprecating curl_close, which 7.3 still needs) must not
+  // break the JSON the tests read.
+  // No OPcache: tests rewrite settings files (ereceipt-settings.php,
+  // clock-settings.php) between requests, faster than it rechecks them.
+  const proc = spawn("php", ["-d", "display_errors=0", "-d", "log_errors=1", "-d", "opcache.enable=0", "-S", `127.0.0.1:${port}`, "-t", root], {
     env: {
       ...process.env,
       RAYA_QR_TEST: "1",
@@ -59,8 +70,13 @@ export async function startServer({ docroot = "public", withPassword = true, str
       RAYA_QR_MAIL_DIR: path.join(work, "data", "mail"),
       PHP_CLI_SERVER_WORKERS: "10",
       ...(stripe ? { RAYA_QR_STRIPE_API: stripe.api } : {}),
+      ...(clock ? { RAYA_QR_CLOCK_API: clock.api } : {}),
     },
     stdio: ["ignore", "ignore", "pipe"],
+    // Its own process group, so stop() ends the workers too: on macOS they
+    // outlive the parent and keep connections to the fake Stripe open, and
+    // the test file then never finishes.
+    detached: true,
   });
   let log = "";
   proc.stderr.on("data", (d) => (log += d));
@@ -80,6 +96,14 @@ export async function startServer({ docroot = "public", withPassword = true, str
     menu: () => JSON.parse(readFileSync(menuPath, "utf8")),
     writeMenu: (menu) => writeFileSync(menuPath, JSON.stringify(menu)),
     reset: () => rmSync(path.join(work, "data"), { recursive: true, force: true }),
+    /** Change the config from the next request on: values merged in, null removes a key. */
+    config: (patch) => {
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null) delete settings[k];
+        else settings[k] = v;
+      }
+      writeConfig(settings);
+    },
     /** E-mails the server "sent", oldest first, decoded (parseMail). */
     mails: () => {
       const dir = path.join(work, "data", "mail");
@@ -97,7 +121,11 @@ export async function startServer({ docroot = "public", withPassword = true, str
       $db = new PDO('sqlite:' . ${JSON.stringify(path.join(work, "data", "orders.sqlite"))});
       echo json_encode($db->query(${JSON.stringify(sql)})->fetchAll(PDO::FETCH_ASSOC));`]).toString(),
     stop: () => {
-      proc.kill();
+      try {
+        process.kill(-proc.pid, "SIGTERM");
+      } catch {
+        proc.kill();
+      }
       rmSync(work, { recursive: true, force: true });
     },
   };

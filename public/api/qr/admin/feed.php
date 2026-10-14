@@ -13,7 +13,9 @@
 //
 // On the 1st, the first poll from 06:00 also sends last month's summary by
 // e-mail — after its own answer has gone back (_lib/report.php). So does any
-// poll find a guest's e-receipt whose e-mail failed (_lib/ereceipt.php).
+// poll find a guest's e-receipt whose e-mail failed (_lib/ereceipt.php), and
+// a payment still to send to Clock PMS+ (_lib/clock.php): the poll is what
+// retries them, with no cron job.
 //
 // The read is one snapshot (BEGIN … COMMIT), so the counter and the rows
 // agree. A screen that was offline for a minute simply asks with its old
@@ -88,6 +90,9 @@ try {
     $waiters = qr_waiters($pdo, (string) $settings['service_date']);
     $reportDue = qr_report_auto_due($pdo, (string) ($settings['report_email'] ?? ''), $now) !== null;
     $receiptsDue = qr_ereceipt_mail_due($pdo, $now);
+    // Payments on their way to Clock: changed since, or (first load) recent and unsettled.
+    $clockDocs = qr_clock_feed($pdo, $since, $now);
+    $clockDue = qr_clock_due($pdo, $now);
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
     $pdo->exec('ROLLBACK');
@@ -99,6 +104,9 @@ if ($reportDue) {
 if ($receiptsDue) {
     qr_ereceipt_mail_later($now);
 }
+if ($clockDue) {
+    qr_clock_send_later($now);
+}
 qr_json(200, [
     'ok' => true,
     'seq' => (int) $settings['seq'],
@@ -109,5 +117,7 @@ qr_json(200, [
     'waiters' => (object) $waiters,
     'tabs' => $tabs,
     'billPayments' => $billPayments,
+    'clockDocs' => $clockDocs,
+    'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode(), 'closes' => qr_clock_closes()] : null,
     'now' => $now,
 ]);

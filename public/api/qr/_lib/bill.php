@@ -508,6 +508,7 @@ function qr_bill_event(PDO $pdo, string $type, array $object, int $now)
             overlap_cents = ?, seq = ? WHERE id = ?")
             ->execute([$now, (string) ($object['payment_intent'] ?? ''), qr_payer_name($object), $overlap, $seq, $id]);
         qr_ereceipt_sale($pdo, 'bill', $p, $object, $now);
+        qr_clock_sale($pdo, 'bill', $p, $object, $now);
         qr_bill_owe($pdo, $id, $overlap, $seq);
         qr_touch_tab($pdo, (int) $p['tab_id'], $seq);
         return $overlap > 0 ? $id : null;
@@ -560,6 +561,7 @@ function qr_bill_refund_due(int $paymentId): bool
             $pdo->prepare('UPDATE bill_payments SET refunded_cents = refunded_cents + ?, refund_error = 0, seq = ? WHERE id = ? AND refunded_cents = ?')
                 ->execute([$due, $seq, $p['id'], $before]);
             qr_ereceipt_refunds($pdo, 'bill', (int) $p['id'], qr_now());
+            qr_clock_refunds($pdo, 'bill', (int) $p['id'], qr_now());
         } else {
             $pdo->prepare('UPDATE bill_payments SET refund_error = 1, seq = ? WHERE id = ?')->execute([$seq, $p['id']]);
         }

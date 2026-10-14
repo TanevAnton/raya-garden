@@ -187,6 +187,10 @@ function Dashboard({ onSignedOut }) {
   const [orders, setOrders] = useState(() => new Map());
   const [tabs, setTabs] = useState(() => new Map());
   const [billPayments, setBillPayments] = useState(() => new Map());
+  // Phone payments on their way to Clock PMS+ (api/qr/_lib/clock.php), and
+  // whether that is on: { mode, closes } or null.
+  const [clockDocs, setClockDocs] = useState(() => new Map());
+  const [clockInfo, setClockInfo] = useState(null);
   const [state, setState] = useState(null);
   const [soldOut, setSoldOut] = useState([]);
   // Tonight's waiters, table → name. Like the settings, an answer older than
@@ -258,6 +262,7 @@ function Dashboard({ onSignedOut }) {
     });
   const mergeTabs = useCallback(mergeBy(setTabs), []);
   const mergeBillPayments = useCallback(mergeBy(setBillPayments), []);
+  const mergeClockDocs = useCallback(mergeBy(setClockDocs), []);
 
   // The poll loop: ask for everything after the last change number.
   useEffect(() => {
@@ -281,6 +286,8 @@ function Dashboard({ onSignedOut }) {
         merge(res.orders, res.full);
         mergeTabs(res.tabs, res.full);
         mergeBillPayments(res.billPayments, res.full);
+        mergeClockDocs(res.clockDocs, res.full);
+        setClockInfo(res.clock || null);
         seq.current = res.seq;
         applyState(res.state, res.seq);
         setSoldOut(res.soldOut);
@@ -399,9 +406,24 @@ function Dashboard({ onSignedOut }) {
       if (res.status === 401) return onSignedOut();
       if (res.order) merge([res.order], false);
       if (res.payment) mergeBillPayments([res.payment], false);
-      if (!res.ok) say("Не успях да запиша. Опитайте отново.");
+      if (res.error === "clock_sending") say("Точно сега се изпраща към Clock. Изчакайте няколко секунди.");
+      else if (res.error === "clock_done") say("Това вече е в Clock — не го въвеждайте втори път.");
+      else if (!res.ok) say("Не успях да запиша. Опитайте отново.");
     } catch {
       say("Няма връзка — отметката не е записана. Опитайте отново.");
+    }
+  }
+
+  // A payment that did not reach Clock: send it again; or a folio staff closed in Clock themselves.
+  async function clockAction(doc, action) {
+    try {
+      const res = await adminApi("clock.php", { id: doc.id, action });
+      if (res.status === 401) return onSignedOut();
+      if (res.doc) mergeClockDocs([res.doc], false);
+      if (res.ok) say(action === "retry" ? "Изпращам отново към Clock…" : `${doc.folio} е отбелязано като затворено.`);
+      else say("Не успях да запиша. Опитайте отново.");
+    } catch {
+      say("Няма връзка — опитайте отново.");
     }
   }
 
@@ -421,7 +443,7 @@ function Dashboard({ onSignedOut }) {
   }
 
   const newCount = [...orders.values()].flatMap(jobsOf).filter((j) => j.status === "new" && shows(stationView, j.station)).length;
-  const tillEntries = tillList(orders, billPayments);
+  const tillEntries = tillList(orders, billPayments, clockDocs);
   const tillCount = tillEntries.filter((e) => e.todo).length;
   const showTill = Boolean(state?.paymentsConfigured) || tillEntries.length > 0;
   const openTabs = [...tabs.values()].filter((x) => !x.closedAt);
@@ -500,7 +522,7 @@ function Dashboard({ onSignedOut }) {
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
         {tab === "waiters" && <Waiters state={state} waiters={waiters} onSave={saveWaiters} say={say} />}
         {tab === "tabs" && <Tabs tabs={tabs} waiterOf={(table, evening) => (evening === state?.serviceDate ? waiters[table] : "")} onAction={billAction} />}
-        {tab === "till" && <Till entries={tillEntries} onTill={till} />}
+        {tab === "till" && <Till entries={tillEntries} onTill={till} clockInfo={clockInfo} clockDocs={clockDocs} onClock={clockAction} />}
         {tab === "history" && <History onSignedOut={onSignedOut} />}
       </main>
 
@@ -1038,14 +1060,43 @@ function Service({ state, onSaved, say, onSignedOut }) {
 }
 
 /**
+ * Where a payment (or a refund) is on its way to Clock, on its „За касата“ row:
+ * nothing when Clock is not connected or it was entered by hand.
+ */
+function ClockStatus({ doc, onClock }) {
+  if (!doc || doc.status === "manual" || doc.status === "done") return null;
+  if (doc.status === "pending" || doc.status === "sending") {
+    return <div className="w-full text-sm text-cream-100/60" data-clock-status={doc.status}>Изпраща се към Clock…</div>;
+  }
+  const check = doc.status === "check";
+  return (
+    <div className="w-full flex flex-wrap items-center gap-3 text-sm" data-clock-status={doc.status}>
+      <span className={check ? "text-amber-300" : "text-red-300"}>
+        {check ? `Провери ${doc.folio} в Clock` : "Не влезе в Clock"}
+        {doc.error ? `: ${doc.error}` : ""}
+      </span>
+      <button type="button" onClick={() => onClock(doc, "retry")} className="h-10 px-3 rounded-sm border border-gold-300/40 text-xs text-cream-50">
+        {check ? "Проверих — изпрати пак" : "Опитай пак"}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Everything paid on a phone that the till (Clock) has to hear about:
  * orders paid before they went out, and payments from tables' bills (at
  * their net amount — what was owed back is not a sale; a tip is shown
  * apart). "todo": still to be entered, or refunded — all of it or one line —
  * after it was entered, and that difference still to be voided.
  */
-function tillList(orders, billPayments) {
+function tillList(orders, billPayments, clockDocs = new Map()) {
   const entries = [];
+  // What Clock knows of it: its sale, and the refund (storno) still on its way, if any.
+  const docs = [...clockDocs.values()];
+  const clockOf = (source, id) => ({
+    sale: docs.find((d) => d.kind === "sale" && d.source === source && d.sourceId === id) || null,
+    storno: docs.filter((d) => d.kind === "storno" && d.source === source && d.sourceId === id && d.status !== "manual").at(-1) || null,
+  });
   const lines = (list = []) => list.filter((l) => l.qty > 0).map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ");
   for (const o of orders.values()) {
     if (o.payStatus !== "paid" && o.payStatus !== "refunded") continue;
@@ -1056,6 +1107,7 @@ function tillList(orders, billPayments) {
       text: (o.payerName ? `${o.payerName} · ` : "") + lines(o.lines),
       amount: o.tillAt ? o.tillCents : o.net, voidAmount, tip: o.tipNet || 0, tillAt: o.tillAt,
       toEnter: o.payStatus === "paid" && !o.tillAt && o.net > 0, toVoid: o.tillAt > 0 && voidAmount > 0,
+      clock: clockOf("order", o.id),
     });
   }
   for (const p of billPayments.values()) {
@@ -1067,6 +1119,7 @@ function tillList(orders, billPayments) {
       text: `сметка${p.payerName ? `, платил ${p.payerName}` : ""} · ${lines(p.lines)}`,
       amount: p.tillAt ? p.tillCents : p.net, voidAmount, tip: p.tipNet, tillAt: p.tillAt,
       toEnter: !p.tillAt && p.net > 0, toVoid: p.tillAt > 0 && voidAmount > 0,
+      clock: clockOf("bill", p.id),
     });
   }
   for (const e of entries) e.todo = e.toEnter || e.toVoid;
@@ -1078,8 +1131,10 @@ function tillList(orders, billPayments) {
  * till (Clock) by hand; refunds of what was already entered have to be
  * voided there. Oldest first. Ticks sync to every tablet.
  */
-function Till({ entries, onTill }) {
+function Till({ entries, onTill, clockInfo, clockDocs, onClock }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
+  // Folios Clock has, paid, that staff still have to close there (while they are not closed from here).
+  const toClose = [...(clockDocs?.values() || [])].filter((d) => d.status === "done" && !d.closed).sort((a, b) => a.doneAt - b.doneAt);
   const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
   const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
   // Card tips today — with orders paid on the phone and with bills — for
@@ -1106,13 +1161,41 @@ function Till({ entries, onTill }) {
   );
   return (
     <div className="max-w-3xl">
-      <p className="text-sm text-cream-100/60">
-        Платеното онлайн се въвежда в Clock ръчно, с плащане „карта“. Отметнете всяко, след като го въведете. Кодовете „P-…“ са плащания от сметка на маса.
-      </p>
+      {clockInfo ? (
+        <p className="text-sm text-cream-100/60" data-clock-mode={clockInfo.mode}>
+          Платеното онлайн отива в Clock само{clockInfo.closes ? " и Clock издава касовата бележка" : ""}. Тук остава само това, което не е влязло — въведете го ръчно, с плащане „карта“, и го отметнете.
+          {clockInfo.mode === "test" && <span className="text-amber-300"> Тестов режим: изпращат се само тестови плащания.</span>}
+        </p>
+      ) : (
+        <p className="text-sm text-cream-100/60">
+          Платеното онлайн се въвежда в Clock ръчно, с плащане „карта“. Отметнете всяко, след като го въведете. Кодовете „P-…“ са плащания от сметка на маса.
+        </p>
+      )}
       {tips > 0 && (
         <p className="mt-3 border border-sage-300/30 rounded-sm px-3 py-2 text-sm text-cream-50" data-tips-today>
           Бакшиши с карта днес: <span className="font-semibold text-sage-200">{money(tips)}</span> ({tipped.length} {tipped.length === 1 ? "плащане" : "плащания"}). Те не са част от сумата за въвеждане.
         </p>
+      )}
+      {toClose.length > 0 && (
+        <>
+          <h2 className="font-display text-2xl text-gold-100 mt-6">Затвори в Clock ({toClose.length})</h2>
+          <p className="text-sm text-cream-100/60 mt-1">Вече са в Clock, платени с карта. Затворете фолиото там — Clock ще отпечата бележката — и го отметнете тук.</p>
+          <ul className="space-y-3 mt-3">
+            {toClose.map((d) => (
+              <li key={d.id} className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-close={d.folio}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-lg text-gold-100">{d.folio}</span>
+                    <span className="text-cream-100/70">{d.code}</span>
+                    {d.kind === "storno" && <span className="text-red-300 text-sm">сторно</span>}
+                  </div>
+                </div>
+                <div className="font-semibold text-cream-50 text-lg">{d.kind === "storno" ? "−" : ""}{money(d.total)}</div>
+                <button type="button" onClick={() => onClock(d, "closed")} className="btn-gold h-12 px-4 rounded-sm text-sm">Затворих го ✓</button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {toVoid.length > 0 && (
         <>
@@ -1121,7 +1204,8 @@ function Till({ entries, onTill }) {
           <ul className="space-y-3 mt-3">
             {toVoid.map((e) => (
               <Row key={`${e.kind}${e.id}`} entry={e} amount={e.voidAmount}>
-                <button type="button" onClick={() => onTill(e, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm">Сторнирана ✓</button>
+                <ClockStatus doc={e.clock.storno} onClock={onClock} />
+                <button type="button" disabled={e.clock.storno?.status === "sending"} onClick={() => onTill(e, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm disabled:opacity-40">Сторнирана ✓</button>
               </Row>
             ))}
           </ul>
@@ -1134,7 +1218,8 @@ function Till({ entries, onTill }) {
         <ul className="space-y-3 mt-3">
           {toEnter.map((e) => (
             <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip}>
-              <button type="button" onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm">Въведена в Clock ✓</button>
+              <ClockStatus doc={e.clock.sale} onClock={onClock} />
+              <button type="button" disabled={e.clock.sale?.status === "sending"} onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm disabled:opacity-40">Въведена в Clock ✓</button>
             </Row>
           ))}
         </ul>
@@ -1145,7 +1230,11 @@ function Till({ entries, onTill }) {
           <ul className="space-y-2 mt-3 opacity-80">
             {done.map((e) => (
               <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip}>
-                <button type="button" onClick={() => onTill(e, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
+                {e.clock.sale?.status === "done" ? (
+                  <span className="text-xs text-sage-200" data-in-clock={e.clock.sale.folio}>в Clock · {e.clock.sale.folio}</span>
+                ) : (
+                  <button type="button" onClick={() => onTill(e, { entered: false })} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/70">Върни в списъка</button>
+                )}
               </Row>
             ))}
           </ul>

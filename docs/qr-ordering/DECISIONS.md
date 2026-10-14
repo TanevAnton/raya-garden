@@ -630,8 +630,107 @@ sell at a distance.) `'mode' => 'off'`, and the privacy policy is back to
 "the payment page's e-mail is not kept". The code and its tests stay, unused.
 Instead, phone payments are to be sent to Clock through its API: a POS
 bill with the lines, paid and closed, which Clock fiscalises on the
-restaurant's printer. Clock has confirmed both; its API documentation and
-access are to follow.
+restaurant's printer. Clock has confirmed both. Built on 14.10.2026: see "Phone payments into
+Clock PMS+" below.
+
+## Phone payments into Clock PMS+, added 14.10.2026
+
+**Why.** Guests pay at the table, so their fiscal receipt has to come from
+the till: Clock. Until now staff typed every phone payment into Clock by hand
+from „За касата“. Now each one goes to Clock by itself (`_lib/clock.php`).
+
+**How Clock is reached.** Clock's POS API only reads. The way in is
+`base_api` folios, as Clock's "(POS) Transfer charges" guide does it at the
+end of the day:
+- a folio on a company that has *Accept charge transfers* ticked;
+- the lines as charges (`charges/bulk`);
+- the card payment as a credit item, with Stripe's `pi_…` as its reference;
+- `close` with a document type, which is the fiscal step.
+
+The sandbox (14.10.2026) took the folio, the charges and the payment.
+`close` waits for Clock to grant the right, so it sits behind
+`clock_close`. Until then the folio waits in Clock, paid, and staff close
+it there, which prints the receipt like any folio. „За касата“ lists those
+folios under "Затвори в Clock".
+
+### Choices made
+
+- **One folio per payment, not one per evening.** Each guest gets a receipt
+  for their own payment, when they pay. A few dozen payments an evening, at
+  4 calls each, is far inside Clock's 5 calls a second.
+- **Queued with the payment, sent after the answer.** The `clock_docs` row
+  (schema v12) is written in the same transaction that marks the payment
+  paid, or records the refund, so it can't be lost or made twice. Sending
+  happens after the webhook or the tablet has its answer: Stripe never
+  waits on Clock, and Clock being down never fails a webhook.
+- **Retried by the staff screen's poll**, like the e-receipt and the monthly
+  e-mail: no cron job. The waits are 1 min, 5 min, 15 min, 1 h, 3 h, then it
+  stops at `failed` with Clock's reason, and *Опитай пак* on „За касата“
+  starts it again.
+- **Exactly once, without idempotency keys.** Clock's API has none, so:
+  - a row is claimed before it is sent;
+  - each step is saved as soon as Clock answers, and a retry continues from
+    the next step;
+  - a step whose answer never came back is first looked up in Clock: the
+    charges by their `print_text` "QR R-7K3M #12", the payment by its
+    reference, the close by `closed_at`.
+  - If Clock can't be asked (the API user has no right to read charges),
+    the row stops at `check` for a person rather than risk a second charge.
+- **No reused connections** (`CURLOPT_FORBID_REUSE`). Found in testing: when
+  a reused keep-alive connection breaks after Clock did the work, curl sends
+  the same POST again by itself, so a lost answer turned into a second
+  charge. A fresh connection per call makes a lost answer come back as lost,
+  and it gets looked up instead.
+- **The same lines as the e-receipt.** `qr_ereceipt_paid_lines()` and
+  `qr_ereceipt_returned()` give a sale's lines and what went back. They
+  don't depend on the e-receipt being on, so Clock and the (switched-off)
+  e-receipt can never disagree.
+- **Refunds are storno folios.** Clock's guide voids transferred charges
+  with the same charge at a negative quantity, and says this works even on
+  a closed folio. A refund gets a folio of its own: exactly the lines that
+  went back, negative, plus the card money given back, then closed. It waits
+  until its sale is in Clock. Giving card money back needs the right
+  "Payments: Add negative payment to Open folio".
+- **Templates by category, not by dish.** 172 dishes in 25 categories, and
+  Clock wants a few templates for its reports and accounting codes. Each
+  charge carries the dish's own name. `clock-settings.php` maps the kitchen,
+  the bar, and any category that needs its own template. A payment with an
+  unmapped line isn't sent, and says which category it's missing.
+- **The tip** is a `surcharge` with no VAT, as in Clock's guide, unless it
+  gets a template of its own. Like everywhere else it stays out of the
+  amount ticked on „За касата“.
+- **„За касата“ stays the fallback.**
+  - A sale done in Clock ticks itself as entered; a storno done ticks
+    itself as voided.
+  - A tick by hand before a row was sent means it is never sent (`manual`).
+  - While a row is being sent, or once Clock has it, a tick or untick by
+    hand is refused, so nothing is entered twice.
+- **Test and live never mix.** `clock_mode` `test` sends only payments made
+  with Stripe's test keys, `live` only real ones. A test payment can never
+  reach the real till.
+- **Credentials like Stripe's**: GitHub secrets (`QR_CLOCK_*`), written into
+  `raya-qr-config.php` above the web root by the deploy, checked for their
+  form, and never printed.
+
+### Found in testing on this Mac (the harness, not the system)
+
+- PHP 8.5 deprecates `curl_close()`, which 7.3 still needs. The PHP dev
+  server printed the notice into the JSON answers. The test server now logs
+  notices instead of showing them.
+- The dev server's workers outlived it on macOS and kept the test files
+  from ending. They now run in their own process group.
+- OPcache served a settings file the tests had just rewritten, so it's off
+  in tests.
+
+### Still open (questions sent to Clock, 14.10.2026)
+
+- Which `document_type_id` is the fiscal receipt, and which is its storno.
+- The rights for the live API user, and whether the live account needs one
+  at all, or a POS account of its own.
+- The charge templates for food, drinks and tips, and their VAT. Folios made
+  through the API come back `tax_mode: "no_tax"` in the sandbox.
+- Whether a refund should be a new folio, as built, or a correction on the
+  original one.
 
 ## Left out on purpose
 

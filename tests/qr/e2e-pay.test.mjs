@@ -4,10 +4,12 @@
 //   npm run build && npm run test:qr:e2e
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import puppeteer from "puppeteer";
-import { startServer, client, ADMIN_PASSWORD } from "./server.mjs";
+import { startServer, client, ADMIN_PASSWORD, newKey, orderBody } from "./server.mjs";
 import { startFakeStripe } from "./fake-stripe.mjs";
+import { startFakeClock } from "./fake-clock.mjs";
 
 const WEBHOOK_SECRET = "whsec_test_e2e";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia" }).format(new Date());
@@ -223,5 +225,59 @@ describe("paying on the phone", () => {
     assert.deepEqual([...page.errors, ...staff.errors], []);
     await page.close();
     await staff.close();
+  });
+});
+
+describe("paying on the phone, with Clock PMS+ connected", () => {
+  it("„За касата“ shows what did not reach Clock and sends it again; folios to close in Clock are ticked off", async () => {
+    const fake = await startFakeClock();
+    const settingsFile = path.join(srv.root, "api", "qr", "_lib", "clock-settings.php");
+    const settings = readFileSync(settingsFile, "utf8");
+    writeFileSync(settingsFile, settings.replace("'kitchen' => 0", "'kitchen' => 1001").replace("'bar' => 0", "'bar' => 1002"));
+    // Folios left for staff to close in Clock (no clock_close).
+    srv.config({ clock_mode: "test", clock_base_url: fake.base, clock_api_user: fake.user, clock_api_key: fake.key, clock_company_id: 500 });
+    const staff = await phone();
+    try {
+      await openEvening();
+      const menu = srv.menu();
+      const paid = async (lines) => {
+        const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, lines), { headers: { "Idempotency-Key": newKey() } });
+        assert.equal(res.status, 201, res.text);
+        await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+        return res.body.order;
+      };
+      fake.failNext("POST", /^\/companies\/\d+\/folios$/, 503, { error: "Service Unavailable" });
+      const failed = await paid([["tiramisu"]]);
+      const sent = await paid([["caesar", "chicken", 1]]);
+
+      await staff.setViewport({ width: 1280, height: 900 });
+      await staff.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
+      await staff.type("input[type=password]", ADMIN_PASSWORD);
+      await staff.click("button[type=submit]");
+      await staff.waitForSelector(`[data-order="${sent.code}"]`);
+      await clickText(staff, "nav", /За касата \(1\)/);
+      await staff.waitForSelector(`[data-till="${failed.code}"] [data-clock-status="failed"]`);
+      const row = await staff.$eval(`[data-till="${failed.code}"]`, (e) => e.innerText);
+      assert.match(row, /Не влезе в Clock: HTTP 503: Service Unavailable/);
+      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /отива в Clock само/);
+      assert.equal(await staff.$(`[data-close="FL-1"]`) !== null, true, "the one that went: its folio waits to be closed");
+      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-failed.png") : undefined, fullPage: true });
+
+      await clickText(staff, `[data-till="${failed.code}"]`, /Опитай пак/);
+      await staff.waitForSelector(`[data-close="FL-2"]`);
+      await staff.waitForFunction((code) => !document.querySelector(`[data-till="${code}"] [data-clock-status]`), {}, failed.code);
+      assert.match(await staff.$eval("nav", (e) => e.innerText), /За касата(?! \()/, "nothing left to enter by hand");
+      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-to-close.png") : undefined, fullPage: true });
+
+      await clickText(staff, `[data-close="FL-1"]`, /Затворих го/);
+      await staff.waitForFunction(() => !document.querySelector(`[data-close="FL-1"]`));
+      assert.equal(await staff.$(`[data-close="FL-2"]`) !== null, true);
+      assert.deepEqual(staff.errors, []);
+    } finally {
+      await staff.close();
+      srv.config({ clock_mode: null, clock_base_url: null, clock_api_user: null, clock_api_key: null, clock_company_id: null });
+      writeFileSync(settingsFile, settings);
+      await fake.stop();
+    }
   });
 });

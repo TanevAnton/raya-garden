@@ -40,6 +40,7 @@ if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
         'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/_lib/pay.php',
         'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php', 'qr/_lib/mail.php',
         'qr/_lib/ereceipt.php', 'qr/_lib/qrcode.php', 'qr/_lib/ereceipt-settings.php',
+        'qr/_lib/clock.php', 'qr/_lib/clock-settings.php', 'qr/admin/clock.php',
         'qr/order.php', 'qr/stripe-webhook.php', 'qr/receipt.php',
     );
     foreach ($files as $rel) {
@@ -98,6 +99,18 @@ $out['qr'] = array(
             : 'not a Stripe key'),
     'stripe_webhook_secret_set' => !empty($qrConfig['stripe_webhook_secret']),
     'curl_reaches_stripe' => 'not tested',
+    // Payments sent to Clock PMS+ (qr/_lib/clock.php): whether it is on and
+    // set up — never the user, key or ids themselves.
+    'clock_mode' => isset($qrConfig['clock_mode']) && in_array($qrConfig['clock_mode'], array('test', 'live'), true)
+        ? $qrConfig['clock_mode'] : 'off',
+    'clock_configured' => !empty($qrConfig['clock_base_url']) && !empty($qrConfig['clock_api_user'])
+        && !empty($qrConfig['clock_api_key']) && !empty($qrConfig['clock_company_id']),
+    'clock_close' => (isset($qrConfig['clock_close']) && $qrConfig['clock_close'] === 'on')
+        ? (empty($qrConfig['clock_document_type_id']) ? 'on, but NO document type id' : 'on: folios closed here')
+        : 'off: staff close the folios in Clock',
+    'clock_templates' => 'unknown',
+    'curl_digest' => defined('CURLAUTH_DIGEST'),
+    'curl_reaches_clock' => 'not tested',
     // The monthly summary e-mail: SMTP when raya-mailer-config.php has a
     // host, else the host's own mail().
     'report_mail' => is_readable($above . '/raya-mailer-config.php') ? 'SMTP config found (raya-mailer-config.php)'
@@ -115,6 +128,30 @@ $ereceipt = is_readable($here . '/qr/_lib/ereceipt-settings.php') ? include $her
 if (is_array($ereceipt)) {
     $out['qr']['ereceipt_mode'] = (isset($ereceipt['mode']) ? $ereceipt['mode'] : 'off')
         . (empty($ereceipt['eshop_number']) ? ', no NAP e-shop number yet' : ', NAP e-shop number set');
+}
+$clockSettings = is_readable($here . '/qr/_lib/clock-settings.php') ? include $here . '/qr/_lib/clock-settings.php' : null;
+if (is_array($clockSettings) && isset($clockSettings['templates']) && is_array($clockSettings['templates'])) {
+    $set = array();
+    foreach ($clockSettings['templates'] as $name => $id) {
+        if ((int) $id > 0) {
+            $set[] = $name;
+        }
+    }
+    $out['qr']['clock_templates'] = $set ? 'set for: ' . implode(', ', $set) : 'NONE set: payments are not sent (clock-settings.php)';
+}
+if (function_exists('curl_init') && !empty($qrConfig['clock_base_url'])
+    && preg_match('#^https://[a-z0-9-]+\.clock-software\.com/#', $qrConfig['clock_base_url'], $m)) {
+    // Connection only: no user or key is sent, so Clock answers 401.
+    $ch = curl_init($m[0] . 'base_api/');
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 6);
+    $ok = curl_exec($ch);
+    $out['qr']['curl_reaches_clock'] = ($ok === false)
+        ? 'NO: ' . curl_error($ch)
+        : 'yes (HTTP ' . (int) curl_getinfo($ch, CURLINFO_HTTP_CODE) . ')';
+    curl_close($ch);
 }
 if (function_exists('curl_init') && !empty($qrConfig['stripe_secret_key'])) {
     // Connection only: no key is sent, so Stripe answers 401.

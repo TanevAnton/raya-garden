@@ -152,7 +152,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 11;
+const QR_SCHEMA_VERSION = 12;
 
 function qr_db(): PDO
 {
@@ -520,6 +520,50 @@ function qr_migrate(PDO $pdo)
                 CREATE INDEX IF NOT EXISTS ereceipts_source ON ereceipts (source, source_id);
                 CREATE INDEX IF NOT EXISTS ereceipts_sale ON ereceipts (sale_id);
                 CREATE INDEX IF NOT EXISTS ereceipts_mail ON ereceipts (mail_status, mail_at);
+            ");
+        }
+        if ($version < 12) {
+            // Phone payments sent to Clock PMS+ (_lib/clock.php): kind 'sale',
+            // or 'storno' for money given back (sale_id: the sale it
+            // corrects); source 'order' or 'bill' (a bill payment) and its id.
+            // lines_json: the lines as sent, frozen. status 'pending' →
+            // 'sending' → 'done', or 'failed' (tried again at next_at),
+            // 'check' (an answer was lost and Clock cannot be asked whether
+            // the step happened: a person looks), 'manual' (entered in Clock
+            // by hand from „За касата“, never sent). step: how far it got
+            // in Clock — 1 folio made, 2 charges in, 3 payment in, 4 closed;
+            // inflight: the step whose answer has not come back yet.
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS clock_docs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    test INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    sale_id INTEGER NOT NULL DEFAULT 0,
+                    source TEXT NOT NULL,
+                    source_id INTEGER NOT NULL,
+                    code TEXT NOT NULL,
+                    payment_intent TEXT NOT NULL,
+                    evening TEXT NOT NULL DEFAULT '',
+                    lines_json TEXT NOT NULL,
+                    total_cents INTEGER NOT NULL,
+                    tip_cents INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    step INTEGER NOT NULL DEFAULT 0,
+                    inflight INTEGER NOT NULL DEFAULT 0,
+                    folio_id INTEGER NOT NULL DEFAULT 0,
+                    folio_number TEXT NOT NULL DEFAULT '',
+                    tries INTEGER NOT NULL DEFAULT 0,
+                    next_at INTEGER NOT NULL DEFAULT 0,
+                    claimed_at INTEGER NOT NULL DEFAULT 0,
+                    error TEXT NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL,
+                    done_at INTEGER NOT NULL DEFAULT 0,
+                    seq INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS clock_docs_sale ON clock_docs (source, source_id) WHERE kind = 'sale';
+                CREATE INDEX IF NOT EXISTS clock_docs_source ON clock_docs (source, source_id);
+                CREATE INDEX IF NOT EXISTS clock_docs_due ON clock_docs (status, next_at);
+                CREATE INDEX IF NOT EXISTS clock_docs_seq ON clock_docs (seq);
             ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);

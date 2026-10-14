@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Put the QR ordering system's server settings in place: the staff password
-// for rayagarden.bg/admin and, for paying on the phone, the two Stripe keys.
+// for rayagarden.bg/admin, for paying on the phone the two Stripe keys, and
+// for sending those payments to Clock PMS+ its API user and ids.
 //
 // They come from repository secrets and go into raya-qr-config.php one
 // folder ABOVE the web root (where the API looks — public/api/qr/_lib/
@@ -12,9 +13,19 @@
 //   QR_STRIPE_SECRET_KEY        → 'stripe_secret_key'   (a restricted key,
 //                                 rk_test_… / rk_live_…)
 //   QR_STRIPE_WEBHOOK_SECRET    → 'stripe_webhook_secret' (whsec_…)
+//   QR_CLOCK_MODE               → 'clock_mode'          (off | test | live)
+//   QR_CLOCK_BASE_URL           → 'clock_base_url'      (https://…clock-software.com/base_api/<sub>/<account>)
+//   QR_CLOCK_API_USER           → 'clock_api_user'
+//   QR_CLOCK_API_KEY            → 'clock_api_key'
+//   QR_CLOCK_COMPANY_ID         → 'clock_company_id'    (the company with "Accept charge transfers")
+//   QR_CLOCK_CLOSE              → 'clock_close'         (on: close the folios — the fiscal receipt)
+//   QR_CLOCK_DOCUMENT_TYPE_ID   → 'clock_document_type_id'
+//   QR_CLOCK_STORNO_DOCUMENT_TYPE_ID → 'clock_storno_document_type_id'
+//   QR_CLOCK_CURRENCY           → 'clock_currency'      (only if not EUR, e.g. BGN in Clock's sandbox)
 //
-// A secret that is not set leaves its line as it is. A Stripe secret set to
-// "off" removes its line — the system then falls back to paying staff.
+// A secret that is not set leaves its line as it is. One set to "off"
+// removes its line — for Stripe the system then falls back to paying staff,
+// for Clock payments wait on „За касата“ to be entered by hand.
 //
 // Run by .github/workflows/deploy.yml after the site is live. It downloads
 // the current file first and uploads only if something changed. The
@@ -41,9 +52,19 @@ const NAME = "raya-qr-config.php";
 const TEMP = `.up.${NAME}`;
 const MIN_LENGTH = 8;
 const STRIPE = [
-  // [secret, config key, allowed value]
-  ["QR_STRIPE_SECRET_KEY", "stripe_secret_key", /^[rs]k_(test|live)_[A-Za-z0-9]{10,}$/],
-  ["QR_STRIPE_WEBHOOK_SECRET", "stripe_webhook_secret", /^whsec_[A-Za-z0-9]{10,}$/],
+  // [secret, config key, allowed value, what it should look like]
+  ["QR_STRIPE_SECRET_KEY", "stripe_secret_key", /^[rs]k_(test|live)_[A-Za-z0-9]{10,}$/, "a Stripe API key (rk_… or sk_…)"],
+  ["QR_STRIPE_WEBHOOK_SECRET", "stripe_webhook_secret", /^whsec_[A-Za-z0-9]{10,}$/, "a Stripe webhook signing secret (whsec_…)"],
+  // Clock PMS+ (public/api/qr/_lib/clock.php). "off" removes a line, as for Stripe.
+  ["QR_CLOCK_MODE", "clock_mode", /^(test|live)$/, "test or live (or off)"],
+  ["QR_CLOCK_BASE_URL", "clock_base_url", /^https:\/\/[a-z0-9-]+\.clock-software\.com\/base_api\/\d+\/\d+$/, "https://<region>.clock-software.com/base_api/<subscription>/<account>"],
+  ["QR_CLOCK_API_USER", "clock_api_user", /^[A-Za-z0-9_.@-]{3,80}$/, "a Clock API user name"],
+  ["QR_CLOCK_API_KEY", "clock_api_key", /^[A-Za-z0-9]{16,128}$/, "a Clock API key (letters and digits)"],
+  ["QR_CLOCK_COMPANY_ID", "clock_company_id", /^\d{1,12}$/, "a Clock company id (digits)"],
+  ["QR_CLOCK_CLOSE", "clock_close", /^on$/, "on (or off)"],
+  ["QR_CLOCK_DOCUMENT_TYPE_ID", "clock_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
+  ["QR_CLOCK_STORNO_DOCUMENT_TYPE_ID", "clock_storno_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
+  ["QR_CLOCK_CURRENCY", "clock_currency", /^[A-Z]{3}$/, "a currency code such as EUR or BGN"],
 ];
 
 const line = (key) => new RegExp(`^([ \\t]*'${key}'\\s*=>\\s*)'([^'\\\\]*)',?[ \\t]*\\n?`, "m");
@@ -117,14 +138,14 @@ const { FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, QR_ADMIN_PASSWORD } = process.en
 if (!FTP_SERVER || !FTP_USERNAME || !FTP_PASSWORD) die("FTP_SERVER, FTP_USERNAME and FTP_PASSWORD are required");
 if (QR_ADMIN_PASSWORD) checkPassword(QR_ADMIN_PASSWORD);
 const stripe = [];
-for (const [secret, key, allowed] of STRIPE) {
+for (const [secret, key, allowed, looks] of STRIPE) {
   const value = (process.env[secret] || "").trim();
   if (!value) continue;
   if (value === "off") {
     stripe.push([secret, key, null]);
     continue;
   }
-  if (!allowed.test(value)) die(`${secret} does not look like a Stripe ${key === "stripe_secret_key" ? "API key (rk_… or sk_…)" : "webhook signing secret (whsec_…)"}. Nothing was changed.`);
+  if (!allowed.test(value)) die(`${secret} does not look like ${looks}. Nothing was changed.`);
   if (key === "stripe_secret_key" && value.startsWith("sk_")) {
     console.log(`::warning::${secret} is a full secret key (sk_…). Stripe recommends a restricted key (rk_…) with only Checkout Sessions and Refunds — see docs/qr-ordering/SETUP.md.`);
   }

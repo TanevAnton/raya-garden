@@ -31,7 +31,8 @@ public/api/qr/                   the PHP API (runs on the host's PHP 7.3)
   bill.php, bill-pay.php, bill-abandon.php   the table's bill ("pay at the end")
   admin/  login, logout, session, feed, order, settings, sold-out, till, bill, waiters,
           history (past evenings), export (CSV for Excel), report (monthly e-mail)
-  _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php, report.php
+  _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php, report.php,
+          clock.php (payments into Clock PMS+), clock-settings.php (its charge templates)
           (not reachable from the web)
 src/qr/menu/, menu/index.html    the guest page
 src/qr/admin/, admin/index.html  the staff page
@@ -108,6 +109,7 @@ GitHub → the repository → Settings → Secrets and variables → Actions:
 | `QR_ADMIN_PASSWORD` | the staff password, at least 8 characters (set) |
 | `QR_STRIPE_SECRET_KEY` | a **restricted** Stripe key, `rk_test_…` or `rk_live_…` (see below) |
 | `QR_STRIPE_WEBHOOK_SECRET` | the signing secret of the Stripe webhook, `whsec_…` |
+| `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "Phone payments into Clock PMS+") |
 
 After the site is live, every deploy runs the step *QR ordering settings (staff
 password, Stripe keys)*. It rewrites `raya-qr-config.php` only when a secret
@@ -204,8 +206,10 @@ before index.html switches.
    shows "Потвърждаваме плащането…" until the server has Stripe's
    confirmation; the same holds for paying a table's bill.
 6. **"За касата"** lists every paid order still to be entered in the till
-   (Clock), and every refund to void there. This system cannot reach Clock, so
-   one person enters them by hand and ticks each one off.
+   (Clock), and every refund to void there. With Clock connected (see "Phone
+   payments into Clock PMS+") they go there by themselves, and only what
+   did not get through is left to enter by hand. Without it, one person
+   enters them by hand and ticks each one off.
 
    ⚠ **Ask the accountant how the fiscal receipt works for payments taken this
    way**, before the first real evening.
@@ -288,11 +292,11 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
    - *Public details*: the statement descriptor (e.g. `RAYA GARDEN`) and the
      contact shown at the foot of receipts.
    Stripe's receipt confirms the payment; it is not the fiscal receipt, which
-   still comes from Clock ("За касата") — unless the guest's e-receipt
-   replaces it (see below).
+   comes from Clock — sent there by itself once it is connected (see "Phone
+   payments into Clock PMS+"), from „За касата“ by hand until then.
 6. The guest's e-receipt is off (see *The guest's e-receipt*). Fiscal
-   receipts for phone payments come from Clock: by hand from „За касата“
-   for now, and through Clock's API once that integration is built.
+   receipts for phone payments come from Clock: through its API (see
+   "Phone payments into Clock PMS+"), or by hand from „За касата“.
 5. Which payment methods appear is set in Stripe → Settings → Payment methods;
    cards, Apple Pay and Google Pay are on by default. The code doesn't restrict
    it, and Stripe's own page needs no domain verification for Apple Pay.
@@ -397,6 +401,93 @@ tried again from the staff screen's poll, ten minutes apart, up to 4 times.
 The guest's address is erased 3 days later, like names; the document stays.
 `/api/php-check.php` shows the mode (`ereceipt_mode`).
 
+## Phone payments into Clock PMS+
+
+Every payment Stripe confirms goes to Clock as a folio of its own:
+- one charge per line, under the charge template of its category;
+- the tip as a surcharge;
+- the card payment, with Stripe's `pi_…` as its reference.
+
+Once Clock allows it, the folio is also closed from here, and closing is
+what issues the fiscal receipt. Until then staff close it in Clock, which
+prints the receipt as for any folio. Refunds go the same way, as a storno
+folio.
+
+„За касата“ follows along:
+- a payment in Clock is ticked by itself;
+- one that could not get through shows Clock's reason, with *Опитай пак*
+  and the tick to enter it by hand;
+- folios waiting to be closed are listed under "Затвори в Clock".
+
+The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
+
+### What Clock has to set up
+
+- **An API user** for the account, with these rights:
+  - folios: create, show and close; "Folio: Close" and "Close folio with
+    outstanding balance";
+  - charges: create and index;
+  - credit items: create and index; "Payments: Add negative payment to Open
+    folio", for refunds;
+  - document types and charge templates: index;
+  - companies: index.
+  Clock's support activates it (AppConnector); the account's own users can't
+  change its rights.
+- **A company for these folios** with *Accept charge transfers* ticked. You
+  can do this yourself: Companies → New Company, e.g. „QR меню – онлайн“;
+  the toggle is on the company's page after saving. Its id is the number at
+  the end of the page's address.
+- **The document type** that makes the fiscal receipt (and its storno, if
+  different).
+- **Charge templates** for food, drinks and, if wanted, tips. Put their ids
+  in `public/api/qr/_lib/clock-settings.php`: `kitchen` and `bar` for
+  everything, and any category that needs its own. They're not secret, so
+  they live in the code; deploy after changing them.
+
+### Settings: GitHub secrets
+
+| Secret | What |
+| --- | --- |
+| `QR_CLOCK_MODE` | `test` (only Stripe test payments are sent), `live` (only real ones), or `off` |
+| `QR_CLOCK_BASE_URL` | `https://sky-eu1.clock-software.com/base_api/<subscription>/<account>` |
+| `QR_CLOCK_API_USER` | the API user |
+| `QR_CLOCK_API_KEY` | its key |
+| `QR_CLOCK_COMPANY_ID` | the company with *Accept charge transfers* |
+| `QR_CLOCK_CLOSE` | `on` to close the folios from here; leave unset until Clock has granted the right |
+| `QR_CLOCK_DOCUMENT_TYPE_ID` | what closing makes: the fiscal receipt |
+| `QR_CLOCK_STORNO_DOCUMENT_TYPE_ID` | the same for a storno, if different |
+| `QR_CLOCK_CURRENCY` | only if the account is not in EUR (Clock's sandbox is BGN only) |
+
+As for Stripe, a secret set to `off` removes its line, and nothing is ever
+printed. `php-check.php` shows:
+- `clock_mode`, `clock_configured` and `clock_close`;
+- `clock_templates`, which templates are set;
+- `curl_reaches_clock`: `yes (HTTP 401)`. The 401 is expected: the check
+  sends no key.
+
+### Test first, against Clock's sandbox
+
+1. Set the secrets to the sandbox: mode `test`, its base URL, user and key,
+   the company, and `QR_CLOCK_CURRENCY` = `BGN`. Put the sandbox's template
+   ids in `clock-settings.php` for the test only, and deploy.
+2. Pay a test order (Stripe's `4242 4242 4242 4242`). In Clock it is a new
+   folio on that company, with the lines, the tip and the card payment. On
+   „За касата“ it is ticked.
+3. Take one line off with "Няма". A storno folio appears for that line.
+4. Once Clock has granted the close right: set `QR_CLOCK_CLOSE` = `on` and
+   the document type, deploy, and pay again. The folio is closed, and on the
+   restaurant's set-up the receipt prints.
+
+### Going live
+
+Set the live account's base URL, user, key, company and document type. Put
+the live template ids in `clock-settings.php`, remove `QR_CLOCK_CURRENCY`,
+and set `QR_CLOCK_MODE` = `live` together with the live Stripe keys. Test
+payments never reach a live till, and live payments never reach the sandbox.
+
+**To turn it off:** `QR_CLOCK_MODE` = `off`, and deploy. Payments wait on
+„За касата“ to be entered by hand again; nothing is lost.
+
 ## Printing the cards
 
 `docs/qr-ordering/print/table-card-a6.pdf` is an A6 card (105 × 148 mm). Print
@@ -432,9 +523,9 @@ the phone.
 ## Running the checks
 
 ```bash
-npm run test:qr            # API: 111 tests, most of them paying against a fake Stripe (needs php with pdo_sqlite;
+npm run test:qr            # API: 126 tests, most of them paying against a fake Stripe and a fake Clock (needs php with pdo_sqlite;
                            # zbarimg, from zbar-tools, reads the e-receipt's QR code back where it is installed)
-npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 24 tests
+npm run build && npm run test:qr:e2e   # browser: guest and staff pages, 25 tests
 composer install && npm run qr:php-check   # the PHP still parses on 7.3
 ```
 

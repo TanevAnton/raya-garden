@@ -13,6 +13,11 @@
 // Only for what was paid on the phone. Every tick takes a change number, so
 // every tablet's list agrees.
 //
+// With Clock PMS+ connected (_lib/clock.php), a payment sent to Clock ticks
+// itself. A tick by hand first means it is never sent; while it is being
+// sent, or once Clock has it, a tick by hand is refused (409 clock_sending,
+// clock_done) so nothing is entered twice.
+//
 // What is entered is the net amount at the time (till_cents). A refund after
 // that — the whole order, or one line of it — leaves the entry above the
 // net: the difference is to void, and ticking it records what was voided
@@ -55,6 +60,10 @@ if (array_key_exists('paymentId', $body)) {
         if ($column === 'till_void_at' && $value && ((int) $p['till_at'] === 0 || (int) $p['till_cents'] - (int) $p['till_void_cents'] <= $net)) {
             return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
         }
+        $clock = qr_clock_hand_tick($pdo, 'bill', $paymentId, $column, $value, $now);
+        if ($clock !== '') {
+            return [409, ['ok' => false, 'error' => $clock, 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
+        }
         $seq = qr_bump_seq($pdo);
         if ($column === 'till_at') {
             $pdo->prepare('UPDATE bill_payments SET till_at = ?, till_cents = ?, till_void_at = 0, till_void_cents = 0, seq = ? WHERE id = ?')
@@ -81,6 +90,10 @@ list($status, $response) = qr_write(function (PDO $pdo) use ($id, $column, $valu
     $net = qr_order_json($order, false)['net'];
     if ($column === 'till_void_at' && $value && ((int) $order['till_at'] === 0 || (int) $order['till_cents'] - (int) $order['till_void_cents'] <= $net)) {
         return [409, ['ok' => false, 'error' => 'not_voidable', 'order' => qr_order_json($order)]];
+    }
+    $clock = qr_clock_hand_tick($pdo, 'order', $id, $column, $value, $now);
+    if ($clock !== '') {
+        return [409, ['ok' => false, 'error' => $clock, 'order' => qr_order_json($order)]];
     }
     $seq = qr_bump_seq($pdo);
     if ($column === 'till_at') {

@@ -50,9 +50,20 @@ const EVENT_DOC = {
   offerPdfs: [],
 };
 
+const ROOM_DOC = {
+  _id: "room-double",
+  slug: "double",
+  name: { bg: "Двойна стая", en: "Double room", ro: "Cameră dublă" },
+  price: 90,
+  sleeps: 2,
+  amenities: { bg: [], en: [], ro: [] },
+};
+
 const sanityAnswer = (url) => {
   const q = decodeURIComponent(url).replace(/\+/g, " ");
   if (q.includes("slug.current == $slug")) return EVENT_DOC;
+  // One room, so /hotel shows a room card and its «Резервирай» button.
+  if (q.includes('_type == "room"')) return [ROOM_DOC];
   if (q.includes('_type == "eventPage"')) return [];
   if (q.includes("[0].phone")) return "+359 896 100 100";
   // A projection with [0] returns one document; everything else is a list,
@@ -379,6 +390,93 @@ await tap(`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}?lang=bg
 await tap("/events?for=corporate mobile bar: call", "/events?for=corporate&lang=bg", 'div.fixed.bottom-0 a[href^="tel:"]');
 await tap(`/event/${OTHER_EVENT_SLUG} mobile bar: call`, `/event/${OTHER_EVENT_SLUG}?lang=bg`, 'div.fixed.bottom-0 a[href^="tel:"]');
 const barLanding = await tap(`/event/${EVENT_SLUG} mobile bar: Запитване`, `/event/${EVENT_SLUG}?lang=bg`, "div.fixed.bottom-0 button");
+
+// ── Part A: «Резервирай» — BookingIntent ─────────────────────────────
+// Every booking button is a link to /book, clicked here as it is on the
+// site (React Router then moves to /book in the same tab). Desktop and
+// phone widths, since the nav's button is a different link on each: on a
+// phone it is inside the menu.
+async function bookTap(where, path, { mobile = false, menu = false, scope = "main", text = null } = {}) {
+  const page = await open(path, { mobile });
+  if (menu) {
+    await page.click('button[aria-controls="mobile-nav"]');
+    await sleep(700);
+  }
+  await page.waitForSelector(`${scope} a[href="/book"]`, { timeout: 8000 });
+  await page.evaluate(({ scope, text }) => {
+    window.__fbqCalls.length = 0;
+    const a = [...document.querySelectorAll(`${scope} a[href="/book"]`)].find(
+      (x) => x.offsetParent !== null && (!text || x.textContent.trim().startsWith(text))
+    );
+    if (!a) throw new Error(`no visible /book link in ${scope}${text ? ` reading ${text}` : ""}`);
+    a.click();
+  }, { scope, text });
+  await sleep(800);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  bookLanded[where] = await page.evaluate(() => location.pathname);
+  await page.close();
+}
+const bookLanded = {};
+await bookTap("book: nav button on / (desktop)", "/?lang=bg", { scope: "header" });
+await bookTap("book: hero button on / (desktop)", "/?lang=bg", { text: "Резервирай престой" });
+await bookTap("book: closing button on / (desktop)", "/?lang=bg", { text: "Резервирай онлайн" });
+await bookTap("book: button on /hotel (desktop)", "/hotel?lang=bg");
+await bookTap(`book: button on /event/${EVENT_SLUG} (desktop)`, `/event/${EVENT_SLUG}?lang=bg`);
+await bookTap("book: menu button on / (phone)", "/?lang=bg", { mobile: true, menu: true, scope: "#mobile-nav" });
+await bookTap("book: hero button on / (phone)", "/?lang=bg", { mobile: true, text: "Резервирай престой" });
+await bookTap("book: button on /hotel (phone)", "/hotel?lang=bg", { mobile: true });
+await bookTap(`book: button on /event/${EVENT_SLUG} (phone)`, `/event/${EVENT_SLUG}?lang=en`, { mobile: true });
+
+// The /book form's button, which opens Clock's window (here Clock is
+// blocked, so the page falls back to a new tab — window.open is stubbed).
+async function bookSearch(where, { mobile = false } = {}) {
+  const page = await open("/book?lang=bg", { mobile });
+  await page.waitForSelector("main form button", { timeout: 8000 });
+  await page.evaluate(() => {
+    window.open = () => null;
+    window.__fbqCalls.length = 0;
+    document.querySelector("main form button").click();
+  });
+  await sleep(500);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  await page.close();
+}
+await bookSearch("book: /book form (desktop)");
+await bookSearch("book: /book form (phone)", { mobile: true });
+
+// A link straight to Clock's engine, as one added in Sanity would be: in
+// the same tab the navigation waits 150 ms for the pixel, in a new tab it
+// is left alone. The events are read in the same tick as the click — the
+// held navigation then goes to Clock, which is blocked here.
+async function clockLink(where, target) {
+  const page = await open("/hotel?lang=bg");
+  let navigated = false;
+  page.on("request", (req) => {
+    if (req.isNavigationRequest() && req.url().includes("clock-software.com")) navigated = true;
+  });
+  const got = await page.evaluate((target) => {
+    window.__fbqCalls.length = 0;
+    const a = document.createElement("a");
+    a.href = "https://sky-eu1.clock-software.com/spa/pms-wbe/#/hotel/15003";
+    if (target) a.target = target;
+    a.textContent = "Резервирай";
+    document.querySelector("main").appendChild(a);
+    let held = null;
+    a.addEventListener("click", (e) => {
+      held = e.defaultPrevented;
+      e.preventDefault(); // no new tab from the test itself
+    }, { once: true });
+    a.click();
+    return { held, calls: window.__fbqCalls.slice() };
+  }, target);
+  await sleep(600);
+  record(where, got.calls);
+  clockLinks[where] = { held: got.held, navigated };
+  await page.close();
+}
+const clockLinks = {};
+await clockLink("book: link to Clock, same tab, on /hotel", null);
+await clockLink("book: link to Clock, new tab, on /hotel", "_blank");
 
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
@@ -752,6 +850,72 @@ for (const where of [
 ]) {
   if (!rows.some((r) => r.where === where && r.event === "EventEnquiry")) console.log(`no EventEnquiry, correctly: ${where}`);
 }
+
+// BookingIntent: exactly once per «Резервирай» tap or /book search, with
+// exactly these params — and nowhere else in the run.
+const BOOKING_FIRES = {
+  "book: nav button on / (desktop)": { page: "/", source: "button" },
+  "book: hero button on / (desktop)": { page: "/", source: "button" },
+  "book: closing button on / (desktop)": { page: "/", source: "button" },
+  "book: button on /hotel (desktop)": { page: "/hotel", source: "button" },
+  [`book: button on /event/${EVENT_SLUG} (desktop)`]: { page: `/event/${EVENT_SLUG}`, source: "button" },
+  "book: menu button on / (phone)": { page: "/", source: "button" },
+  "book: hero button on / (phone)": { page: "/", source: "button" },
+  "book: button on /hotel (phone)": { page: "/hotel", source: "button" },
+  [`book: button on /event/${EVENT_SLUG} (phone)`]: { page: `/event/${EVENT_SLUG}`, source: "button" },
+  "book: /book form (desktop)": { page: "/book", source: "search" },
+  "book: /book form (phone)": { page: "/book", source: "search" },
+  "book: link to Clock, same tab, on /hotel": { page: "/hotel", source: "button" },
+  "book: link to Clock, new tab, on /hotel": { page: "/hotel", source: "button" },
+};
+// PhoneClick: beside Contact, for every tel: link tapped — exactly once —
+// and for nothing else.
+const PHONE_FIRES = {};
+for (const c of CONTACT_CASES) {
+  if ((c.href || "").startsWith("tel:") || (c.real || "").includes('"tel:"')) {
+    PHONE_FIRES[c.where] = { page: new URL(c.path, "http://x").pathname };
+  }
+}
+for (const [where, path] of [
+  ["/events enquiry call button", "/events"],
+  ["/events mobile bar: call", "/events"],
+  [`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}`],
+  ["/events?for=corporate mobile bar: call", "/events"],
+  [`/event/${OTHER_EVENT_SLUG} mobile bar: call`, `/event/${OTHER_EVENT_SLUG}`],
+]) {
+  PHONE_FIRES[where] = { page: path };
+}
+for (const [name, FIRES] of [["BookingIntent", BOOKING_FIRES], ["PhoneClick", PHONE_FIRES]]) {
+  const wheres = new Set([...rows.map((r) => r.where), ...Object.keys(FIRES)]);
+  let fired = 0;
+  for (const where of wheres) {
+    const got = rows.filter((r) => r.where === where && r.event === name);
+    const want = FIRES[where];
+    if (!want) {
+      if (got.length) failures.push(`${where}: ${name} fired ${got.length} time(s) — it must not`);
+      continue;
+    }
+    if (got.length !== 1) {
+      failures.push(`${where}: ${name} fired ${got.length} time(s), expected exactly 1`);
+      continue;
+    }
+    if (got[0].kind !== "trackCustom") failures.push(`${where}: ${name} sent with fbq('${got[0].kind}'), expected trackCustom`);
+    if (JSON.stringify(got[0].params) !== JSON.stringify(want)) {
+      failures.push(`${where}: ${name} params ${JSON.stringify(got[0].params)}, expected ${JSON.stringify(want)}`);
+    } else fired++;
+  }
+  console.log(`${name}: exactly once with the right params at ${fired}/${Object.keys(FIRES).length} actions, and nowhere else`);
+}
+for (const [where, landed] of Object.entries(bookLanded)) {
+  if (landed !== "/book") failures.push(`${where}: landed on ${landed}, expected /book`);
+}
+const sameTab = clockLinks["book: link to Clock, same tab, on /hotel"];
+if (!sameTab?.held) failures.push("a same-tab link to Clock was not held for the pixel");
+if (!sameTab?.navigated) failures.push("a same-tab link to Clock never went on to Clock");
+if (clockLinks["book: link to Clock, new tab, on /hotel"]?.held) {
+  failures.push("a new-tab link to Clock was held — it should be left alone");
+}
+console.log(`link to Clock: same tab held then followed ${sameTab?.held && sameTab?.navigated ? "yes" : "NO"}; new tab left alone ${clockLinks["book: link to Clock, new tab, on /hotel"]?.held === false ? "yes" : "NO"}`);
 
 // The one that silently ruins reported revenue.
 const purchase = find("Purchase", "clock: completed");

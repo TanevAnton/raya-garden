@@ -462,8 +462,8 @@ As for Stripe, a secret set to `off` removes its line, and nothing is ever
 printed. `php-check.php` shows:
 - `clock_mode`, `clock_configured` and `clock_close`;
 - `clock_templates`, which templates are set;
-- `curl_reaches_clock`: `yes (HTTP 401)`. The 401 is expected: the check
-  sends no key.
+- `curl_reaches_clock`: `yes (HTTP 404)` (or 401). Any answer means the
+  server reaches Clock: the check sends no key and asks for no real page.
 
 ### Test first, against Clock's sandbox
 

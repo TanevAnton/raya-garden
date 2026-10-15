@@ -4,7 +4,12 @@
 //   - a company that does not "Accept charge transfers" refuses charges:
 //     500 {"error": "<name> does not accept charges!"};
 //   - a right the API user lacks: 403 {"error": "The User doesn't have <right> right"};
-//   - at most 100 charges a bulk call: {"error": "Charges exceeds the limit!"}.
+//   - at most 100 charges a bulk call: {"error": "Charges exceeds the limit!"};
+//   - a folio that does not balance is not closed without the right to;
+//     a correction folio linked to its original (client_folio_id) counts as
+//     balanced — what Clock described for a storno (15.10.2026);
+//   - a negative payment on an open folio needs its own right; on a closed
+//     one it is taken.
 // And what a test needs: a failure on the next call to a path, or an answer
 // lost after the work was done (the connection dropped), and a count of
 // calls over Clock's 5 a second.
@@ -58,6 +63,7 @@ export async function startFakeClock({ user = "api_user_test", key = "api_key_te
     id: f.id,
     number: f.number,
     payer_id: f.company,
+    client_folio_id: f.clientFolio,
     currency: f.currency,
     closed_at: f.closedAt,
     document_type_id: f.documentType,
@@ -106,7 +112,7 @@ export async function startFakeClock({ user = "api_user_test", key = "api_key_te
     if (req.method === "POST" && (m = path.match(/^\/companies\/(\d+)\/folios$/))) {
       const company = known[m[1]];
       if (!company) return json(res, 404, { error: "Record not found" });
-      const f = { id: ++nextFolio, number: `FL-${nextNumber++}`, company: Number(m[1]), currency: body.company_folio?.currency || "EUR", charges: [], credits: [], closedAt: null, documentType: null };
+      const f = { id: ++nextFolio, number: `FL-${nextNumber++}`, company: Number(m[1]), currency: body.company_folio?.currency || "EUR", clientFolio: body.company_folio?.client_folio_id ?? null, charges: [], credits: [], closedAt: null, documentType: null };
       folios.set(f.id, f);
       return answer(200, folioJson(f));
     }
@@ -141,7 +147,7 @@ export async function startFakeClock({ user = "api_user_test", key = "api_key_te
       if (req.method === "POST" && rest === "/credit_items") {
         const c = body.credit_item || {};
         const value = Math.round(Number(c.value) * 100);
-        if (value < 0 && denied.has("Payments: Add negative payment to Open folio")) {
+        if (value < 0 && !f.closedAt && denied.has("Payments: Add negative payment to Open folio")) {
           return json(res, 500, { error: "The User doesn't have the following right granted:\nPayments: Add negative payment to Open folio" });
         }
         const item = { id: nextCharge++, folio_id: f.id, value_cents: value, currency: c.currency, text: c.text, payment_type: c.payment_type, reference: c.reference ?? null, voided_at: null };
@@ -153,6 +159,10 @@ export async function startFakeClock({ user = "api_user_test", key = "api_key_te
         const no = deny("base_api_folios_close");
         if (no) return json(res, 403, no);
         if (f.closedAt) return json(res, 422, { error: "Folio is already closed" });
+        const balance = f.charges.reduce((s, c) => s + c.price_cents * c.qty, 0) - f.credits.reduce((s, c) => s + c.value_cents, 0);
+        if (balance !== 0 && !f.clientFolio && denied.has("Folio: Close folio with outstanding balance")) {
+          return json(res, 400, { error: "The User doesn't have right: 'Folio: Close folio with outstanding balance'" });
+        }
         f.closedAt = new Date().toISOString();
         f.documentType = body.document_type_id ?? null;
         return answer(200, folioJson(f));

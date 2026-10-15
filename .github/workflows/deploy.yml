@@ -159,6 +159,8 @@ jobs:
           QR_CLOCK_DOCUMENT_TYPE_ID: ${{ secrets.QR_CLOCK_DOCUMENT_TYPE_ID }}
           QR_CLOCK_STORNO_DOCUMENT_TYPE_ID: ${{ secrets.QR_CLOCK_STORNO_DOCUMENT_TYPE_ID }}
           QR_CLOCK_CURRENCY: ${{ secrets.QR_CLOCK_CURRENCY }}
+          QR_CLOCK_PAYMENT_TYPE: ${{ secrets.QR_CLOCK_PAYMENT_TYPE }}
+          QR_CLOCK_PAYMENT_SUB_TYPE: ${{ secrets.QR_CLOCK_PAYMENT_SUB_TYPE }}
         run: |
           command -v php >/dev/null || sudo apt-get install -y -qq php-cli
           node scripts/qr-server-config.mjs

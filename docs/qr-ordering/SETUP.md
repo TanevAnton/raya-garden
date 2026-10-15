@@ -424,11 +424,12 @@ The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
 ### What Clock has to set up
 
 - **An API user** for the account, with these rights:
-  - folios: create, show and close; "Folio: Close" and "Close folio with
-    outstanding balance";
-  - charges: create and index;
-  - credit items: create and index; "Payments: Add negative payment to Open
-    folio", for refunds;
+  - folios: create, show and close ("Folio: Close"). Not "Close folio with
+    outstanding balance": Clock advises against closing folios that don't
+    balance, and these always do;
+  - charges: create and index (the index is how a lost answer is checked);
+  - credit items: create and index (refunds go on the sale's folio,
+    usually closed by then);
   - document types and charge templates: index;
   - companies: index.
   Clock's support activates it (AppConnector); the account's own users can't
@@ -438,7 +439,10 @@ The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
   the toggle is on the company's page after saving. Its id is the number at
   the end of the page's address.
 - **The document type** that makes the fiscal receipt (and its storno, if
-  different).
+  different), in an account with Bulgarian fiscalisation: closing a folio
+  with it sends the receipt to the fiscal printer.
+- **The payment type** (and sub-type) that the printer fiscalises for card
+  payments: see `GET /payment_sub_types`.
 - **Charge templates** for food, drinks and, if wanted, tips. Put their ids
   in `public/api/qr/_lib/clock-settings.php`: `kitchen` and `bar` for
   everything, and any category that needs its own. They're not secret, so
@@ -457,6 +461,8 @@ The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
 | `QR_CLOCK_DOCUMENT_TYPE_ID` | what closing makes: the fiscal receipt |
 | `QR_CLOCK_STORNO_DOCUMENT_TYPE_ID` | the same for a storno, if different |
 | `QR_CLOCK_CURRENCY` | only if the account is not in EUR (Clock's sandbox is BGN only) |
+| `QR_CLOCK_PAYMENT_TYPE` | what the card payment is booked as; `card` if unset |
+| `QR_CLOCK_PAYMENT_SUB_TYPE` | its sub-type, one the fiscal printer fiscalises |
 
 As for Stripe, a secret set to `off` removes its line, and nothing is ever
 printed. `php-check.php` shows:
@@ -473,7 +479,9 @@ printed. `php-check.php` shows:
 2. Pay a test order (Stripe's `4242 4242 4242 4242`). In Clock it is a new
    folio on that company, with the lines, the tip and the card payment. On
    „За касата“ it is ticked.
-3. Take one line off with "Няма". A storno folio appears for that line.
+3. Take one line off with "Няма". The money goes back on the sale's folio,
+   and a correction folio appears for that line. (Until Clock tells us how
+   to link it, closing it is refused and it waits on „За касата“.)
 4. Once Clock has granted the close right: set `QR_CLOCK_CLOSE` = `on` and
    the document type, deploy, and pay again. The folio is closed, and on the
    restaurant's set-up the receipt prints.

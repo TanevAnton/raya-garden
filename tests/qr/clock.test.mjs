@@ -299,7 +299,7 @@ describe("Clock PMS+: entered by hand", () => {
 });
 
 describe("Clock PMS+: refunds", () => {
-  it("one line taken off, then the whole order: a storno folio for each, at negative quantities, with the money given back", async () => {
+  it("one line taken off, then the whole order: the money back on the sale's folio, then a correction folio linked to it, at negative quantities", async () => {
     const admin = await setUp();
     const C = price("caesar", "chicken");
     const S = price("coca-cola-products");
@@ -311,9 +311,15 @@ describe("Clock PMS+: refunds", () => {
     await settle();
     let [sale, storno] = docs();
     assert.deepEqual([storno.kind, storno.sale_id, storno.status, storno.total_cents, storno.folio_number], ["storno", sale.id, "done", S, "FL-2"]);
+    const [saleFolio] = folios();
     let f = folios()[1];
+    assert.equal(f.clientFolio, saleFolio.id, "linked to the sale's folio");
     assert.deepEqual(f.charges.map((c) => [c.qty, c.price_cents, c.charge_template_id]), [[-1, S, T.bar]]);
-    assert.deepEqual(f.credits.map((c) => [c.value_cents, c.reference]), [[-S, `${pi} #${storno.id}`]]);
+    assert.deepEqual(f.credits, [], "the money goes back on the sale's folio, not here");
+    assert.deepEqual(saleFolio.credits.map((c) => [c.value_cents, c.reference]), [[C + 3 * S + 100, pi], [-S, `${pi} #${storno.id}`]]);
+    // Clock wants the money back in the original before the correction document.
+    const order = clock.requests.map((r) => `${r.method} ${r.path}`).filter((x) => !x.startsWith("GET"));
+    assert.ok(order.lastIndexOf(`POST /folios/${saleFolio.id}/credit_items`) < order.lastIndexOf("POST /companies/500/folios"), "refund first, then the correction folio");
     assert.ok(f.closedAt);
     assert.deepEqual([row(id).till_cents, row(id).till_void_cents], [C + 3 * S, S], "„За касата“: voided in Clock");
 
@@ -324,7 +330,9 @@ describe("Clock PMS+: refunds", () => {
     f = folios()[2];
     assert.ok(f, JSON.stringify([all.map((d) => [d.kind, d.status, d.total_cents, d.error, d.step]), folios().length]));
     assert.deepEqual(f.charges.map((c) => [c.qty, c.price_cents]), [[-1, C], [-2, S], [-1, 100]], "what was left, tip included");
-    assert.equal(f.credits[0].value_cents, -(C + 2 * S + 100));
+    assert.equal(f.clientFolio, saleFolio.id);
+    assert.equal(saleFolio.credits.at(-1).value_cents, -(C + 2 * S + 100));
+    assert.equal(saleFolio.credits.reduce((s, c) => s + c.value_cents, 0), 0, "all the card money given back, on the sale's folio");
     const net = folios().reduce((s, x) => s + x.charges.reduce((t, c) => t + c.qty * c.price_cents, 0), 0);
     assert.equal(net, 0, "everything paid is undone in Clock, once");
     assert.deepEqual([row(id).till_cents, row(id).till_void_cents], [C + 3 * S, C + 3 * S]);
@@ -358,6 +366,15 @@ describe("Clock PMS+: switches", () => {
     const shown = (await admin.get("/api/qr/admin/feed.php?since=0")).body;
     assert.deepEqual([shown.clockDocs[0].closed, shown.clockDocs[0].folio, shown.clock.closes], [false, "FL-1", false]);
     assert.equal(clock.calls("POST", /\/close$/).length, 0);
+  });
+
+  it("the card payment is booked as the payment type the fiscal printer is set up for", async () => {
+    await setUp();
+    srv.config({ clock_payment_type: "card", clock_payment_sub_type: "Stripe онлайн" });
+    await paid(4, [["tiramisu"]]);
+    const [call] = clock.calls("POST", /\/credit_items$/);
+    assert.deepEqual([call.body.credit_item.payment_type, call.body.credit_item.payment_sub_type], ["card", "Stripe онлайн"]);
+    srv.config({ clock_payment_type: null, clock_payment_sub_type: null });
   });
 
   it("test payments never reach a live till, and off is off", async () => {

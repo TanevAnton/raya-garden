@@ -685,12 +685,16 @@ folios under "Затвори в Clock".
   `qr_ereceipt_returned()` give a sale's lines and what went back. They
   don't depend on the e-receipt being on, so Clock and the (switched-off)
   e-receipt can never disagree.
-- **Refunds are storno folios.** Clock's guide voids transferred charges
-  with the same charge at a negative quantity, and says this works even on
-  a closed folio. A refund gets a folio of its own: exactly the lines that
-  went back, negative, plus the card money given back, then closed. It waits
-  until its sale is in Clock. Giving card money back needs the right
-  "Payments: Add negative payment to Open folio".
+- **Refunds the way Clock advised (15.10.2026).** For a storno receipt,
+  Clock's order is:
+  1. the card money given back, as a negative payment on the **sale's**
+     folio (taken on a closed folio too);
+  2. a correction folio linked to the sale's by `client_folio_id`, with
+     exactly the lines that went back at negative quantities;
+  3. closed with the document type.
+  A refund waits until its sale is in Clock. A full refund could instead be
+  an annulment (`DELETE /folios/{id}`), but one way for every refund is
+  simpler.
 - **Templates by category, not by dish.** 172 dishes in 25 categories, and
   Clock wants a few templates for its reports and accounting codes. Each
   charge carries the dish's own name. `clock-settings.php` maps the kitchen,
@@ -722,15 +726,36 @@ folios under "Затвори в Clock".
 - OPcache served a settings file the tests had just rewritten, so it's off
   in tests.
 
-### Still open (questions sent to Clock, 14.10.2026)
+### Clock's answers (15.10.2026)
 
-- Which `document_type_id` is the fiscal receipt, and which is its storno.
-- The rights for the live API user, and whether the live account needs one
-  at all, or a POS account of its own.
-- The charge templates for food, drinks and tips, and their VAT. Folios made
-  through the API come back `tax_mode: "no_tax"` in the sandbox.
-- Whether a refund should be a new folio, as built, or a correction on the
-  original one.
+- **Closing prints.** In an account with Bulgarian fiscalisation, closing a
+  folio with a document type set to fiscalise sends the receipt to the
+  fiscal printer by itself. In the sandbox (no fiscalisation) the close
+  works: FL-57 and FL-63 closed through the API.
+- **Templates** should carry every fixed attribute, so a charge sends only
+  what varies: price, quantity, name, print text. That's how it's built.
+- **The payment** must be booked as a payment type the printer is set up
+  to fiscalise. `clock_payment_type` and `clock_payment_sub_type` say which
+  (see `GET /payment_sub_types`).
+- **Don't close folios that don't balance**: fiscalising them needs a
+  person afterwards. A sale's folio always balances (lines + tip = payment).
+- **Their POS account and end-of-day transfer** are for a full restaurant
+  POS (payment on the spot, transfers to rooms and companies). This isn't
+  one: only payments made on the phone, each its own folio.
+
+### Still open
+
+- **How to set `client_folio_id`** when making the correction folio. Inside
+  `company_folio`, or beside it, Clock answers `null`. Unlinked, the
+  correction folio doesn't balance, and closing it is refused. Until Clock
+  says, a refund stops at its close with that reason, and staff void it by
+  hand from „За касата“. The sandbox run is FL-63 (sale, closed) and FL-64
+  (correction, open).
+- The live account: its API user and rights, the fiscal document type, the
+  payment type that fiscalises card payments, and which fiscal printer an
+  API close prints on (the restaurant's, not reception's).
+- The real charge templates and their VAT. Folios made through the API come
+  back `tax_mode: "no_tax"` in the sandbox.
 
 ## Left out on purpose
 

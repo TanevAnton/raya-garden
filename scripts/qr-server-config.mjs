@@ -22,6 +22,8 @@
 //   QR_CLOCK_DOCUMENT_TYPE_ID   → 'clock_document_type_id'
 //   QR_CLOCK_STORNO_DOCUMENT_TYPE_ID → 'clock_storno_document_type_id'
 //   QR_CLOCK_CURRENCY           → 'clock_currency'      (only if not EUR, e.g. BGN in Clock's sandbox)
+//   QR_CLOCK_PAYMENT_TYPE       → 'clock_payment_type'  (default card)
+//   QR_CLOCK_PAYMENT_SUB_TYPE   → 'clock_payment_sub_type' (one the fiscal printer fiscalises)
 //
 // A secret that is not set leaves its line as it is. One set to "off"
 // removes its line — for Stripe the system then falls back to paying staff,
@@ -65,6 +67,8 @@ const STRIPE = [
   ["QR_CLOCK_DOCUMENT_TYPE_ID", "clock_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
   ["QR_CLOCK_STORNO_DOCUMENT_TYPE_ID", "clock_storno_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
   ["QR_CLOCK_CURRENCY", "clock_currency", /^[A-Z]{3}$/, "a currency code such as EUR or BGN"],
+  ["QR_CLOCK_PAYMENT_TYPE", "clock_payment_type", /^[a-z_]{2,40}$/, "a Clock payment type such as card"],
+  ["QR_CLOCK_PAYMENT_SUB_TYPE", "clock_payment_sub_type", /^[^'\\\n]{1,60}$/, "a Clock payment sub-type name (no quotes or backslashes)"],
 ];
 
 const line = (key) => new RegExp(`^([ \\t]*'${key}'\\s*=>\\s*)'([^'\\\\]*)',?[ \\t]*\\n?`, "m");

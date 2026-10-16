@@ -1,24 +1,27 @@
 <?php
-// Phone payments into Clock PMS+, so Clock issues the fiscal receipt.
+// Phone payments into Clock PMS+: the items, so staff only close the folio.
 //
 // Every payment Stripe confirms (an order paid on the phone, or a payment
-// from a table's bill) becomes a sale in Clock: a folio of its own on the
-// company configured for it, with
+// from a table's bill) becomes a folio of its own in Clock, on the company
+// configured for it ("Accept charge transfers" ticked), with its items:
 //
 //   1. POST /companies/{company}/folios         the folio
-//   2. POST /folios/{id}/charges/bulk           a charge per line, the tip apart
-//   3. POST /folios/{id}/credit_items           the card payment, Stripe's pi_…
-//   4. POST /folios/{id}/close                  closed: the fiscal receipt
+//   2. POST /folios/{id}/charges/bulk           a charge per line, the tip as a surcharge
 //
-// Step 4 only when 'clock_close' is on. Until then the folio waits, paid, for
-// staff to close it in Clock (which prints the receipt as it does for any
-// folio), and „За касата“ says which one.
+// That is all this system sends. The waiter opens the folio in Clock, adds the
+// card payment (the folio's total is exactly what the guest paid) and closes
+// it, and Clock prints the fiscal receipt as for any folio closed at the till.
+// Collecting the money and fiscalising it stay with the restaurant, as Clock
+// asked (15.10.2026); this only saves typing the items. „За касата“ lists the
+// folios to close and staff tick each one ("Затворих го ✓").
 //
 // Money given back (a line taken off, an order cancelled, a refund in
-// Stripe's Dashboard, a line of a bill someone else paid first) becomes a
-// storno, as Clock advised (15.10.2026): the card money given back as a
-// negative payment on the sale's folio, then a correction folio linked to it
-// (client_folio_id) with the same charges at a negative quantity, closed.
+// Stripe's Dashboard, a line of a bill someone else paid first):
+//   - while the folio is still open: the same items at a negative quantity
+//     on that folio — Clock's own way to void transferred charges — so the
+//     waiter closes it at what was actually paid;
+//   - once it is closed (the receipt is printed): nothing is sent; the
+//     storno is done in Clock by hand, from "Сторнирай в Clock" on „За касата“.
 //
 // When. The row is queued in the same transaction that records the payment
 // or the refund (qr_clock_sale, qr_clock_refunds), so it can never be lost
@@ -32,19 +35,18 @@
 //     so two requests never send the same one;
 //   - each step is saved as soon as Clock answers, and a retry goes on from
 //     the next step;
-//   - before a step whose answer never came back (timeout, lost
-//     connection) is sent again, Clock is asked whether it happened: the
-//     charges carry "QR <code> #<doc>" in print_text, the payment carries
-//     the pi_… reference, a closed folio has closed_at. Where Clock cannot be
-//     asked (no right to read charges), the row stops at 'check' for a
-//     person, instead of risking a second charge.
+//   - before charges whose answer never came back (timeout, lost connection)
+//     are sent again, Clock is asked whether they arrived: each carries
+//     "QR <code> #<row>" in print_text. Where Clock cannot be asked (no right
+//     to read charges), the row stops at 'check' for a person, instead of
+//     risking a second charge.
 //   - A folio whose making was never confirmed is left empty in Clock; an
 //     empty open folio is harmless.
 //
-// „За касата“ stays the fallback: a sale done in Clock ticks its order or
-// payment as entered there; a storno done ticks it as voided. One ticked by
-// hand before it was sent is never sent ('manual'). One that fails waits there
-// with Clock's reason and *Опитай пак*.
+// „За касата“ stays the fallback: a sale whose items are in Clock is ticked
+// as entered; a refund put on the open folio is ticked as voided. One ticked
+// by hand before it was sent is never sent ('manual'). One that fails waits
+// there with Clock's reason and *Опитай пак*.
 //
 // Configuration (raya-qr-config.php, above the web root; written by the
 // deploy from GitHub secrets — see docs/qr-ordering/SETUP.md):
@@ -54,15 +56,8 @@
 //                             reaches the real till.
 //   'clock_base_url'          https://sky-eu1.clock-software.com/base_api/{subscription}/{account}
 //   'clock_api_user', 'clock_api_key'   HTTP Digest
-//   'clock_company_id'        the company the folios are made on ("Accept
-//                             charge transfers" ticked in Clock)
-//   'clock_close'             'on' to close the folios here (step 4)
-//   'clock_document_type_id'  what closing makes (the fiscal receipt)
-//   'clock_storno_document_type_id'  the same for a storno, if different
+//   'clock_company_id'        the company the folios are made on
 //   'clock_currency'          overrides clock-settings.php ('BGN' in the sandbox)
-//   'clock_payment_type', 'clock_payment_sub_type'   what the card payment is
-//                             booked as ('card', ''): one the fiscal printer
-//                             is set up to fiscalise (GET /payment_sub_types)
 // Which charge template each menu category goes under: clock-settings.php.
 //
 // ⚠ PHP 7.3 on the production host — see core.php.
@@ -117,13 +112,6 @@ function qr_clock_mode(): string
     }
     $test = qr_stripe_test_mode();
     return ($mode === 'test') === $test ? $mode : '';
-}
-
-/** Close the folios here (step 4), or leave them for staff to close in Clock. */
-function qr_clock_closes(): bool
-{
-    $config = qr_config();
-    return (string) ($config['clock_close'] ?? '') === 'on' && (int) ($config['clock_document_type_id'] ?? 0) > 0;
 }
 
 function qr_clock_currency(): string
@@ -664,18 +652,13 @@ function qr_clock_unmapped(array $doc): array
 
 /**
  * Take a row through Clock, from the step it got to. Returns [status,
- * error]: 'done', 'failed' or 'check'.
+ * error]: 'done', 'failed', 'check' or 'manual'.
  *
- *   a sale     1 its folio · 2 the charges · 3 the card payment · 4 closed
- *   a storno   1 the money given back: a negative card payment on the
- *                sale's folio — Clock wants it there, before the correction
- *                document (their answer, 15.10.2026)
- *              2 a correction folio, linked to the sale's (client_folio_id)
- *              3 the lines that went back, at negative quantities
- *              4 closed: the storno receipt
- *
- * Step 4 only when 'clock_close' is on. A step whose answer was lost
- * ('inflight') is looked up in Clock before it is sent again.
+ *   a sale     1 its folio · 2 the items (the tip with them) → done; staff
+ *              then close it in Clock ("Затворих го ✓" makes it step 3)
+ *   a storno   the items that went back, at negative quantities, on the
+ *              sale's folio — only while that folio is open; a closed one
+ *              is left to staff ('manual')
  */
 function qr_clock_push(array $doc): array
 {
@@ -683,45 +666,72 @@ function qr_clock_push(array $doc): array
     if ($missing) {
         return ['failed', 'no charge template for: ' . implode(', ', $missing) . ' (clock-settings.php)'];
     }
-    $storno = $doc['kind'] === 'storno';
-    $steps = $storno ? ['refund', 'folio', 'charges', 'close'] : ['folio', 'charges', 'payment', 'close'];
-    $state = ['folio' => (int) $doc['folio_id'], 'number' => (string) $doc['folio_number'], 'sale_folio' => 0, 'sale_number' => ''];
-    if ($storno) {
-        $find = qr_db()->prepare('SELECT folio_id, folio_number FROM clock_docs WHERE id = ?');
-        $find->execute([(int) $doc['sale_id']]);
-        $sale = $find->fetch();
-        $find->closeCursor();
-        if (!is_array($sale) || (int) $sale['folio_id'] === 0) {
-            return ['failed', 'its sale is not in Clock'];
-        }
-        $state['sale_folio'] = (int) $sale['folio_id'];
-        $state['sale_number'] = (string) $sale['folio_number'];
+    $lost = (int) $doc['inflight'] > 0;
+    if ($doc['kind'] === 'storno') {
+        return qr_clock_push_storno($doc, $lost);
     }
-    for ($i = (int) $doc['step']; $i < 4; $i++) {
-        $name = $steps[$i];
-        if ($name === 'close' && !qr_clock_closes()) {
-            break;
-        }
-        $lost = (int) $doc['inflight'] === $i + 1;
-        $doc['inflight'] = 0; // only the step the row stopped at can have lost its answer
-        list($status, $error) = qr_clock_step($name, $doc, $state, $i + 1, $lost);
+    $state = ['folio' => (int) $doc['folio_id'], 'number' => (string) $doc['folio_number']];
+    if ((int) $doc['step'] < 1) {
+        list($status, $error) = qr_clock_step('folio', $doc, $state, 1, false);
         if ($status !== '') {
             return [$status, $error];
         }
-        qr_clock_progress((int) $doc['id'], ['step' => $i + 1, 'inflight' => 0]);
+        qr_clock_progress((int) $doc['id'], ['step' => 1, 'inflight' => 0]);
+        $lost = false;
+    }
+    if ((int) $doc['step'] < 2) {
+        list($status, $error) = qr_clock_step('charges', $doc, $state, 2, $lost);
+        if ($status !== '') {
+            return [$status, $error];
+        }
+        qr_clock_progress((int) $doc['id'], ['step' => 2, 'inflight' => 0]);
     }
     return ['done', ''];
 }
 
+/** A refund: on the sale's folio while it is open; once closed, for staff to storno in Clock. */
+function qr_clock_push_storno(array $doc, bool $lost): array
+{
+    $find = qr_db()->prepare('SELECT folio_id, folio_number, step FROM clock_docs WHERE id = ?');
+    $find->execute([(int) $doc['sale_id']]);
+    $sale = $find->fetch();
+    $find->closeCursor();
+    if (!is_array($sale) || (int) $sale['folio_id'] === 0) {
+        return ['failed', 'its sale is not in Clock'];
+    }
+    $closedHere = 'folio ' . $sale['folio_number'] . ' is closed: storno it in Clock';
+    if ((int) $sale['step'] >= 3) {
+        return ['manual', $closedHere];
+    }
+    if (!$lost) {
+        // Staff may have closed it in Clock without ticking it here.
+        list($status, $folio) = qr_clock_call('GET', '/folios/' . (int) $sale['folio_id']);
+        if (!qr_clock_ok($status)) {
+            return ['failed', qr_clock_reason($status, $folio)];
+        }
+        if (!empty($folio['closed_at'])) {
+            qr_clock_progress((int) $doc['sale_id'], ['step' => 3]);
+            return ['manual', $closedHere];
+        }
+    }
+    $state = ['folio' => (int) $sale['folio_id'], 'number' => (string) $sale['folio_number']];
+    qr_clock_progress((int) $doc['id'], ['folio_id' => $state['folio'], 'folio_number' => $state['number']]);
+    list($status, $error) = qr_clock_step('charges', $doc, $state, 1, $lost);
+    if ($status !== '') {
+        return [$status, $error];
+    }
+    qr_clock_progress((int) $doc['id'], ['step' => 1, 'inflight' => 0]);
+    return ['done', ''];
+}
+
 /**
- * One step of a row (see qr_clock_push). $state carries the folios between
- * steps. Returns ['', ''] when done, else [status, error].
+ * One step of a row (see qr_clock_push): 'folio' or 'charges'. $state
+ * carries the folio. Returns ['', ''] when done, else [status, error].
  */
 function qr_clock_step(string $name, array $doc, array &$state, int $number, bool $lost): array
 {
     $id = (int) $doc['id'];
     $config = qr_config();
-    $storno = $doc['kind'] === 'storno';
     // Send it, remembering it is on its way: no answer (status 0) leaves that
     // mark, so the next try looks in Clock first.
     $send = function (string $method, string $path, $body) use ($id, $number) {
@@ -735,11 +745,8 @@ function qr_clock_step(string $name, array $doc, array &$state, int $number, boo
 
     if ($name === 'folio') {
         // One whose making never answered is left behind in Clock, empty.
-        $folio = ['currency' => qr_clock_currency()];
-        if ($storno) {
-            $folio['client_folio_id'] = $state['sale_folio'];
-        }
-        list($status, $body) = $send('POST', '/companies/' . (int) $config['clock_company_id'] . '/folios', ['company_folio' => $folio]);
+        list($status, $body) = $send('POST', '/companies/' . (int) $config['clock_company_id'] . '/folios',
+            ['company_folio' => ['currency' => qr_clock_currency()]]);
         if (!qr_clock_ok($status) || empty($body['id'])) {
             qr_clock_progress($id, ['inflight' => 0]);
             return ['failed', qr_clock_reason($status, $body)];
@@ -750,72 +757,24 @@ function qr_clock_step(string $name, array $doc, array &$state, int $number, boo
         return ['', ''];
     }
 
-    if ($name === 'charges') {
-        $charges = qr_clock_charges($doc);
-        $already = 0;
-        if ($lost) {
-            list($status, $found) = qr_clock_call('GET', '/folios/' . $state['folio'] . '/charges');
-            if (!qr_clock_ok($status)) {
-                return ['check', 'charges may have reached folio ' . $state['number'] . ' — check it in Clock (' . qr_clock_reason($status, $found) . ')'];
-            }
-            foreach ($found as $charge) {
-                if (is_array($charge) && (string) ($charge['print_text'] ?? '') === qr_clock_marker($doc) && empty($charge['voided_at'])) {
-                    $already++;
-                }
+    $charges = qr_clock_charges($doc);
+    $already = 0;
+    if ($lost) {
+        list($status, $found) = qr_clock_call('GET', '/folios/' . $state['folio'] . '/charges');
+        if (!qr_clock_ok($status)) {
+            return ['check', 'charges may have reached folio ' . $state['number'] . ' — check it in Clock (' . qr_clock_reason($status, $found) . ')'];
+        }
+        foreach ($found as $charge) {
+            if (is_array($charge) && (string) ($charge['print_text'] ?? '') === qr_clock_marker($doc) && empty($charge['voided_at'])) {
+                $already++;
             }
         }
-        foreach (array_chunk(array_slice($charges, $already), QR_CLOCK_BULK) as $chunk) {
-            list($status, $body) = $send('POST', '/folios/' . $state['folio'] . '/charges/bulk', ['charges' => $chunk]);
-            if (!qr_clock_ok($status)) {
-                return ['failed', qr_clock_reason($status, $body)];
-            }
-        }
-        return ['', ''];
     }
-
-    if ($name === 'payment' || $name === 'refund') {
-        // The card payment on the sale's own folio; money given back, on the
-        // sale's folio too, negative.
-        $folio = $name === 'refund' ? $state['sale_folio'] : $state['folio'];
-        $number = $name === 'refund' ? $state['sale_number'] : $state['number'];
-        $reference = (string) $doc['payment_intent'] . ($storno ? ' #' . $id : '');
-        if ($lost) {
-            list($status, $found) = qr_clock_call('GET', '/folios/' . $folio . '/credit_items');
-            if (!qr_clock_ok($status)) {
-                return ['check', 'the payment may have reached folio ' . $number . ' — check it in Clock (' . qr_clock_reason($status, $found) . ')'];
-            }
-            foreach ($found as $item) {
-                if (is_array($item) && (string) ($item['reference'] ?? '') === $reference && empty($item['voided_at'])) {
-                    return ['', ''];
-                }
-            }
-        }
-        list($status, $body) = $send('POST', '/folios/' . $folio . '/credit_items', ['credit_item' => [
-            'currency' => qr_clock_currency(),
-            'value' => ($storno ? '-' : '') . qr_clock_money((int) $doc['total_cents']),
-            'text' => ($storno ? 'QR меню – върнато ' : 'QR меню – платено ') . $doc['code'],
-            'payment_type' => (string) ($config['clock_payment_type'] ?? '') !== '' ? (string) $config['clock_payment_type'] : 'card',
-            'payment_sub_type' => (string) ($config['clock_payment_sub_type'] ?? ''),
-            'reference' => $reference,
-        ]]);
+    foreach (array_chunk(array_slice($charges, $already), QR_CLOCK_BULK) as $chunk) {
+        list($status, $body) = $send('POST', '/folios/' . $state['folio'] . '/charges/bulk', ['charges' => $chunk]);
         if (!qr_clock_ok($status)) {
             return ['failed', qr_clock_reason($status, $body)];
         }
-        return ['', ''];
-    }
-
-    // close: the fiscal receipt (or the storno receipt).
-    if ($lost) {
-        list($status, $found) = qr_clock_call('GET', '/folios/' . $state['folio']);
-        if (qr_clock_ok($status) && !empty($found['closed_at'])) {
-            return ['', ''];
-        }
-    }
-    $type = (int) ($storno && (int) ($config['clock_storno_document_type_id'] ?? 0) > 0
-        ? $config['clock_storno_document_type_id'] : $config['clock_document_type_id']);
-    list($status, $body) = $send('POST', '/folios/' . $state['folio'] . '/close', ['document_type_id' => $type]);
-    if (!qr_clock_ok($status)) {
-        return ['failed', qr_clock_reason($status, $body)];
     }
     return ['', ''];
 }
@@ -870,7 +829,8 @@ function qr_clock_doc_json(array $d): array
         'test' => (int) $d['test'] === 1,
         'status' => (string) $d['status'],
         'step' => (int) $d['step'],
-        'closed' => (int) $d['step'] >= 4,
+        // A sale's folio closed in Clock by staff (step 3: "Затворих го ✓").
+        'closed' => $d['kind'] === 'sale' && (int) $d['step'] >= 3,
         'folio' => (string) $d['folio_number'],
         'total' => (int) $d['total_cents'],
         'tip' => (int) $d['tip_cents'],

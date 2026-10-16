@@ -630,88 +630,86 @@ sell at a distance.) `'mode' => 'off'`, and the privacy policy is back to
 "the payment page's e-mail is not kept". The code and its tests stay, unused.
 Instead, phone payments are to be sent to Clock through its API: a POS
 bill with the lines, paid and closed, which Clock fiscalises on the
-restaurant's printer. Clock has confirmed both. Built on 14.10.2026: see "Phone payments into
-Clock PMS+" below.
+restaurant's printer. Clock later withdrew that (15.10.2026); what was
+built instead is under "Phone payments into Clock PMS+" below.
 
-## Phone payments into Clock PMS+, added 14.10.2026
+## Phone payments into Clock PMS+, added 14.10.2026, reworked 16.10.2026
 
 **Why.** Guests pay at the table, so their fiscal receipt has to come from
-the till: Clock. Until now staff typed every phone payment into Clock by hand
-from „За касата“. Now each one goes to Clock by itself (`_lib/clock.php`).
+the till: Clock. Staff used to retype every phone payment into Clock from
+„За касата“. Now the items go into Clock by themselves (`_lib/clock.php`),
+and staff only add the card payment and close the folio, which prints the
+receipt.
 
-**How Clock is reached.** Clock's POS API only reads. The way in is
-`base_api` folios, as Clock's "(POS) Transfer charges" guide does it at the
-end of the day:
-- a folio on a company that has *Accept charge transfers* ticked;
-- the lines as charges (`charges/bulk`);
-- the card payment as a credit item, with Stripe's `pi_…` as its reference;
-- `close` with a document type, which is the fiscal step.
-
-The sandbox (14.10.2026) took the folio, the charges and the payment.
-`close` waits for Clock to grant the right, so it sits behind
-`clock_close`. Until then the folio waits in Clock, paid, and staff close
-it there, which prints the receipt like any folio. „За касата“ lists those
-folios under "Затвори в Clock".
+**How it got here.**
+- **The first build (14.10)** sent the whole sale: the folio, the items, the
+  card payment, and `close` with a fiscal document type, so Clock would
+  fiscalise it unattended. The sandbox took all of it. Clock's first answer
+  (15.10) said such a close sends the receipt to the fiscal printer.
+- **Clock's second answer (15.10)** withdrew that, once they understood the
+  money is taken by our Stripe and not by them:
+  - bills paid on the spot are ours to collect and fiscalise;
+  - only charges transferred to a room or a company are theirs, fiscalised
+    when reception issues the document;
+  - production access needs a certification first.
+- **So (16.10)** this system only transfers the items onto a company folio,
+  Clock's charge-transfer way. A person in the restaurant takes it from
+  there: adds the card payment, closes the folio, and Clock prints the
+  receipt as for any folio closed at the till. The API payment, `close`,
+  the document types and the correction-folio storno were all removed;
+  none of them was ever live. Whether this passes Clock's certification is
+  asked and not yet answered.
 
 ### Choices made
 
-- **One folio per payment, not one per evening.** Each guest gets a receipt
-  for their own payment, when they pay. A few dozen payments an evening, at
-  4 calls each, is far inside Clock's 5 calls a second.
+- **One folio per payment.** Each guest's payment gets its own receipt. The
+  folio's total (items + tip) is exactly what the guest paid by card, so the
+  waiter enters one amount, and „За касата“ shows it.
+- **The tip goes in the folio**, as a surcharge with no VAT (Clock's guide),
+  so the card amount matches. Like everywhere else, it stays out of the
+  amount ticked on „За касата“.
 - **Queued with the payment, sent after the answer.** The `clock_docs` row
   (schema v12) is written in the same transaction that marks the payment
-  paid, or records the refund, so it can't be lost or made twice. Sending
-  happens after the webhook or the tablet has its answer: Stripe never
-  waits on Clock, and Clock being down never fails a webhook.
+  paid, or records the refund. Sending happens after the webhook or tablet
+  has its answer: Stripe never waits on Clock, and Clock being down never
+  fails a webhook.
 - **Retried by the staff screen's poll**, like the e-receipt and the monthly
   e-mail: no cron job. The waits are 1 min, 5 min, 15 min, 1 h, 3 h, then it
-  stops at `failed` with Clock's reason, and *Опитай пак* on „За касата“
-  starts it again.
+  stops at `failed` with Clock's reason, and *Опитай пак* starts it again.
 - **Exactly once, without idempotency keys.** Clock's API has none, so:
   - a row is claimed before it is sent;
   - each step is saved as soon as Clock answers, and a retry continues from
     the next step;
-  - a step whose answer never came back is first looked up in Clock: the
-    charges by their `print_text` "QR R-7K3M #12", the payment by its
-    reference, the close by `closed_at`.
-  - If Clock can't be asked (the API user has no right to read charges),
-    the row stops at `check` for a person rather than risk a second charge.
+  - items whose answer never came back are first looked up in Clock by their
+    `print_text` ("QR R-7K3M #12");
+  - if Clock can't be asked (no right to read charges), the row stops at
+    `check` for a person rather than risk the items twice.
 - **No reused connections** (`CURLOPT_FORBID_REUSE`). Found in testing: when
-  a reused keep-alive connection breaks after Clock did the work, curl sends
-  the same POST again by itself, so a lost answer turned into a second
-  charge. A fresh connection per call makes a lost answer come back as lost,
-  and it gets looked up instead.
+  a reused keep-alive connection broke after Clock did the work, curl sent
+  the same POST again by itself. A fresh connection per call makes a lost
+  answer come back as lost, and it gets looked up instead.
+- **Refunds.** While the folio is open, the items that went back go onto it
+  at a negative quantity (Clock's guide: "VOID / Refund of transferred
+  charges"), so the waiter closes it at what was actually paid. Once it's
+  closed (Clock's `closed_at`, or staff ticked "Затворих го"), the receipt
+  is printed, so nothing is sent: the storno is done in Clock by hand, from
+  "Сторнирай в Clock".
 - **The same lines as the e-receipt.** `qr_ereceipt_paid_lines()` and
-  `qr_ereceipt_returned()` give a sale's lines and what went back. They
-  don't depend on the e-receipt being on, so Clock and the (switched-off)
-  e-receipt can never disagree.
-- **Refunds the way Clock advised (15.10.2026).** For a storno receipt,
-  Clock's order is:
-  1. the card money given back, as a negative payment on the **sale's**
-     folio (taken on a closed folio too);
-  2. a correction folio linked to the sale's by `client_folio_id`, with
-     exactly the lines that went back at negative quantities;
-  3. closed with the document type.
-  A refund waits until its sale is in Clock. A full refund could instead be
-  an annulment (`DELETE /folios/{id}`), but one way for every refund is
-  simpler.
+  `qr_ereceipt_returned()` give a sale's lines and what went back, so the
+  two can never disagree.
 - **Templates by category, not by dish.** 172 dishes in 25 categories, and
   Clock wants a few templates for its reports and accounting codes. Each
-  charge carries the dish's own name. `clock-settings.php` maps the kitchen,
-  the bar, and any category that needs its own template. A payment with an
-  unmapped line isn't sent, and says which category it's missing.
-- **The tip** is a `surcharge` with no VAT, as in Clock's guide, unless it
-  gets a template of its own. Like everywhere else it stays out of the
-  amount ticked on „За касата“.
-- **„За касата“ stays the fallback.**
-  - A sale done in Clock ticks itself as entered; a storno done ticks
-    itself as voided.
-  - A tick by hand before a row was sent means it is never sent (`manual`).
-  - While a row is being sent, or once Clock has it, a tick or untick by
-    hand is refused, so nothing is entered twice.
+  charge carries the dish's own name. Clock advised putting every fixed
+  attribute in the template and sending only what varies: price, quantity,
+  name, print text. A payment with an unmapped line isn't sent, and says
+  which category it's missing.
+- **„За касата“ stays the fallback.** Items in Clock tick the payment as
+  entered, and it moves to "Затвори в Clock" with the card amount. A tick by
+  hand before a row was sent means it is never sent (`manual`). While a row
+  is being sent, or once Clock has it, a tick or untick by hand is refused,
+  so nothing is entered twice.
 - **Test and live never mix.** `clock_mode` `test` sends only payments made
-  with Stripe's test keys, `live` only real ones. A test payment can never
-  reach the real till.
+  with Stripe's test keys, `live` only real ones.
 - **Credentials like Stripe's**: GitHub secrets (`QR_CLOCK_*`), written into
   `raya-qr-config.php` above the web root by the deploy, checked for their
   form, and never printed.
@@ -726,36 +724,16 @@ folios under "Затвори в Clock".
 - OPcache served a settings file the tests had just rewritten, so it's off
   in tests.
 
-### Clock's answers (15.10.2026)
-
-- **Closing prints.** In an account with Bulgarian fiscalisation, closing a
-  folio with a document type set to fiscalise sends the receipt to the
-  fiscal printer by itself. In the sandbox (no fiscalisation) the close
-  works: FL-57 and FL-63 closed through the API.
-- **Templates** should carry every fixed attribute, so a charge sends only
-  what varies: price, quantity, name, print text. That's how it's built.
-- **The payment** must be booked as a payment type the printer is set up
-  to fiscalise. `clock_payment_type` and `clock_payment_sub_type` say which
-  (see `GET /payment_sub_types`).
-- **Don't close folios that don't balance**: fiscalising them needs a
-  person afterwards. A sale's folio always balances (lines + tip = payment).
-- **Their POS account and end-of-day transfer** are for a full restaurant
-  POS (payment on the spot, transfers to rooms and companies). This isn't
-  one: only payments made on the phone, each its own folio.
-
 ### Still open
 
-- **How to set `client_folio_id`** when making the correction folio. Inside
-  `company_folio`, or beside it, Clock answers `null`. Unlinked, the
-  correction folio doesn't balance, and closing it is refused. Until Clock
-  says, a refund stops at its close with that reason, and staff void it by
-  hand from „За касата“. The sandbox run is FL-63 (sale, closed) and FL-64
-  (correction, open).
-- The live account: its API user and rights, the fiscal document type, the
-  payment type that fiscalises card payments, and which fiscal printer an
-  API close prints on (the restaurant's, not reception's).
-- The real charge templates and their VAT. Folios made through the API come
-  back `tax_mode: "no_tax"` in the sandbox.
+- **Clock's OK and the certification.** Clock gives access to the real
+  account only after a certification meeting. The brief for it is
+  `CLOCK-CERTIFICATION-BG.md`.
+- The live account (hotel 15003): its API user, the company for these
+  folios, and the real charge templates and their VAT. Folios made through
+  the API come back `tax_mode: "no_tax"` in the sandbox.
+- With the accountant: whether the tip belongs in the folio, and so on the
+  receipt.
 
 ## Left out on purpose
 

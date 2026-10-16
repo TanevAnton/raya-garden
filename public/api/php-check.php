@@ -105,9 +105,6 @@ $out['qr'] = array(
         ? $qrConfig['clock_mode'] : 'off',
     'clock_configured' => !empty($qrConfig['clock_base_url']) && !empty($qrConfig['clock_api_user'])
         && !empty($qrConfig['clock_api_key']) && !empty($qrConfig['clock_company_id']),
-    'clock_close' => (isset($qrConfig['clock_close']) && $qrConfig['clock_close'] === 'on')
-        ? (empty($qrConfig['clock_document_type_id']) ? 'on, but NO document type id' : 'on: folios closed here')
-        : 'off: staff close the folios in Clock',
     'clock_templates' => 'unknown',
     'curl_digest' => defined('CURLAUTH_DIGEST'),
     'curl_reaches_clock' => 'not tested',

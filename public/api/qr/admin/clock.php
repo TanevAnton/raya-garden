@@ -3,8 +3,9 @@
 // (_lib/clock.php), from „За касата“:
 //
 //   {"id": 5, "action": "retry"}   send it again now, from the step it got to
-//   {"id": 5, "action": "closed"}  staff closed its folio in Clock themselves
-//                                  (while 'clock_close' is off): off the list
+//   {"id": 5, "action": "closed"}  staff added the card payment to its folio in
+//                                  Clock and closed it (the receipt printed):
+//                                  off the list
 //
 // A payment that stopped at 'check' (Clock's answer was lost and it cannot be
 // asked whether the step happened) is retried only once a person has looked
@@ -39,10 +40,10 @@ list($status, $response) = qr_write(function (PDO $pdo) use ($id, $action, $now)
         return [404, ['ok' => false, 'error' => 'not_found']];
     }
     if ($action === 'closed') {
-        if ($doc['status'] !== 'done' || (int) $doc['step'] !== 3) {
+        if ($doc['kind'] !== 'sale' || $doc['status'] !== 'done' || (int) $doc['step'] !== 2) {
             return [409, ['ok' => false, 'error' => 'not_open', 'doc' => qr_clock_doc_json($doc)]];
         }
-        $pdo->prepare('UPDATE clock_docs SET step = 4, seq = ? WHERE id = ?')->execute([qr_bump_seq($pdo), $id]);
+        $pdo->prepare('UPDATE clock_docs SET step = 3, seq = ? WHERE id = ?')->execute([qr_bump_seq($pdo), $id]);
         $find->execute([$id]);
         $doc = $find->fetch();
         $find->closeCursor();

@@ -1133,8 +1133,13 @@ function tillList(orders, billPayments, clockDocs = new Map()) {
  */
 function Till({ entries, onTill, clockInfo, clockDocs, onClock }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
-  // Folios Clock has, paid, that staff still have to close there (while they are not closed from here).
-  const toClose = [...(clockDocs?.values() || [])].filter((d) => d.status === "done" && !d.closed).sort((a, b) => a.doneAt - b.doneAt);
+  // Folios whose items are in Clock, for staff to add the card payment and close there. The
+  // amount is what the guest paid, less what was given back onto the same folio.
+  const docs = [...(clockDocs?.values() || [])];
+  const toClose = docs
+    .filter((d) => d.kind === "sale" && d.status === "done" && !d.closed)
+    .map((d) => ({ ...d, card: d.total - docs.filter((x) => x.saleId === d.id && x.status === "done").reduce((sum, x) => sum + x.total, 0) }))
+    .sort((a, b) => a.doneAt - b.doneAt);
   const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
   const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
   // Card tips today — with orders paid on the phone and with bills — for
@@ -1163,7 +1168,7 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock }) {
     <div className="max-w-3xl">
       {clockInfo ? (
         <p className="text-sm text-cream-100/60" data-clock-mode={clockInfo.mode}>
-          Платеното онлайн отива в Clock само{clockInfo.closes ? " и Clock издава касовата бележка" : ""}. Тук остава само това, което не е влязло — въведете го ръчно, с плащане „карта“, и го отметнете.
+          Артикулите от платеното онлайн влизат в Clock сами. Остава да затворите фолиото там — с плащане „карта“ — и Clock ще отпечата бележката. Ако нещо не е влязло, въведете го ръчно и го отметнете.
           {clockInfo.mode === "test" && <span className="text-amber-300"> Тестов режим: изпращат се само тестови плащания.</span>}
         </p>
       ) : (
@@ -1179,7 +1184,7 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock }) {
       {toClose.length > 0 && (
         <>
           <h2 className="font-display text-2xl text-gold-100 mt-6">Затвори в Clock ({toClose.length})</h2>
-          <p className="text-sm text-cream-100/60 mt-1">Вече са в Clock, платени с карта. Затворете фолиото там — Clock ще отпечата бележката — и го отметнете тук.</p>
+          <p className="text-sm text-cream-100/60 mt-1">Артикулите вече са във фолиото. В Clock: отворете го, добавете плащане „карта“ за сумата отдясно и го затворете — Clock ще отпечата бележката. После го отметнете тук.</p>
           <ul className="space-y-3 mt-3">
             {toClose.map((d) => (
               <li key={d.id} className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-close={d.folio}>
@@ -1187,10 +1192,12 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock }) {
                   <div className="flex items-baseline gap-3">
                     <span className="font-mono text-lg text-gold-100">{d.folio}</span>
                     <span className="text-cream-100/70">{d.code}</span>
-                    {d.kind === "storno" && <span className="text-red-300 text-sm">сторно</span>}
                   </div>
                 </div>
-                <div className="font-semibold text-cream-50 text-lg">{d.kind === "storno" ? "−" : ""}{money(d.total)}</div>
+                <div className="text-right">
+                  <div className="font-semibold text-cream-50 text-lg" data-card={d.card}>{money(d.card)}</div>
+                  <div className="text-xs text-cream-100/60">„карта“{d.tip > 0 ? `, с бакшиш ${money(d.tip)}` : ""}</div>
+                </div>
                 <button type="button" onClick={() => onClock(d, "closed")} className="btn-gold h-12 px-4 rounded-sm text-sm">Затворих го ✓</button>
               </li>
             ))}

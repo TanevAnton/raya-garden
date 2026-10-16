@@ -118,6 +118,6 @@ qr_json(200, [
     'tabs' => $tabs,
     'billPayments' => $billPayments,
     'clockDocs' => $clockDocs,
-    'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode(), 'closes' => qr_clock_closes()] : null,
+    'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode()] : null,
     'now' => $now,
 ]);

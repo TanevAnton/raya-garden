@@ -234,7 +234,6 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
     const settingsFile = path.join(srv.root, "api", "qr", "_lib", "clock-settings.php");
     const settings = readFileSync(settingsFile, "utf8");
     writeFileSync(settingsFile, settings.replace(/'kitchen' => \d+/, "'kitchen' => 1001").replace(/'bar' => \d+/, "'bar' => 1002"));
-    // Folios left for staff to close in Clock (no clock_close).
     srv.config({ clock_mode: "test", clock_base_url: fake.base, clock_api_user: fake.user, clock_api_key: fake.key, clock_company_id: 500 });
     const staff = await phone();
     try {
@@ -259,7 +258,7 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
       await staff.waitForSelector(`[data-till="${failed.code}"] [data-clock-status="failed"]`);
       const row = await staff.$eval(`[data-till="${failed.code}"]`, (e) => e.innerText);
       assert.match(row, /Не влезе в Clock: HTTP 503: Service Unavailable/);
-      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /отива в Clock само/);
+      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /влизат в Clock сами/);
       assert.equal(await staff.$(`[data-close="FL-1"]`) !== null, true, "the one that went: its folio waits to be closed");
       await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-failed.png") : undefined, fullPage: true });
 
@@ -269,6 +268,8 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
       assert.match(await staff.$eval("nav", (e) => e.innerText), /За касата(?! \()/, "nothing left to enter by hand");
       await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-to-close.png") : undefined, fullPage: true });
 
+      // The waiter's amount for the card payment in Clock: what the guest paid.
+      assert.equal(await staff.$eval(`[data-close="FL-2"] [data-card]`, (e) => e.dataset.card), String(failed.total));
       await clickText(staff, `[data-close="FL-1"]`, /Затворих го/);
       await staff.waitForFunction(() => !document.querySelector(`[data-close="FL-1"]`));
       assert.equal(await staff.$(`[data-close="FL-2"]`) !== null, true);

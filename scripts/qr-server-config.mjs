@@ -18,12 +18,7 @@
 //   QR_CLOCK_API_USER           → 'clock_api_user'
 //   QR_CLOCK_API_KEY            → 'clock_api_key'
 //   QR_CLOCK_COMPANY_ID         → 'clock_company_id'    (the company with "Accept charge transfers")
-//   QR_CLOCK_CLOSE              → 'clock_close'         (on: close the folios — the fiscal receipt)
-//   QR_CLOCK_DOCUMENT_TYPE_ID   → 'clock_document_type_id'
-//   QR_CLOCK_STORNO_DOCUMENT_TYPE_ID → 'clock_storno_document_type_id'
 //   QR_CLOCK_CURRENCY           → 'clock_currency'      (only if not EUR, e.g. BGN in Clock's sandbox)
-//   QR_CLOCK_PAYMENT_TYPE       → 'clock_payment_type'  (default card)
-//   QR_CLOCK_PAYMENT_SUB_TYPE   → 'clock_payment_sub_type' (one the fiscal printer fiscalises)
 //
 // A secret that is not set leaves its line as it is. One set to "off"
 // removes its line — for Stripe the system then falls back to paying staff,
@@ -63,12 +58,7 @@ const STRIPE = [
   ["QR_CLOCK_API_USER", "clock_api_user", /^[A-Za-z0-9_.@-]{3,80}$/, "a Clock API user name"],
   ["QR_CLOCK_API_KEY", "clock_api_key", /^[A-Za-z0-9]{16,128}$/, "a Clock API key (letters and digits)"],
   ["QR_CLOCK_COMPANY_ID", "clock_company_id", /^\d{1,12}$/, "a Clock company id (digits)"],
-  ["QR_CLOCK_CLOSE", "clock_close", /^on$/, "on (or off)"],
-  ["QR_CLOCK_DOCUMENT_TYPE_ID", "clock_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
-  ["QR_CLOCK_STORNO_DOCUMENT_TYPE_ID", "clock_storno_document_type_id", /^\d{1,12}$/, "a Clock document type id (digits)"],
   ["QR_CLOCK_CURRENCY", "clock_currency", /^[A-Z]{3}$/, "a currency code such as EUR or BGN"],
-  ["QR_CLOCK_PAYMENT_TYPE", "clock_payment_type", /^[a-z_]{2,40}$/, "a Clock payment type such as card"],
-  ["QR_CLOCK_PAYMENT_SUB_TYPE", "clock_payment_sub_type", /^[^'\\\n]{1,60}$/, "a Clock payment sub-type name (no quotes or backslashes)"],
 ];
 
 const line = (key) => new RegExp(`^([ \\t]*'${key}'\\s*=>\\s*)'([^'\\\\]*)',?[ \\t]*\\n?`, "m");

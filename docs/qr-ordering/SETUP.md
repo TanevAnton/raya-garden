@@ -431,6 +431,15 @@ against Clock's sandbox only.
 
 ### What Clock has to set up
 
+- **The restaurant's account, not the hotel's.** The folios belong in the
+  restaurant's Clock account, so the waiter closes them from the POS and the
+  receipt prints on the restaurant's printer. Companies are shared between
+  the hotel and the restaurant, folios are not. In the sandbox the restaurant
+  is POS DEMO (16516), and our API user has no access to it yet ("Access
+  denied to 'POS DEMO'"), so test folios still go to HOTEL DEMO (16515).
+  With access, only `QR_CLOCK_BASE_URL` changes (to `…/base_api/178954/16516`)
+  and the restaurant's own templates go into `clock-settings.php`.
+
 - **An API user** for the account, with these rights:
   - companies: index;
   - company folios: create;

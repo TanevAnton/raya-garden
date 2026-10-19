@@ -27,7 +27,7 @@ jobs:
     # push (before secrets exist) still builds green instead of failing red.
     env:
       HAS_FTP: ${{ secrets.FTP_SERVER != '' && secrets.FTP_USERNAME != '' && secrets.FTP_PASSWORD != '' }}
-      HAS_QR_SETTINGS: ${{ secrets.QR_ADMIN_PASSWORD != '' || secrets.QR_STRIPE_SECRET_KEY != '' || secrets.QR_STRIPE_WEBHOOK_SECRET != '' || secrets.QR_CLOCK_MODE != '' }}
+      HAS_QR_SETTINGS: ${{ secrets.QR_ADMIN_PASSWORD != '' || secrets.QR_STRIPE_SECRET_KEY != '' || secrets.QR_STRIPE_WEBHOOK_SECRET != '' || secrets.QR_CLOCK_MODE != '' || secrets.QR_FISCAL_MODE != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -156,6 +156,8 @@ jobs:
           QR_CLOCK_API_KEY: ${{ secrets.QR_CLOCK_API_KEY }}
           QR_CLOCK_COMPANY_ID: ${{ secrets.QR_CLOCK_COMPANY_ID }}
           QR_CLOCK_CURRENCY: ${{ secrets.QR_CLOCK_CURRENCY }}
+          QR_FISCAL_MODE: ${{ secrets.QR_FISCAL_MODE }}
+          QR_FISCAL_BRIDGE_TOKEN: ${{ secrets.QR_FISCAL_BRIDGE_TOKEN }}
         run: |
           command -v php >/dev/null || sudo apt-get install -y -qq php-cli
           node scripts/qr-server-config.mjs

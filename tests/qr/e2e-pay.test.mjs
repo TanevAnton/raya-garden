@@ -10,6 +10,10 @@ import puppeteer from "puppeteer";
 import { startServer, client, ADMIN_PASSWORD, newKey, orderBody } from "./server.mjs";
 import { startFakeStripe } from "./fake-stripe.mjs";
 import { startFakeClock } from "./fake-clock.mjs";
+import { startFakeErpNet } from "./fake-erpnet.mjs";
+import { createBridge } from "../../tools/fiscal-bridge/bridge.mjs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 const WEBHOOK_SECRET = "whsec_test_e2e";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia" }).format(new Date());
@@ -279,6 +283,61 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
       srv.config({ clock_mode: null, clock_base_url: null, clock_api_user: null, clock_api_key: null, clock_company_id: null });
       writeFileSync(settingsFile, settings);
       await fake.stop();
+    }
+  });
+});
+
+describe("paying on the phone, with the fiscal printer", () => {
+  it("„За касата“ shows a receipt that did not print, prints it again, then shows its number; and warns when the bridge is quiet", async () => {
+    const printer = await startFakeErpNet();
+    const KEY = "e2e-bridge-key-0123456789abcdef0123456789";
+    srv.config({ fiscal_mode: "test", fiscal_bridge_token: KEY });
+    const bridge = createBridge(
+      { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(mkdtempSync(path.join(tmpdir(), "raya-bridge-")), "journal.json"), waitMs: 1500 },
+      { log: () => {} },
+    );
+    const drain = async () => {
+      for (let i = 0; i < 10; i++) if ((await bridge.step()) > 0) return;
+    };
+    const staff = await phone();
+    try {
+      await openEvening();
+      const menu = srv.menu();
+      const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, [["tiramisu"]]), { headers: { "Idempotency-Key": newKey() } });
+      assert.equal(res.status, 201, res.text);
+      await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+      const code = res.body.order.code;
+
+      await staff.setViewport({ width: 1280, height: 900 });
+      await staff.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
+      await staff.type("input[type=password]", ADMIN_PASSWORD);
+      await staff.click("button[type=submit]");
+      await staff.waitForSelector(`[data-order="${code}"]`);
+      await clickText(staff, "nav", /За касата \(1\)/);
+      // No bridge has called in yet.
+      await staff.waitForSelector(`[data-fiscal-bridge="offline"]`);
+      assert.match(await staff.$eval("[data-fiscal-mode]", (e) => e.innerText), /печата само на касата/);
+
+      printer.failNext("E201", "The fiscal memory is full");
+      await drain();
+      await staff.waitForSelector(`[data-till="${code}"] [data-fiscal-status="failed"]`);
+      assert.match(await staff.$eval(`[data-till="${code}"]`, (e) => e.innerText), /Не се отпечата: E201 The fiscal memory is full/);
+      await staff.waitForFunction(() => !document.querySelector("[data-fiscal-bridge]"), { timeout: 10000 });
+      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-fiscal-failed.png") : undefined, fullPage: true });
+
+      await clickText(staff, `[data-till="${code}"]`, /Опитай пак/);
+      await staff.waitForSelector(`[data-till="${code}"] [data-fiscal-status="pending"]`);
+      await drain();
+      await staff.waitForFunction(() => /За касата(?! \()/.test(document.querySelector("nav").innerText), { timeout: 10000 });
+      assert.equal(printer.paper.length, 1);
+      await staff.evaluate(() => document.querySelector("details")?.setAttribute("open", ""));
+      await staff.waitForSelector(`[data-receipt="${printer.paper[0].receiptNumber}"]`);
+      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-fiscal-printed.png") : undefined, fullPage: true });
+      assert.deepEqual(staff.errors, []);
+    } finally {
+      await staff.close();
+      srv.config({ fiscal_mode: null, fiscal_bridge_token: null });
+      await printer.stop();
     }
   });
 });

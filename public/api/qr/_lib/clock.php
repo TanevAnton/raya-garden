@@ -246,19 +246,49 @@ function qr_clock_refunds(PDO $pdo, string $source, int $sourceId, int $now)
     if ($sale === null || $sale['status'] === 'manual') {
         return;
     }
+    $due = qr_storno_due($pdo, 'clock_docs', $sale, $source, $sourceId);
+    if ($due === null) {
+        return;
+    }
+    qr_clock_insert($pdo, [
+        'test' => (int) $sale['test'],
+        'kind' => 'storno',
+        'sale_id' => (int) $sale['id'],
+        'source' => $source,
+        'source_id' => $sourceId,
+        'code' => (string) $sale['code'],
+        'payment_intent' => (string) $sale['payment_intent'],
+        'evening' => qr_clock_evening($pdo, $source, $due['row'], $now),
+        'lines' => $due['lines'],
+        'total' => $due['amount'],
+        'tip' => $due['tip'],
+    ], $now);
+}
+
+/**
+ * What a sale owes a storno now: money refunded on its order or bill payment
+ * that no earlier storno in $docsTable covers, as the lines that went back
+ * (as the e-receipt counts them), or one line for the amount where lines and
+ * money disagree (a partial refund made in Stripe's Dashboard). Returns
+ * ['row' => the order or payment, 'lines', 'amount', 'tip'], or null when
+ * nothing is owed. Shared by Clock (clock_docs) and the fiscal printer
+ * (fiscal_docs, _lib/fiscal.php). Inside the refund's write transaction.
+ */
+function qr_storno_due(PDO $pdo, string $docsTable, array $sale, string $source, int $sourceId)
+{
     $table = $source === 'order' ? 'orders' : 'bill_payments';
     $find = $pdo->prepare("SELECT * FROM $table WHERE id = ?");
     $find->execute([$sourceId]);
     $row = $find->fetch();
     $find->closeCursor();
     if (!is_array($row)) {
-        return;
+        return null;
     }
     $refunded = (int) $row['refunded_cents'];
     if ($source === 'order' && $row['pay_status'] === 'refunded') {
         $refunded = max($refunded, (int) $row['total_cents'] + (int) $row['tip_cents']);
     }
-    $before = $pdo->prepare("SELECT lines_json, total_cents FROM clock_docs WHERE sale_id = ? AND kind = 'storno'");
+    $before = $pdo->prepare("SELECT lines_json, total_cents FROM $docsTable WHERE sale_id = ? AND kind = 'storno'");
     $before->execute([(int) $sale['id']]);
     $covered = 0;
     $taken = [];
@@ -270,7 +300,7 @@ function qr_clock_refunds(PDO $pdo, string $source, int $sourceId, int $now)
     }
     $amount = min($refunded, (int) $sale['total_cents']) - $covered;
     if ($amount <= 0) {
-        return;
+        return null;
     }
     $saleLines = json_decode((string) $sale['lines_json'], true);
     $back = qr_ereceipt_returned($pdo, $source, $row, $saleLines);
@@ -282,8 +312,6 @@ function qr_clock_refunds(PDO $pdo, string $source, int $sourceId, int $now)
         }
     }
     if (qr_ereceipt_lines_total($lines) !== $amount) {
-        // Lines and money disagree (a partial refund made in Stripe's
-        // Dashboard): the amount, under the first line's template.
         $first = $saleLines[0] ?? ['category' => '', 'station' => 'kitchen'];
         $lines = [['key' => 'refund', 'name' => 'Върната сума', 'qty' => 1, 'unit' => $amount,
             'category' => (string) $first['category'], 'station' => (string) $first['station']]];
@@ -294,19 +322,7 @@ function qr_clock_refunds(PDO $pdo, string $source, int $sourceId, int $now)
             $tip += $line['qty'] * $line['unit'];
         }
     }
-    qr_clock_insert($pdo, [
-        'test' => (int) $sale['test'],
-        'kind' => 'storno',
-        'sale_id' => (int) $sale['id'],
-        'source' => $source,
-        'source_id' => $sourceId,
-        'code' => (string) $sale['code'],
-        'payment_intent' => (string) $sale['payment_intent'],
-        'evening' => qr_clock_evening($pdo, $source, $row, $now),
-        'lines' => $lines,
-        'total' => $amount,
-        'tip' => $tip,
-    ], $now);
+    return ['row' => $row, 'lines' => $lines, 'amount' => $amount, 'tip' => $tip];
 }
 
 // ── sending ──────────────────────────────────────────────────────────

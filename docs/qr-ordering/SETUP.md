@@ -32,7 +32,10 @@ public/api/qr/                   the PHP API (runs on the host's PHP 7.3)
   admin/  login, logout, session, feed, order, settings, sold-out, till, bill, waiters,
           history (past evenings), export (CSV for Excel), report (monthly e-mail)
   _lib/   core.php, order.php, auth.php, pay.php, bill.php, history.php, report.php,
-          clock.php (payments into Clock PMS+), clock-settings.php (its charge templates)
+          clock.php (payments into Clock PMS+), clock-settings.php (its charge templates),
+          fiscal.php (fiscal receipts), fiscal-settings.php (tax groups, УНП)
+  fiscal/ claim, report: for the fiscal bridge in the restaurant
+tools/fiscal-bridge/             the bridge: prints the receipts through ErpNet.FP
           (not reachable from the web)
 src/qr/menu/, menu/index.html    the guest page
 src/qr/admin/, admin/index.html  the staff page
@@ -110,6 +113,7 @@ GitHub → the repository → Settings → Secrets and variables → Actions:
 | `QR_STRIPE_SECRET_KEY` | a **restricted** Stripe key, `rk_test_…` or `rk_live_…` (see below) |
 | `QR_STRIPE_WEBHOOK_SECRET` | the signing secret of the Stripe webhook, `whsec_…` |
 | `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "Phone payments into Clock PMS+") |
+| `QR_FISCAL_*` | the fiscal printer for phone payments: mode and the bridge's key (see "Fiscal receipts on the restaurant's own printer") |
 
 After the site is live, every deploy runs the step *QR ordering settings (staff
 password, Stripe keys)*. It rewrites `raya-qr-config.php` only when a secret
@@ -400,6 +404,66 @@ so neither Stripe nor the tablet waits for the mail. A send that fails is
 tried again from the staff screen's poll, ten minutes apart, up to 4 times.
 The guest's address is erased 3 days later, like names; the document stays.
 `/api/php-check.php` shows the mode (`ereceipt_mode`).
+
+## Fiscal receipts on the restaurant's own printer
+
+Clock ruled (15–19.10.2026) that bills paid on the spot are the restaurant's
+to collect **and to fiscalise**, without passing them through Clock's POS. So
+every phone payment is printed as a fiscal receipt on a **fiscal printer kept
+for phone payments**, by a small program in the restaurant: the bridge.
+
+```
+rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  →  the fiscal printer
+```
+
+- **The server** queues a receipt in the same transaction that records the
+  payment (`public/api/qr/_lib/fiscal.php`, table `fiscal_docs`). A refund
+  queues a reversal receipt with the sale's УНП and number, reason "refund",
+  for exactly what went back.
+- **The bridge** (`tools/fiscal-bridge/`, Node.js, no dependencies) asks
+  `/api/qr/fiscal/claim.php` every 3 seconds, prints through
+  [ErpNet.FP](https://github.com/erpnet/ErpNet.FP), and reports back to
+  `/api/qr/fiscal/report.php`. It only makes outgoing connections. Its setup is
+  in `tools/fiscal-bridge/README.md` (Bulgarian, for whoever installs it).
+- **Exactly once on paper:**
+  - ErpNet.FP's idempotent printing, with our task id;
+  - the bridge's own journal;
+  - when nobody knows whether a receipt printed, it stops at "Провери на
+    касата", never printed again by itself.
+- **„За касата“** shows each payment's receipt:
+  - "Чака касата…" / "Печата се…" on its way;
+  - "бон № …" once printed;
+  - "Не се отпечата: …" with *Опитай пак*.
+  A warning appears at the top when the bridge has gone quiet or the printer
+  isn't ready. Anything can still be entered by hand ("Въведена ръчно ✓"),
+  which stops it from printing.
+
+⚠ **Open before going live:** the accountant's answers in
+`FISCAL-QUESTIONS-BG.md`, above all whether this makes our system "СУПТО"
+under Наредба Н-18 (Annex 29: УНП, audit log, НАП export, registration).
+The tax groups and the tip line are in `public/api/qr/_lib/fiscal-settings.php`
+and wait for them too. Don't run this and Clock's item transfer
+(`QR_CLOCK_MODE`) together: Clock has ruled that one out.
+
+### Settings
+
+| Secret | What |
+| --- | --- |
+| `QR_FISCAL_MODE` | `test` (only Stripe test payments are printed), `live` (only real ones), or `off` |
+| `QR_FISCAL_BRIDGE_TOKEN` | the bridge's key, 32+ characters (`openssl rand -hex 32`); the same value as `RAYA_BRIDGE_KEY` on the bridge |
+
+`php-check.php` shows `fiscal_mode` and `fiscal_bridge_key_set`.
+
+### Test first
+
+1. Ask the service company for the printer's training mode, if it has one.
+   ErpNet.FP and the bridge go on the computer in the restaurant
+   (`tools/fiscal-bridge/README.md`).
+2. Secrets: `QR_FISCAL_MODE` = `test`, `QR_FISCAL_BRIDGE_TOKEN` = a new key.
+   Deploy.
+3. Pay a test order (Stripe's `4242 4242 4242 4242`): the receipt prints within
+   a few seconds, and „За касата“ shows "бон № …".
+4. Take a line off with "Няма": a reversal receipt prints for it.
 
 ## Phone payments into Clock PMS+
 

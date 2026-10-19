@@ -1,0 +1,33 @@
+<?php
+// How phone payments are printed on the restaurant's own fiscal printer
+// (_lib/fiscal.php). Nothing here is secret: the bridge's token and the mode
+// live in raya-qr-config.php (see docs/qr-ordering/SETUP.md, "Fiscal receipts").
+//
+// ⚠ To be confirmed by the accountant before going live: the tax groups
+// and how the tip appears (docs/qr-ordering/FISCAL-QUESTIONS-BG.md).
+//
+// ⚠ PHP 7.3 on the production host — see core.php.
+
+if (!defined('RAYA_QR')) {
+    http_response_code(404);
+    exit;
+}
+
+return [
+    // НАП tax group per station, 1–8 = А–З: 2 is "Б" (20 %). A category can
+    // have its own, e.g. 'wines' => 2.
+    'tax_groups' => [
+        'kitchen' => 2,
+        'bar' => 2,
+        'tip' => 2,
+    ],
+    // The receipt's total has to be what the guest paid by card, so the tip
+    // is a line of its own, under this name.
+    'tip_text' => 'Бакшиш',
+    // The middle part of the УНП (unique sale number, Наредба Н-18): the
+    // operator / workplace code, 4 characters. The УНП is
+    // <printer serial>-<this>-<7-digit sequence>.
+    'operator_code' => '0001',
+    // A comment line printed at the top of every receipt (empty: none).
+    'header_comment' => 'QR меню',
+];

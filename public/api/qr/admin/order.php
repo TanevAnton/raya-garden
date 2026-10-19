@@ -197,6 +197,7 @@ list($status, $response, $owed) = qr_write(function (PDO $pdo) use ($id, $action
             ->execute([$refundId === 'already' ? '' : $refundId, $id]);
         qr_ereceipt_refunds($pdo, 'order', $id, $now);
         qr_clock_refunds($pdo, 'order', $id, $now);
+        qr_fiscal_refunds($pdo, 'order', $id, $now);
     }
     $pdo->prepare('INSERT INTO order_events (order_id, from_status, to_status, reason, at) VALUES (?, ?, ?, ?, ?)')
         ->execute([$id, $from, $to, $reason, $now]);

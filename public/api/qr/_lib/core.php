@@ -152,7 +152,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 12;
+const QR_SCHEMA_VERSION = 13;
 
 function qr_db(): PDO
 {
@@ -564,6 +564,62 @@ function qr_migrate(PDO $pdo)
                 CREATE INDEX IF NOT EXISTS clock_docs_source ON clock_docs (source, source_id);
                 CREATE INDEX IF NOT EXISTS clock_docs_due ON clock_docs (status, next_at);
                 CREATE INDEX IF NOT EXISTS clock_docs_seq ON clock_docs (seq);
+            ");
+        }
+        if ($version < 13) {
+            // Fiscal receipts for phone payments, printed on the restaurant's
+            // own fiscal printer by the bridge there (_lib/fiscal.php): kind
+            // 'sale', or 'storno' (a reversal receipt; sale_id: its sale);
+            // source 'order' or 'bill' and its id. lines_json: the lines as
+            // printed, frozen. usn_seq: the sale's place in the УНП series
+            // (a storno carries its sale's). status 'pending' → 'claimed' (a
+            // bridge has it) → 'submitted' (sent to the printer as task_id)
+            // → 'printed'; or 'failed' (tried again at next_at), 'check' (the
+            // printer's answer was lost: a person looks at the printer),
+            // 'manual' (entered by hand from „За касата“, never printed here).
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS fiscal_docs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    test INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    sale_id INTEGER NOT NULL DEFAULT 0,
+                    source TEXT NOT NULL,
+                    source_id INTEGER NOT NULL,
+                    code TEXT NOT NULL,
+                    payment_intent TEXT NOT NULL,
+                    usn_seq INTEGER NOT NULL DEFAULT 0,
+                    lines_json TEXT NOT NULL,
+                    total_cents INTEGER NOT NULL,
+                    tip_cents INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    tries INTEGER NOT NULL DEFAULT 0,
+                    next_at INTEGER NOT NULL DEFAULT 0,
+                    claimed_at INTEGER NOT NULL DEFAULT 0,
+                    task_id TEXT NOT NULL DEFAULT '',
+                    usn TEXT NOT NULL DEFAULT '',
+                    receipt_number TEXT NOT NULL DEFAULT '',
+                    receipt_at TEXT NOT NULL DEFAULT '',
+                    fm_number TEXT NOT NULL DEFAULT '',
+                    printed_at INTEGER NOT NULL DEFAULT 0,
+                    error TEXT NOT NULL DEFAULT '',
+                    created_at INTEGER NOT NULL,
+                    seq INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS fiscal_docs_sale ON fiscal_docs (source, source_id) WHERE kind = 'sale';
+                CREATE INDEX IF NOT EXISTS fiscal_docs_source ON fiscal_docs (source, source_id);
+                CREATE INDEX IF NOT EXISTS fiscal_docs_due ON fiscal_docs (status, next_at);
+                CREATE INDEX IF NOT EXISTS fiscal_docs_seq ON fiscal_docs (seq);
+                CREATE TABLE IF NOT EXISTS fiscal_bridge (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    last_seen INTEGER NOT NULL DEFAULT 0,
+                    version TEXT NOT NULL DEFAULT '',
+                    printer_id TEXT NOT NULL DEFAULT '',
+                    printer_serial TEXT NOT NULL DEFAULT '',
+                    printer_ok INTEGER NOT NULL DEFAULT 0,
+                    message TEXT NOT NULL DEFAULT '',
+                    seq INTEGER NOT NULL DEFAULT 0
+                );
+                INSERT OR IGNORE INTO fiscal_bridge (id) VALUES (1);
             ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);

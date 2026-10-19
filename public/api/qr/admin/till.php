@@ -16,7 +16,9 @@
 // With Clock PMS+ connected (_lib/clock.php), a payment sent to Clock ticks
 // itself. A tick by hand first means it is never sent; while it is being
 // sent, or once Clock has it, a tick by hand is refused (409 clock_sending,
-// clock_done) so nothing is entered twice.
+// clock_done) so nothing is entered twice. The same for a fiscal receipt
+// printed on the restaurant's own printer (_lib/fiscal.php: fiscal_printing,
+// fiscal_done).
 //
 // What is entered is the net amount at the time (till_cents). A refund after
 // that — the whole order, or one line of it — leaves the entry above the
@@ -61,6 +63,9 @@ if (array_key_exists('paymentId', $body)) {
             return [409, ['ok' => false, 'error' => 'not_voidable', 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
         }
         $clock = qr_clock_hand_tick($pdo, 'bill', $paymentId, $column, $value, $now);
+        if ($clock === '') {
+            $clock = qr_fiscal_hand_tick($pdo, 'bill', $paymentId, $column, $value, $now);
+        }
         if ($clock !== '') {
             return [409, ['ok' => false, 'error' => $clock, 'payment' => qr_bill_payment_staff_json($pdo, $p)]];
         }
@@ -92,6 +97,9 @@ list($status, $response) = qr_write(function (PDO $pdo) use ($id, $column, $valu
         return [409, ['ok' => false, 'error' => 'not_voidable', 'order' => qr_order_json($order)]];
     }
     $clock = qr_clock_hand_tick($pdo, 'order', $id, $column, $value, $now);
+    if ($clock === '') {
+        $clock = qr_fiscal_hand_tick($pdo, 'order', $id, $column, $value, $now);
+    }
     if ($clock !== '') {
         return [409, ['ok' => false, 'error' => $clock, 'order' => qr_order_json($order)]];
     }

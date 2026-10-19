@@ -217,8 +217,10 @@ describe("history of past evenings", () => {
     const early = (await order(at("2026-10-03T19:00"), 3, [["tiramisu"]])).body.order;
     const late = (await order(at("2026-10-04T00:40"), 3, [["tiramisu"]])).body.order;
     srv.sqlite("UPDATE orders SET evening = ''");
-    // Back to how a v7 database looks: without what v8 to v12 add.
+    // Back to how a v7 database looks: without what v8 to v13 add.
     srv.sqlite("DROP INDEX orders_evening");
+    srv.sqlite("DROP TABLE fiscal_docs");
+    srv.sqlite("DROP TABLE fiscal_bridge");
     srv.sqlite("DROP TABLE clock_docs");
     srv.sqlite("DROP TABLE ereceipts");
     srv.sqlite("ALTER TABLE orders DROP COLUMN tip_cents");
@@ -229,7 +231,7 @@ describe("history of past evenings", () => {
     assert.equal(res.status, 200, res.text);
     const got = JSON.parse(srv.sqlite(`SELECT id, evening FROM orders ORDER BY id`));
     assert.deepEqual(got.map((r) => [r.id, r.evening]), [[early.id, "2026-10-03"], [late.id, "2026-10-03"]]);
-    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 12);
+    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 13);
   });
 });
 

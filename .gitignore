@@ -37,3 +37,7 @@ pnpm-debug.log*
 
 # PHP dev tooling (composer install)
 vendor/
+
+# The fiscal bridge's own settings (its key) and journal, on the computer in the restaurant
+tools/fiscal-bridge/config.json
+tools/fiscal-bridge/journal.json*

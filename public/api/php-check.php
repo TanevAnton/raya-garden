@@ -41,6 +41,7 @@ if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
         'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php', 'qr/_lib/mail.php',
         'qr/_lib/ereceipt.php', 'qr/_lib/qrcode.php', 'qr/_lib/ereceipt-settings.php',
         'qr/_lib/clock.php', 'qr/_lib/clock-settings.php', 'qr/admin/clock.php',
+        'qr/_lib/fiscal.php', 'qr/_lib/fiscal-settings.php', 'qr/fiscal/claim.php', 'qr/fiscal/report.php', 'qr/admin/fiscal.php',
         'qr/order.php', 'qr/stripe-webhook.php', 'qr/receipt.php',
     );
     foreach ($files as $rel) {
@@ -108,6 +109,10 @@ $out['qr'] = array(
     'clock_templates' => 'unknown',
     'curl_digest' => defined('CURLAUTH_DIGEST'),
     'curl_reaches_clock' => 'not tested',
+    // Fiscal receipts printed by the bridge in the restaurant (qr/_lib/fiscal.php).
+    'fiscal_mode' => isset($qrConfig['fiscal_mode']) && in_array($qrConfig['fiscal_mode'], array('test', 'live'), true)
+        ? $qrConfig['fiscal_mode'] : 'off',
+    'fiscal_bridge_key_set' => isset($qrConfig['fiscal_bridge_token']) && strlen($qrConfig['fiscal_bridge_token']) >= 32,
     // The monthly summary e-mail: SMTP when raya-mailer-config.php has a
     // host, else the host's own mail().
     'report_mail' => is_readable($above . '/raya-mailer-config.php') ? 'SMTP config found (raya-mailer-config.php)'

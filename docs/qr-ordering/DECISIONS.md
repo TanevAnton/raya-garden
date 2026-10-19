@@ -735,6 +735,61 @@ receipt.
 - With the accountant: whether the tip belongs in the folio, and so on the
   receipt.
 
+## Fiscal receipts on our own printer, added 19.10.2026
+
+**Why.** Clock's last word (19.10.2026): bills paid on the spot are ours for
+the payment, the fiscal receipt and the kitchen. Their POS isn't to receive
+them, not even as items for staff to close. The only things Clock takes are
+charges to a hotel room, and bills already paid and fiscalised, transferred
+at the end of the day for its reports. So phone payments get their fiscal
+receipt here, on a printer of their own.
+
+### Choices made
+
+- **A printer of its own**, not the one Clock drives: two programs on one
+  fiscal printer would fight over it.
+- **A bridge that pulls.** The site is on shared hosting and can't reach into
+  the restaurant, so a small computer there asks for work every 3 seconds and
+  needs only outgoing connections. Its key travels in `X-Raya-Bridge-Key`,
+  because Apache under PHP-FPM often drops `Authorization` before PHP sees it.
+- **ErpNet.FP**, not a printer protocol of our own. It's open source,
+  supports the Bulgarian printers (Datecs, Daisy, Eltrade, Tremol…), and has
+  idempotent asynchronous printing.
+- **Exactly once on paper.** A second fiscal receipt can only be undone with
+  a storno, so:
+  - the server is told "submitted" before the receipt goes to the printer;
+  - the bridge writes "maybe sent" in its journal before sending, and the
+    printer's answer after;
+  - ErpNet.FP prints by our task id, and a try after a failure gets a new id
+    (the same id would hand back the old failure instead of printing);
+  - the answer is reported from the journal, because ErpNet.FP forgets a
+    task's result after a restart or once it's read;
+  - when no one can tell, the receipt stops at `check` for a person, and is
+    never printed again by itself.
+- **The УНП** is `<printer serial>-<operator code>-<7-digit sequence>`. The
+  server keeps the sequence, the bridge adds the serial it reads from the
+  printer. A storno carries its sale's УНП, as ErpNet.FP requires.
+- **The tip is a line on the receipt**, so the receipt's total is what the
+  card paid. Its tax group, and whether that's right at all, wait for the
+  accountant (`FISCAL-QUESTIONS-BG.md`).
+- **The same lines and refunds as Clock and the e-receipt**: the storno
+  calculation moved into one function (`qr_storno_due`), used by both
+  `clock_docs` and `fiscal_docs`.
+- **„За касата“ stays the fallback**, with the same rules as for Clock: a
+  printed receipt ticks itself, a tick by hand stops one not yet printed, and
+  no tick or untick is accepted while it's printing or once it's printed.
+
+### Still open
+
+- **Whether this makes our system "СУПТО"** under Наредба Н-18 (Annex 29).
+  If it does, there's more to build: the full УНП rules, a log of every
+  operation with nothing deleted, the audit file for НАП, and the producer's
+  registration. It's the accountant's call, and it comes before live receipts.
+- The printer model, its registration, and a training mode to test in
+  (questions for the service company).
+- The end-of-day transfer to Clock, after their certification. It reuses the
+  folio, charges, payment and close of the first Clock build.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

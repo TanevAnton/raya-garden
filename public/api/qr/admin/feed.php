@@ -93,6 +93,9 @@ try {
     // Payments on their way to Clock: changed since, or (first load) recent and unsettled.
     $clockDocs = qr_clock_feed($pdo, $since, $now);
     $clockDue = qr_clock_due($pdo, $now);
+    // Fiscal receipts printed by the bridge in the restaurant, and the bridge itself.
+    $fiscalDocs = qr_fiscal_feed($pdo, $since, $now);
+    $fiscalBridge = qr_fiscal_mode() !== '' ? qr_fiscal_bridge_json($pdo, $now) : null;
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
     $pdo->exec('ROLLBACK');
@@ -119,5 +122,7 @@ qr_json(200, [
     'billPayments' => $billPayments,
     'clockDocs' => $clockDocs,
     'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode()] : null,
+    'fiscalDocs' => $fiscalDocs,
+    'fiscal' => $fiscalBridge !== null ? ['mode' => qr_fiscal_mode()] + $fiscalBridge : null,
     'now' => $now,
 ]);

@@ -257,6 +257,9 @@ function qr_bill_pay(array $body, string $idemKey, int $now): array
     if (!is_int($tip) || $tip < 0 || $tip > QR_TIP_MAX || (is_int($expected) && $tip > $expected)) {
         return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
     }
+    if (!qr_tips_on()) {
+        $tip = 0; // tips are off: dropped, never charged (qr_tips_on)
+    }
     // Without a tip the hash is what it always was.
     $payloadHash = hash('sha256', json_encode($tip > 0 ? [$table, array_keys($picked), $tip] : [$table, array_keys($picked)]));
 

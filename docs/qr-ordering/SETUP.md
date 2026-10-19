@@ -221,6 +221,10 @@ before index.html switches.
 Prices are fixed by the server when the order is placed, and Stripe charges
 exactly that. The payment page shows each line.
 
+**Tips are off** (19.10.2026): no tips of any kind through this system. The
+menu offers none, and the server drops a tip any page still tries to send.
+`QR_TIPS` = `on` (a GitHub secret) would bring back what follows.
+
 **Tips.** Before paying, the guest may add a tip for the team: 5, 10 or 15 %,
 or an amount of their own, at most the order. It is a line of its own on
 Stripe's page, shown to staff as "+ бакшиш" on the order and in "За касата",

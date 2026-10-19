@@ -30,7 +30,7 @@ const freePort = () =>
  * clock: { api, ...config } adds Clock PMS+ settings (clock_mode, clock_api_user,
  * …) to the config and points the API at a fake Clock (tests/qr/fake-clock.mjs).
  */
-export async function startServer({ docroot = "public", withPassword = true, stripe = null, clock = null } = {}) {
+export async function startServer({ docroot = "public", withPassword = true, stripe = null, clock = null, tips = true } = {}) {
   const work = mkdtempSync(path.join(tmpdir(), "raya-qr-"));
   const root = path.join(work, "www");
   cpSync(path.join(docroot, "api"), path.join(root, "api"), { recursive: true });
@@ -47,6 +47,9 @@ export async function startServer({ docroot = "public", withPassword = true, str
   const publicUrl = stripe?.publicUrl === "self" ? base : stripe?.publicUrl || "";
   const settings = {
     ...(withPassword ? { admin_password_hash: hash } : {}),
+    // Tips are off on the live site (19.10.2026); most tests cover the tip
+    // feature itself, so they keep it on. tips: false for the real setting.
+    ...(tips ? { tips: "on" } : {}),
     ...(stripe ? { stripe_secret_key: stripe.key, stripe_webhook_secret: stripe.webhookSecret, public_url: publicUrl } : {}),
     ...(clock ? Object.fromEntries(Object.entries(clock).filter(([k]) => k !== "api")) : {}),
   };

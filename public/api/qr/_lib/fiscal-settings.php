@@ -5,8 +5,9 @@
 //
 // The accountant (19.10.2026): food and drinks are group Б; no e-shop
 // registration — these are ordinary receipts from a fiscal printer in the
-// restaurant. ⚠ Still to confirm: how the tip appears, and whether this
-// makes the system СУПТО (docs/qr-ordering/FISCAL-QUESTIONS-BG.md).
+// restaurant. No tips of any kind through this system (core.php,
+// qr_tips_on), so no receipt has a tip line. ⚠ Still to confirm: whether
+// this makes the system СУПТО (docs/qr-ordering/FISCAL-QUESTIONS-BG.md).
 //
 // ⚠ PHP 7.3 on the production host — see core.php.
 
@@ -23,8 +24,8 @@ return [
         'bar' => 2,
         'tip' => 2,
     ],
-    // The receipt's total has to be what the guest paid by card, so the tip
-    // is a line of its own, under this name.
+    // Only if tips are ever switched back on: the tip is then a line of its
+    // own, so the receipt's total is what the card paid.
     'tip_text' => 'Бакшиш',
     // The middle part of the УНП (unique sale number, Наредба Н-18): the
     // operator / workplace code, 4 characters. The УНП is

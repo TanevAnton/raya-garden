@@ -530,3 +530,23 @@ describe("paying on the phone: a tip with the order", () => {
     assert.deepEqual([plain.body.order.status, plain.body.order.tip], ["new", 0]);
   });
 });
+
+describe("tips switched off (the live setting since 19.10.2026)", () => {
+  it("the menu is told, and a tip sent anyway is dropped: Stripe charges the order alone", async () => {
+    await setUp();
+    srv.config({ tips: null });
+    try {
+      assert.equal((await guest().get("/api/qr/state.php")).body.tips, false);
+      const T = menu.categories.flatMap((c) => c.items).find((i) => i.id === "tiramisu").variants[0].price;
+      const res = await guest().post("/api/qr/order.php", orderBody(menu, 7, [["tiramisu"]], { tip: 100 }), { headers: { "Idempotency-Key": newKey() } });
+      assert.equal(res.status, 201, res.text);
+      assert.equal(res.body.order.tip, 0);
+      const [call] = stripe.calls("/v1/checkout/sessions");
+      assert.equal(call.params.line_items.length, 1, "no tip line on Stripe's page");
+      assert.equal(sessionOf(res).amount_total, T);
+      assert.equal(row(res.body.order.id).tip_cents, 0);
+    } finally {
+      srv.config({ tips: "on" });
+    }
+  });
+});

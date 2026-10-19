@@ -19,6 +19,7 @@
 //   QR_CLOCK_API_KEY            → 'clock_api_key'
 //   QR_CLOCK_COMPANY_ID         → 'clock_company_id'    (the company with "Accept charge transfers")
 //   QR_CLOCK_CURRENCY           → 'clock_currency'      (only if not EUR, e.g. BGN in Clock's sandbox)
+//   QR_TIPS                     → 'tips'                (on; unset or off = no tips, the default)
 //   QR_FISCAL_MODE              → 'fiscal_mode'         (off | test | live)
 //   QR_FISCAL_BRIDGE_TOKEN      → 'fiscal_bridge_token' (the fiscal bridge's key, 32+ characters)
 //
@@ -61,6 +62,8 @@ const STRIPE = [
   ["QR_CLOCK_API_KEY", "clock_api_key", /^[A-Za-z0-9]{16,128}$/, "a Clock API key (letters and digits)"],
   ["QR_CLOCK_COMPANY_ID", "clock_company_id", /^\d{1,12}$/, "a Clock company id (digits)"],
   ["QR_CLOCK_CURRENCY", "clock_currency", /^[A-Z]{3}$/, "a currency code such as EUR or BGN"],
+  // Tips on the phone: off unless "on" (public/api/qr/_lib/core.php, qr_tips_on).
+  ["QR_TIPS", "tips", /^on$/, "on (or off)"],
   // The fiscal printer for phone payments (public/api/qr/_lib/fiscal.php, tools/fiscal-bridge).
   ["QR_FISCAL_MODE", "fiscal_mode", /^(test|live)$/, "test or live (or off)"],
   ["QR_FISCAL_BRIDGE_TOKEN", "fiscal_bridge_token", /^[A-Za-z0-9_-]{32,128}$/, "a random key of 32+ letters, digits, - or _ (e.g. openssl rand -hex 32)"],

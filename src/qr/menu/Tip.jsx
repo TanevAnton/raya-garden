@@ -19,20 +19,25 @@ function cents(text) {
 
 const ofPercent = (amount, percent) => Math.round((amount * percent) / 1000) * 10;
 
-/** The guest's tip choice for an amount: { tip (cents, 0 while bad), bad, … }. */
-export function useTip(amount) {
+/**
+ * The guest's tip choice for an amount: { tip (cents, 0 while bad), bad, … }.
+ * enabled: whether the server takes tips at all (state.php "tips"; off since
+ * 19.10.2026). While off there is never a tip, and no choice is shown.
+ */
+export function useTip(amount, enabled = true) {
   const [choice, setChoice] = useState(0); // 0 = none, a percent, or "other"
   const [text, setText] = useState("");
-  const raw = choice === "other" ? cents(text) : ofPercent(amount, choice);
-  const bad = Number.isNaN(raw) || raw > amount || raw > TIP_MAX;
+  const raw = !enabled ? 0 : choice === "other" ? cents(text) : ofPercent(amount, choice);
+  const bad = enabled && (Number.isNaN(raw) || raw > amount || raw > TIP_MAX);
   const reset = () => {
     setChoice(0);
     setText("");
   };
-  return { tip: bad ? 0 : raw, bad, choice, setChoice, text, setText, reset };
+  return { tip: bad ? 0 : raw, bad, choice, setChoice, text, setText, reset, enabled };
 }
 
 export function TipPicker({ t, lang, amount, tip, tooBig }) {
+  if (!tip.enabled) return null;
   return (
     <fieldset className="mt-5" data-tip>
       <legend className="text-sm text-cream-50">

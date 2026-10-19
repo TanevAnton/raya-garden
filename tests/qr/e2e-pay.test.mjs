@@ -341,3 +341,21 @@ describe("paying on the phone, with the fiscal printer", () => {
     }
   });
 });
+
+describe("paying on the phone, tips switched off", () => {
+  it("the guest is not offered a tip, and pays the order alone", async () => {
+    srv.config({ tips: null });
+    const page = await phone();
+    try {
+      await openEvening();
+      await orderTiramisu(page);
+      assert.equal(await page.$("[data-tip]"), null, "no tip choice");
+      const button = await page.evaluate(() => [...document.querySelectorAll("button")].map((b) => b.textContent).find((t) => /Плати/.test(t)));
+      assert.match(button, /5,90/);
+      assert.deepEqual(page.errors, []);
+    } finally {
+      await page.close();
+      srv.config({ tips: "on" });
+    }
+  });
+});

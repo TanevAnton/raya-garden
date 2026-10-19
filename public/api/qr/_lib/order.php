@@ -39,10 +39,14 @@ function qr_place_order(array $body, string $idemKey, int $now): array
     }
     // A tip, when paying on the phone (optional, cents): at most the order's
     // total and QR_TIP_MAX. On any other evening it is left out — no money
-    // is taken then, so there is nothing to add it to.
+    // is taken then, so there is nothing to add it to. While tips are off
+    // (qr_tips_on), it is dropped: an old page can never charge one.
     $tip = $body['tip'] ?? 0;
     if (!is_int($tip) || $tip < 0 || $tip > QR_TIP_MAX) {
         return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
+    }
+    if (!qr_tips_on()) {
+        $tip = 0;
     }
     // Without a tip the hash is what it always was.
     $payloadHash = hash('sha256', json_encode($tip > 0 ? [$table, $lines, $tip] : [$table, $lines], JSON_UNESCAPED_UNICODE));

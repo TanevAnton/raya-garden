@@ -405,3 +405,19 @@ describe("a table's bill needs Stripe", () => {
     }
   });
 });
+
+describe("tips switched off on a table's bill", () => {
+  it("a tip sent with a bill payment is dropped", async () => {
+    await setUp();
+    srv.config({ tips: null });
+    try {
+      const a = await order(phone(), 5, [["tiramisu"]]);
+      const res = await pay(phone(), 5, [[a.order.code, 0]], { amount: price("tiramisu"), tip: 100 });
+      assert.equal(res.status, 201, res.text);
+      assert.equal(res.body.payment.tip, 0);
+      assert.equal(sessionOf(res).amount_total, price("tiramisu"));
+    } finally {
+      srv.config({ tips: "on" });
+    }
+  });
+});

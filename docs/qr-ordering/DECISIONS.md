@@ -790,6 +790,18 @@ receipt here, on a printer of their own.
 - The end-of-day transfer to Clock, after their certification. It reuses the
   folio, charges, payment and close of the first Clock build.
 
+## No tips through the system, 19.10.2026
+
+The accountant: no tips of any kind through this system. So tips are off
+by a setting (`'tips' => 'on'` in `raya-qr-config.php`, from the `QR_TIPS`
+secret, brings them back), not removed:
+- `state.php` tells the menu, which then shows no tip choice;
+- `order.php` and `bill-pay.php` drop any tip a page still sends, so a guest
+  can never be charged one, even from a page loaded before the change;
+- with no tip, no fiscal receipt has a tip line.
+
+The tip code and its tests stay (the test server switches tips on).
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

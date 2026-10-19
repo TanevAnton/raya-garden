@@ -218,7 +218,7 @@ export default function MenuApp() {
   const count = cart.reduce((sum, l) => sum + l.qty, 0);
   // Paying on the phone as the order is sent: an optional tip on top.
   const payOnline = state?.payment === "online";
-  const tip = useTip(total);
+  const tip = useTip(total, Boolean(state?.tips));
 
   const add = (item, variant, choiceId = "") => {
     setProblem(null);
@@ -415,7 +415,7 @@ export default function MenuApp() {
       )}
 
       {sheet === "bill" && (
-        <BillSheet t={t} lang={lang} table={table} myCodes={myCodes} returned={returned?.kind.startsWith("bill") ? returned : null} onClose={() => setSheet(null)} onOrders={orders.length ? () => setSheet("orders") : null} />
+        <BillSheet t={t} lang={lang} table={table} tips={Boolean(state?.tips)} myCodes={myCodes} returned={returned?.kind.startsWith("bill") ? returned : null} onClose={() => setSheet(null)} onOrders={orders.length ? () => setSheet("orders") : null} />
       )}
 
       {sheet === "sent" && sentOrder && (

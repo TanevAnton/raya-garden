@@ -41,6 +41,7 @@ const QR_MAX_NAME = 40;      // the guest's own name on an order, optional
 const QR_NAME_DAYS = 3;      // names (the guest's, the payer's) and e-receipt addresses are erased after this
 const QR_TIP_MAX = 50000;    // a tip (paying an order, or a table's bill): at most 500 € …
 // … and at most the amount it is added to; anything more is a slip of the finger.
+// Tips are off unless 'tips' => 'on' in raya-qr-config.php (see qr_tips_on).
 
 /** Send JSON and stop. */
 function qr_json(int $status, array $body)
@@ -794,11 +795,23 @@ function qr_state(array $settings, int $now): array
         'paymentMode' => (string) ($settings['payment_mode'] ?? 'on_site'),
         'paymentsConfigured' => qr_stripe_configured(),
         'paymentsTest' => qr_stripe_test_mode(),
+        'tips' => qr_tips_on(),
         'now' => $now,
     ];
 }
 
 // ── payments configured? (the calls themselves are in _lib/pay.php) ──
+
+/**
+ * Tips on the phone, when paying an order or a table's bill. Off (19.10.2026):
+ * no tips of any kind through this system. 'tips' => 'on' in
+ * raya-qr-config.php brings them back; the menu asks state.php whether to
+ * offer one, and the server drops any tip while they are off.
+ */
+function qr_tips_on(): bool
+{
+    return (string) (qr_config()['tips'] ?? '') === 'on';
+}
 
 function qr_stripe_configured(): bool
 {

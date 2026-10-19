@@ -22,7 +22,7 @@ import { TipPicker, useTip } from "./Tip.jsx";
 const key = (l) => `${l.code}:${l.line}`;
 const BILLS = "raya.qr.bills"; // this phone's bill payments: [{ token, code }]
 
-export default function BillSheet({ t, lang, table, myCodes, returned, onClose, onOrders }) {
+export default function BillSheet({ t, lang, table, tips, myCodes, returned, onClose, onOrders }) {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   const [picked, setPicked] = useState(() => new Set());
@@ -85,7 +85,7 @@ export default function BillSheet({ t, lang, table, myCodes, returned, onClose, 
   };
   const selected = payable.filter((l) => picked.has(key(l)));
   const amount = selected.reduce((s, l) => s + l.amount, 0);
-  const tipState = useTip(amount);
+  const tipState = useTip(amount, tips);
   const { tip, bad: tipBad } = tipState;
 
   async function pay() {

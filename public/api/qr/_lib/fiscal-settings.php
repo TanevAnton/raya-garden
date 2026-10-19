@@ -3,8 +3,10 @@
 // (_lib/fiscal.php). Nothing here is secret: the bridge's token and the mode
 // live in raya-qr-config.php (see docs/qr-ordering/SETUP.md, "Fiscal receipts").
 //
-// ⚠ To be confirmed by the accountant before going live: the tax groups
-// and how the tip appears (docs/qr-ordering/FISCAL-QUESTIONS-BG.md).
+// The accountant (19.10.2026): food and drinks are group Б; no e-shop
+// registration — these are ordinary receipts from a fiscal printer in the
+// restaurant. ⚠ Still to confirm: how the tip appears, and whether this
+// makes the system СУПТО (docs/qr-ordering/FISCAL-QUESTIONS-BG.md).
 //
 // ⚠ PHP 7.3 on the production host — see core.php.
 

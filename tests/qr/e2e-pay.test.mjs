@@ -332,6 +332,13 @@ describe("paying on the phone, with the fiscal printer", () => {
       assert.equal(printer.paper.length, 1);
       await staff.evaluate(() => document.querySelector("details")?.setAttribute("open", ""));
       await staff.waitForSelector(`[data-receipt="${printer.paper[0].receiptNumber}"]`);
+      // A report from the panel, printed through the bridge.
+      await staff.waitForSelector("[data-fiscal-reports]");
+      await clickText(staff, "[data-fiscal-reports]", /X отчет/);
+      await staff.waitForSelector('[data-command="xreport"]');
+      await drain();
+      await staff.waitForSelector('[data-command="xreport"][data-command-status="done"]', { timeout: 10000 });
+      assert.deepEqual(printer.reports.map((r) => r.kind), ["xreport"]);
       await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-fiscal-printed.png") : undefined, fullPage: true });
       assert.deepEqual(staff.errors, []);
     } finally {
@@ -356,6 +363,41 @@ describe("paying on the phone, tips switched off", () => {
     } finally {
       await page.close();
       srv.config({ tips: "on" });
+    }
+  });
+});
+
+describe("„За касата“, entering by hand", () => {
+  it("a new phone payment makes the tab blink, and lists its items with prices, as they go into the till", async () => {
+    const staff = await phone();
+    try {
+      await openEvening();
+      const menu = srv.menu();
+      const price = (id, v = "std") => menu.categories.flatMap((c) => c.items).find((i) => i.id === id).variants.find((x) => x.id === v).price;
+      await staff.setViewport({ width: 1280, height: 900 });
+      await staff.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
+      await staff.type("input[type=password]", ADMIN_PASSWORD);
+      await staff.click("button[type=submit]");
+      await staff.waitForSelector("nav");
+      await new Promise((r) => setTimeout(r, 4500)); // one poll with nothing in it
+      assert.equal(await staff.$('[data-flash="1"]'), null);
+
+      const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, [["caesar", "chicken", 2], ["tiramisu"]]), { headers: { "Idempotency-Key": newKey() } });
+      assert.equal(res.status, 201, res.text);
+      await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+      await staff.waitForSelector('[data-flash="1"]', { timeout: 10000 });
+
+      await clickText(staff, "nav", /За касата \(1\)/);
+      await staff.waitForFunction(() => !document.querySelector('[data-flash="1"]'));
+      const rows = await staff.$$eval(`[data-till="${res.body.order.code}"] [data-items] tr`, (trs) => trs.map((tr) => tr.innerText.replace(/\s+/g, " ").trim()));
+      assert.equal(rows.length, 2);
+      const eur = (c) => `${Math.floor(c / 100)},${String(c % 100).padStart(2, "0")} €`;
+      assert.match(rows[0], new RegExp(`^2 × .*по ${eur(price("caesar", "chicken"))} ${eur(2 * price("caesar", "chicken"))}$`));
+      assert.match(rows[1], new RegExp(`^1 × .*${eur(price("tiramisu"))}$`));
+      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-items.png") : undefined, fullPage: true });
+      assert.deepEqual(staff.errors, []);
+    } finally {
+      await staff.close();
     }
   });
 });

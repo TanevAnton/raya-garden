@@ -5,6 +5,9 @@
 //   {"id": 5, "action": "retry"}   print it again: one that failed, or — once
 //                                  someone looked at the printer and found
 //                                  nothing — one that stopped at 'check'
+//   {"action": "zreport"}          the day's Z report (closes the day)
+//   {"action": "xreport"}          an X report (the day so far, closes nothing)
+//   {"action": "duplicate"}        a duplicate of the last receipt
 //
 // Entering it by hand instead is the tick on „За касата“ (till.php).
 //
@@ -22,7 +25,12 @@ qr_require_method('POST');
 qr_require_admin(true);
 $body = qr_body();
 $id = $body['id'] ?? null;
-if (!is_int($id) || ($body['action'] ?? '') !== 'retry') {
+$action = (string) ($body['action'] ?? '');
+if (in_array($action, QR_FISCAL_COMMANDS, true)) {
+    list($status, $response) = qr_fiscal_command_request($action, qr_now());
+    qr_json($status, $response);
+}
+if (!is_int($id) || $action !== 'retry') {
     qr_fail(400, 'invalid');
 }
 list($status, $response) = qr_fiscal_retry($id);

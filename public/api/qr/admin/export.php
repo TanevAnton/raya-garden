@@ -22,7 +22,7 @@ require dirname(__DIR__) . '/_lib/history.php';
 qr_require_method('GET');
 qr_require_admin(false);
 $kind = isset($_GET['kind']) ? (string) $_GET['kind'] : '';
-if (!in_array($kind, ['lines', 'payments'], true)) {
+if (!in_array($kind, ['lines', 'payments', 'audit'], true)) {
     qr_fail(400, 'invalid', ['field' => 'kind']);
 }
 if (isset($_GET['evening'])) {
@@ -42,7 +42,7 @@ if ((new DateTime($from))->diff(new DateTime($to))->days >= QR_EXPORT_DAYS) {
     qr_fail(400, 'invalid', ['field' => 'dates', 'maxDays' => QR_EXPORT_DAYS]);
 }
 
-$name = 'raya-' . ($kind === 'lines' ? 'poruchki' : 'plashtania') . '-' . ($from === $to ? $from : $from . '_' . $to) . '.csv';
+$name = 'raya-' . ($kind === 'lines' ? 'poruchki' : ($kind === 'audit' ? 'zhurnal' : 'plashtania')) . '-' . ($from === $to ? $from : $from . '_' . $to) . '.csv';
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $name . '"');
 header('Cache-Control: no-store');
@@ -55,7 +55,9 @@ try {
     $out = function (string $row) {
         echo $row;
     };
-    if ($kind === 'lines') {
+    if ($kind === 'audit') {
+        qr_export_audit($pdo, $from, $to, $out);
+    } elseif ($kind === 'lines') {
         qr_export_lines($pdo, $from, $to, $out);
     } else {
         qr_export_payments($pdo, $from, $to, $out);

@@ -289,6 +289,28 @@ function qr_csv_row(array $cells): string
     return implode(';', $cells) . "\r\n";
 }
 
+/**
+ * The operations log (audit_log, written by the database's triggers — see
+ * core.php, schema v14) from $from to $to, Sofia dates: every order, line,
+ * cancellation, payment, refund, till tick and fiscal receipt, oldest first,
+ * nothing left out. Written out as it is read.
+ */
+function qr_export_audit(PDO $pdo, string $from, string $to, callable $out)
+{
+    $start = (new DateTime($from . ' 00:00', new DateTimeZone(QR_TZ)))->getTimestamp();
+    $end = (new DateTime($to . ' 00:00', new DateTimeZone(QR_TZ)))->modify('+1 day')->getTimestamp();
+    $out(qr_csv_row(['№', 'време', 'операция', 'поръчка / документ', 'сума', 'подробности']));
+    $stmt = $pdo->prepare('SELECT * FROM audit_log WHERE at >= ? AND at < ? ORDER BY id');
+    $stmt->execute([$start, $end]);
+    while (($row = $stmt->fetch()) !== false) {
+        $out(qr_csv_row([
+            (string) $row['id'], qr_csv_time((int) $row['at']), qr_csv_text((string) $row['kind']),
+            qr_csv_text((string) $row['ref']), qr_csv_money((int) $row['amount_cents']), qr_csv_text((string) $row['detail']),
+        ]));
+    }
+    $stmt->closeCursor();
+}
+
 const QR_STATUS_BG = ['new' => 'нова', 'accepted' => 'приета', 'served' => 'сервирана', 'cancelled' => 'отказана'];
 const QR_STATION_BG = ['kitchen' => 'кухня', 'bar' => 'бар'];
 

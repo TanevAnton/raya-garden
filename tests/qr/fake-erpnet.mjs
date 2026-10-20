@@ -32,6 +32,7 @@ export async function startFakeErpNet() {
   const paper = []; // what came out of the printer: { kind, body, receiptNumber, … }
   const tasks = new Map(); // taskId → { status, result }
   const posts = []; // every print request, with its task id
+  const reports = []; // Z and X reports, duplicates: { kind, taskId }
   let number = 0;
   let failNext = null; // { code, text }
   let hold = false; // tasks stay queued until release()
@@ -88,6 +89,16 @@ export async function startFakeErpNet() {
         ? { ok: "true", deviceDateTime: new Date().toISOString().slice(0, 19), messages: [] }
         : { ok: "false", messages: [{ type: "error", code: "E302", text: "The paper cover is open" }] });
     }
+    const report = url.pathname.match(new RegExp(`^/printers/${PRINTER.id}/(zreport|xreport|duplicate)$`));
+    if (req.method === "POST" && report) {
+      const taskId = url.searchParams.get("taskId");
+      posts.push({ kind: report[1], taskId, body: raw ? JSON.parse(raw) : {} });
+      if (!tasks.has(taskId) && !reports.some((r) => r.taskId === taskId)) {
+        reports.push({ kind: report[1], taskId });
+        tasks.set(taskId, { status: "finished", result: { ok: "true", messages: [] } });
+      }
+      return json(res, 200, { taskId });
+    }
     const print = url.pathname.match(new RegExp(`^/printers/${PRINTER.id}/(receipt|reversalreceipt)$`));
     if (req.method === "POST" && print) {
       const taskId = url.searchParams.get("taskId");
@@ -110,6 +121,7 @@ export async function startFakeErpNet() {
     base,
     paper,
     posts,
+    reports,
     /** The next receipt is refused by the printer (nothing printed). */
     failNext: (code = "E201", text = "The fiscal memory is full") => (failNext = { code, text }),
     /** Tasks wait in the queue until release(). */
@@ -124,6 +136,7 @@ export async function startFakeErpNet() {
     reset: () => {
       paper.length = 0;
       posts.length = 0;
+      reports.length = 0;
       tasks.clear();
       held.length = 0;
       number = 0;

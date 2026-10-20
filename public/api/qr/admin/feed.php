@@ -96,6 +96,7 @@ try {
     // Fiscal receipts printed by the bridge in the restaurant, and the bridge itself.
     $fiscalDocs = qr_fiscal_feed($pdo, $since, $now);
     $fiscalBridge = qr_fiscal_mode() !== '' ? qr_fiscal_bridge_json($pdo, $now) : null;
+    $fiscalCommands = $fiscalBridge !== null ? qr_fiscal_commands_feed($pdo) : [];
     $pdo->exec('COMMIT');
 } catch (Throwable $e) {
     $pdo->exec('ROLLBACK');
@@ -123,6 +124,6 @@ qr_json(200, [
     'clockDocs' => $clockDocs,
     'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode()] : null,
     'fiscalDocs' => $fiscalDocs,
-    'fiscal' => $fiscalBridge !== null ? ['mode' => qr_fiscal_mode()] + $fiscalBridge : null,
+    'fiscal' => $fiscalBridge !== null ? ['mode' => qr_fiscal_mode(), 'commands' => $fiscalCommands] + $fiscalBridge : null,
     'now' => $now,
 ]);

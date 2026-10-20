@@ -233,6 +233,8 @@ function Dashboard({ onSignedOut }) {
     setState(next);
   }, []);
   const loaded = useRef(false);
+  // The first poll has come back (state, so effects that wait for it run).
+  const [firstPoll, setFirstPoll] = useState(false);
   const chime = useChime();
   const chimeRef = useRef(chime);
   chimeRef.current = chime;
@@ -305,6 +307,7 @@ function Dashboard({ onSignedOut }) {
           setTimeout(() => setFlash((f) => new Set([...f].filter((id) => !isNew.some((o) => o.id === id)))), 8000);
         }
         loaded.current = true;
+        setFirstPoll(true);
       } catch {
         failures += 1;
         if (failures >= 2) setOffline(true);
@@ -423,6 +426,21 @@ function Dashboard({ onSignedOut }) {
     }
   }
 
+  // A report or a duplicate on the fiscal printer for phone payments.
+  async function fiscalCommand(kind) {
+    if (kind === "zreport" && !window.confirm("Дневният отчет (Z) приключва деня на касата за онлайн плащания. Да го пусна ли?")) return;
+    try {
+      const res = await adminApi("fiscal.php", { action: kind });
+      if (res.status === 401) return onSignedOut();
+      if (res.ok) {
+        say(kind === "duplicate" ? "Пращам дубликата към касата…" : "Пращам отчета към касата…");
+        if (res.command) setFiscalInfo((f) => (f ? { ...f, commands: [res.command, ...(f.commands || []).filter((c) => c.id !== res.command.id)] } : f));
+      } else say("Не успях да го пратя. Опитайте отново.");
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    }
+  }
+
   // A receipt that did not print: print it again.
   async function fiscalRetry(doc) {
     try {
@@ -466,6 +484,29 @@ function Dashboard({ onSignedOut }) {
   const newCount = [...orders.values()].flatMap(jobsOf).filter((j) => j.status === "new" && shows(stationView, j.station)).length;
   const tillEntries = tillList(orders, billPayments, clockDocs, fiscalDocs);
   const tillCount = tillEntries.filter((e) => e.todo).length;
+  // A phone payment new to „За касата“ (still to enter by hand): the chime, and
+  // the tab blinks until someone opens it. Payments already there when the
+  // screen loaded do not count.
+  const tillKeys = tillEntries.filter((e) => e.toEnter).map((e) => `${e.kind}${e.id}`).join(",");
+  const tillSeen = useRef(null);
+  const [tillFlash, setTillFlash] = useState(false);
+  useEffect(() => {
+    if (!firstPoll) return;
+    const keys = tillKeys ? tillKeys.split(",") : [];
+    if (tillSeen.current === null) {
+      tillSeen.current = new Set(keys);
+      return;
+    }
+    const fresh = keys.filter((k) => !tillSeen.current.has(k));
+    keys.forEach((k) => tillSeen.current.add(k));
+    if (fresh.length && tab !== "till") {
+      setTillFlash(true);
+      if (chimeRef.current.enabled) chimeRef.current.play();
+    }
+  }, [tillKeys, tab, firstPoll]);
+  useEffect(() => {
+    if (tab === "till") setTillFlash(false);
+  }, [tab]);
   const showTill = Boolean(state?.paymentsConfigured) || tillEntries.length > 0;
   const openTabs = [...tabs.values()].filter((x) => !x.closedAt);
   const owedTabs = openTabs.filter((x) => x.totals.unpaid > 0 || x.payments.some((p) => p.refundDue > 0)).length;
@@ -512,7 +553,8 @@ function Dashboard({ onSignedOut }) {
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
             ["history", "История"],
           ].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => setTab(id)} className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"}`}>
+            <button key={id} type="button" onClick={() => setTab(id)} data-flash={id === "till" && tillFlash ? "1" : undefined}
+              className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"} ${id === "till" && tillFlash ? "animate-pulse text-gold-100 bg-gold-300/15" : ""}`}>
               {label}
             </button>
           ))}
@@ -543,7 +585,7 @@ function Dashboard({ onSignedOut }) {
         {tab === "soldout" && <SoldOut soldOut={soldOut} setSoldOut={setSoldOut} say={say} onSignedOut={onSignedOut} />}
         {tab === "waiters" && <Waiters state={state} waiters={waiters} onSave={saveWaiters} say={say} />}
         {tab === "tabs" && <Tabs tabs={tabs} waiterOf={(table, evening) => (evening === state?.serviceDate ? waiters[table] : "")} onAction={billAction} />}
-        {tab === "till" && <Till entries={tillEntries} onTill={till} clockInfo={clockInfo} clockDocs={clockDocs} onClock={clockAction} fiscalInfo={fiscalInfo} onFiscal={fiscalRetry} />}
+        {tab === "till" && <Till entries={tillEntries} onTill={till} clockInfo={clockInfo} clockDocs={clockDocs} onClock={clockAction} fiscalInfo={fiscalInfo} onFiscal={fiscalRetry} onCommand={fiscalCommand} />}
         {tab === "history" && <History onSignedOut={onSignedOut} />}
       </main>
 
@@ -1093,6 +1135,34 @@ function FiscalBridge({ info }) {
   );
 }
 
+/** Reports and a duplicate for the fiscal printer for phone payments, and how the last ones went. */
+const COMMAND_NAMES = { zreport: "Дневен отчет (Z)", xreport: "X отчет", duplicate: "Дубликат" };
+function FiscalReports({ info, onCommand }) {
+  const state = (c) =>
+    c.status === "done" ? `отпечатан в ${clock(c.doneAt)}`
+      : c.status === "failed" || c.status === "check" ? `не се отпечата${c.error ? `: ${c.error}` : ""}`
+      : "чака касата…";
+  return (
+    <section className="mt-8 border border-gold-300/20 rounded-sm p-4" data-fiscal-reports>
+      <h2 className="font-display text-xl text-cream-50">Касата за онлайн плащания</h2>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button type="button" onClick={() => onCommand("xreport")} className="h-11 px-4 rounded-sm border border-gold-300/40 text-sm text-cream-50">X отчет</button>
+        <button type="button" onClick={() => onCommand("zreport")} className="btn-gold h-11 px-4 rounded-sm text-sm">Дневен отчет (Z)</button>
+        <button type="button" onClick={() => onCommand("duplicate")} className="h-11 px-4 rounded-sm border border-gold-300/40 text-sm text-cream-50">Дубликат на последната бележка</button>
+      </div>
+      {info.commands?.length > 0 && (
+        <ul className="mt-3 text-sm text-cream-100/70 space-y-1">
+          {info.commands.map((c) => (
+            <li key={c.id} data-command={c.kind} data-command-status={c.status}>
+              {COMMAND_NAMES[c.kind] || c.kind}, поискан в {clock(c.requestedAt)} — <span className={c.status === "done" ? "text-sage-200" : c.status === "failed" || c.status === "check" ? "text-red-300" : ""}>{state(c)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 /** Where a payment's (or a refund's) fiscal receipt is, on its „За касата“ row. */
 function FiscalStatus({ doc, onFiscal }) {
   if (!doc || doc.status === "manual" || doc.status === "printed") return null;
@@ -1161,6 +1231,8 @@ function tillList(orders, billPayments, clockDocs = new Map(), fiscalDocs = new 
     storno: receipts.filter((d) => d.kind === "storno" && d.source === source && d.sourceId === id && d.status !== "manual").at(-1) || null,
   });
   const lines = (list = []) => list.filter((l) => l.qty > 0).map((l) => `${l.qty} × ${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`).join(", ");
+  // The lines as they are typed into the till: quantity, name, unit price.
+  const items = (list = []) => list.filter((l) => l.qty > 0).map((l) => ({ qty: l.qty, name: `${l.nameBg}${l.detailBg ? ` · ${l.detailBg}` : ""}`, price: l.price ?? 0 }));
   for (const o of orders.values()) {
     if (o.payStatus !== "paid" && o.payStatus !== "refunded") continue;
     if (!o.tillAt && o.net <= 0) continue; // refunded before it was entered: nothing to do
@@ -1168,6 +1240,7 @@ function tillList(orders, billPayments, clockDocs = new Map(), fiscalDocs = new 
     entries.push({
       kind: "order", id: o.id, code: o.code, table: o.table, at: o.paidAt || o.createdAt,
       text: (o.payerName ? `${o.payerName} · ` : "") + lines(o.lines),
+      payer: o.payerName || "", items: items(o.lines),
       amount: o.tillAt ? o.tillCents : o.net, voidAmount, tip: o.tipNet || 0, tillAt: o.tillAt,
       toEnter: o.payStatus === "paid" && !o.tillAt && o.net > 0, toVoid: o.tillAt > 0 && voidAmount > 0,
       clock: clockOf("order", o.id),
@@ -1181,6 +1254,7 @@ function tillList(orders, billPayments, clockDocs = new Map(), fiscalDocs = new 
     entries.push({
       kind: "bill", id: p.id, code: p.code, table: p.table, at: p.paidAt,
       text: `сметка${p.payerName ? `, платил ${p.payerName}` : ""} · ${lines(p.lines)}`,
+      payer: `сметка${p.payerName ? `, платил ${p.payerName}` : ""}`, items: items(p.lines),
       amount: p.tillAt ? p.tillCents : p.net, voidAmount, tip: p.tipNet, tillAt: p.tillAt,
       toEnter: !p.tillAt && p.net > 0, toVoid: p.tillAt > 0 && voidAmount > 0,
       clock: clockOf("bill", p.id),
@@ -1196,7 +1270,7 @@ function tillList(orders, billPayments, clockDocs = new Map(), fiscalDocs = new 
  * till (Clock) by hand; refunds of what was already entered have to be
  * voided there. Oldest first. Ticks sync to every tablet.
  */
-function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFiscal }) {
+function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFiscal, onCommand }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
   // Folios whose items are in Clock, for staff to add the card payment and close there. The
   // amount is what the guest paid, less what was given back onto the same folio.
@@ -1212,7 +1286,7 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
   const today = sofiaDate(Math.floor(Date.now() / 1000));
   const tipped = entries.filter((e) => e.tip > 0 && sofiaDate(e.at) === today);
   const tips = tipped.reduce((sum, e) => sum + e.tip, 0);
-  const Row = ({ entry, amount, tip = 0, children }) => (
+  const Row = ({ entry, amount, tip = 0, list = false, children }) => (
     <li className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-till={entry.code}>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-3">
@@ -1220,7 +1294,25 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
           <span className="text-cream-100/70">маса {entry.table}</span>
           <span className="text-cream-100/50 text-sm">{clock(entry.at)}</span>
         </div>
-        <div className="text-sm text-cream-100/80 mt-1">{entry.text}</div>
+        {list && entry.items?.length ? (
+          <>
+            {entry.payer && <div className="text-xs text-cream-100/60 mt-1">{entry.payer}</div>}
+            <table className="mt-2 text-sm text-cream-100/90 w-full max-w-md" data-items>
+              <tbody>
+                {entry.items.map((it, i) => (
+                  <tr key={i} className="align-baseline">
+                    <td className="pr-2 font-semibold text-cream-50 tabular-nums w-10">{it.qty} ×</td>
+                    <td className="pr-3">{it.name}</td>
+                    <td className="text-right tabular-nums text-cream-100/60 whitespace-nowrap">{it.qty > 1 ? `по ${money(it.price)}` : ""}</td>
+                    <td className="pl-3 text-right tabular-nums whitespace-nowrap">{money(it.qty * it.price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        ) : (
+          <div className="text-sm text-cream-100/80 mt-1">{entry.text}</div>
+        )}
       </div>
       <div className="text-right">
         <div className="font-semibold text-cream-50 text-lg">{money(amount)}</div>
@@ -1296,7 +1388,7 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
       ) : (
         <ul className="space-y-3 mt-3">
           {toEnter.map((e) => (
-            <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip}>
+            <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip} list>
               <ClockStatus doc={e.clock.sale} onClock={onClock} />
               <FiscalStatus doc={e.fiscal.sale} onFiscal={onFiscal} />
               <button type="button" disabled={e.clock.sale?.status === "sending" || ["claimed", "submitted"].includes(e.fiscal.sale?.status)} onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm disabled:opacity-40">{fiscalInfo ? "Въведена ръчно ✓" : "Въведена в Clock ✓"}</button>
@@ -1304,6 +1396,7 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
           ))}
         </ul>
       )}
+      {fiscalInfo && <FiscalReports info={fiscalInfo} onCommand={onCommand} />}
       {done.length > 0 && (
         <details className="mt-8">
           <summary className="text-sm text-cream-100/60 cursor-pointer">Въведени ({done.length})</summary>
@@ -1739,6 +1832,7 @@ function History({ onSignedOut }) {
     <span className="inline-flex flex-wrap gap-2">
       <a href={exportUrl("lines", query)} download className="h-10 px-3 inline-flex items-center rounded-sm border border-gold-300/30 text-sm text-gold-100">{children}: поръчки (Excel)</a>
       <a href={exportUrl("payments", query)} download className="h-10 px-3 inline-flex items-center rounded-sm border border-gold-300/30 text-sm text-gold-100">{children}: плащания с карта (Excel)</a>
+      <a href={exportUrl("audit", query)} download className="h-10 px-3 inline-flex items-center rounded-sm border border-gold-300/30 text-sm text-gold-100" data-export-audit>{children}: журнал на операциите</a>
     </span>
   );
 

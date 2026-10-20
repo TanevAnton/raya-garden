@@ -227,13 +227,17 @@ function qr_fiscal_claim(array $bridge, int $now)
                 !empty($printer['ok']) ? 1 : 0, mb_substr((string) ($printer['message'] ?? ''), 0, 300),
                 qr_fiscal_bridge_seq($pdo, $now, !empty($printer['ok'])),
             ]);
+        if (!empty($bridge['check'])) {
+            return null; // the bridge checking its connection: its state is recorded, nothing is claimed
+        }
         for ($i = 0; $i < 20; $i++) {
             $find = $pdo->prepare('SELECT * FROM fiscal_docs WHERE ' . QR_FISCAL_DUE . ' ORDER BY id LIMIT 1');
             $find->execute([QR_FISCAL_TRIES, $now, $now - QR_FISCAL_LEASE]);
             $doc = $find->fetch();
             $find->closeCursor();
             if (!is_array($doc)) {
-                return null;
+                // No receipt waiting: a report or duplicate staff asked for.
+                return qr_fiscal_claim_command($pdo, $now);
             }
             if ($doc['kind'] === 'sale' && $doc['task_id'] === '' && qr_fiscal_entered_by_hand($pdo, $doc)) {
                 qr_fiscal_set_manual($pdo, $doc);
@@ -410,6 +414,136 @@ function qr_fiscal_report(int $id, string $event, array $data, int $now): array
         }
         return [400, ['ok' => false, 'error' => 'bad_event']];
     });
+}
+
+// ── reports and duplicates ───────────────────────────────────────────
+//
+// Staff ask for them on „За касата“; the bridge prints them once no receipt
+// is waiting (a Z report closes the day, so the day's receipts go first).
+// Like a receipt: claimed, sent under a task id of ours, looked up — never
+// sent twice — when its answer was lost.
+
+const QR_FISCAL_COMMANDS = ['zreport', 'xreport', 'duplicate'];
+
+/** Staff ask for a report (or a duplicate of the last receipt). One already waiting is that one. Returns [httpStatus, body]. */
+function qr_fiscal_command_request(string $kind, int $now): array
+{
+    if (!in_array($kind, QR_FISCAL_COMMANDS, true)) {
+        return [400, ['ok' => false, 'error' => 'invalid']];
+    }
+    $mode = qr_fiscal_mode();
+    if ($mode === '') {
+        return [409, ['ok' => false, 'error' => 'fiscal_off']];
+    }
+    return qr_write(function (PDO $pdo) use ($kind, $mode, $now) {
+        $find = $pdo->prepare("SELECT * FROM fiscal_commands WHERE kind = ? AND status IN ('pending', 'claimed', 'submitted') ORDER BY id LIMIT 1");
+        $find->execute([$kind]);
+        $command = $find->fetch();
+        $find->closeCursor();
+        if (!is_array($command)) {
+            $pdo->prepare('INSERT INTO fiscal_commands (test, kind, requested_at, seq) VALUES (?, ?, ?, ?)')
+                ->execute([$mode === 'test' ? 1 : 0, $kind, $now, qr_bump_seq($pdo)]);
+            $find->execute([$kind]);
+            $command = $find->fetch();
+            $find->closeCursor();
+        }
+        return [200, ['ok' => true, 'command' => qr_fiscal_command_json($command)]];
+    });
+}
+
+/** Inside qr_fiscal_claim: the next report due, as a job for the bridge, or null. */
+function qr_fiscal_claim_command(PDO $pdo, int $now)
+{
+    // A Z report closes the day: never while a receipt is still on its way
+    // (claimed by the bridge, or sent to the printer). X reports and
+    // duplicates close nothing, and need not wait.
+    $busy = $pdo->query("SELECT 1 FROM fiscal_docs WHERE status IN ('pending', 'claimed', 'submitted') LIMIT 1");
+    $receiptsOnTheirWay = $busy->fetchColumn() !== false;
+    $busy->closeCursor();
+    $find = $pdo->prepare("SELECT * FROM fiscal_commands WHERE (status = 'pending'
+        OR (status IN ('claimed', 'submitted') AND claimed_at < ?))" . ($receiptsOnTheirWay ? " AND kind <> 'zreport'" : '') . ' ORDER BY id LIMIT 1');
+    $find->execute([$now - QR_FISCAL_LEASE]);
+    $command = $find->fetch();
+    $find->closeCursor();
+    if (!is_array($command)) {
+        return null;
+    }
+    $submitted = $command['task_id'] !== '';
+    $tries = (int) $command['tries'] + 1;
+    $pdo->prepare('UPDATE fiscal_commands SET status = ?, tries = ?, claimed_at = ?, seq = ? WHERE id = ?')
+        ->execute([$submitted ? 'submitted' : 'claimed', $tries, $now, qr_bump_seq($pdo), $command['id']]);
+    return [
+        'id' => (int) $command['id'],
+        'kind' => 'command',
+        'command' => (string) $command['kind'],
+        'code' => (string) $command['kind'],
+        'test' => (int) $command['test'] === 1,
+        'taskId' => $submitted ? (string) $command['task_id'] : qr_fiscal_command_prefix($command) . $tries,
+        'submitted' => $submitted,
+    ];
+}
+
+function qr_fiscal_command_prefix(array $command): string
+{
+    return 'raya-cmd-' . ((int) $command['test'] === 1 ? 't' : 'l') . '-' . $command['id'] . '-';
+}
+
+/** What the bridge says about a report: submitted {taskId} · done · failed {error} · check {error}. */
+function qr_fiscal_command_report(int $id, string $event, array $data, int $now): array
+{
+    return qr_write(function (PDO $pdo) use ($id, $event, $data, $now) {
+        $find = $pdo->prepare('SELECT * FROM fiscal_commands WHERE id = ?');
+        $find->execute([$id]);
+        $command = $find->fetch();
+        $find->closeCursor();
+        if (!is_array($command)) {
+            return [404, ['ok' => false, 'error' => 'not_found']];
+        }
+        if ($command['status'] === 'done' && $event === 'done') {
+            return [200, ['ok' => true, 'already' => true]];
+        }
+        if (!in_array($command['status'], ['claimed', 'submitted'], true)) {
+            return [409, ['ok' => false, 'error' => 'not_claimed', 'status' => $command['status']]];
+        }
+        $seq = qr_bump_seq($pdo);
+        $error = mb_substr((string) ($data['error'] ?? ''), 0, 300);
+        if ($event === 'submitted') {
+            $taskId = (string) ($data['taskId'] ?? '');
+            if (strpos($taskId, qr_fiscal_command_prefix($command)) !== 0 || strlen($taskId) > 40) {
+                return [400, ['ok' => false, 'error' => 'bad_task']];
+            }
+            $pdo->prepare("UPDATE fiscal_commands SET status = 'submitted', task_id = ?, claimed_at = ?, seq = ? WHERE id = ?")
+                ->execute([$taskId, $now, $seq, $id]);
+        } elseif ($event === 'done') {
+            $pdo->prepare("UPDATE fiscal_commands SET status = 'done', done_at = ?, error = '', seq = ? WHERE id = ?")->execute([$now, $seq, $id]);
+        } elseif ($event === 'failed' || $event === 'check') {
+            // Not retried by itself: staff ask again (a report twice is worse than once missed).
+            $pdo->prepare('UPDATE fiscal_commands SET status = ?, error = ?, seq = ? WHERE id = ?')->execute([$event, $error, $seq, $id]);
+        } else {
+            return [400, ['ok' => false, 'error' => 'bad_event']];
+        }
+        return [200, ['ok' => true]];
+    });
+}
+
+function qr_fiscal_command_json(array $c): array
+{
+    return [
+        'id' => (int) $c['id'],
+        'kind' => (string) $c['kind'],
+        'status' => (string) $c['status'],
+        'requestedAt' => (int) $c['requested_at'],
+        'doneAt' => (int) $c['done_at'],
+        'error' => (string) $c['error'],
+        'seq' => (int) $c['seq'],
+    ];
+}
+
+/** The last few reports, for the staff screen. */
+function qr_fiscal_commands_feed(PDO $pdo): array
+{
+    $rows = $pdo->query('SELECT * FROM fiscal_commands ORDER BY id DESC LIMIT 6')->fetchAll();
+    return array_map('qr_fiscal_command_json', $rows);
 }
 
 // ── staff („За касата“) ──────────────────────────────────────────────

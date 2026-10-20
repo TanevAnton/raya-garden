@@ -31,7 +31,8 @@
 //   JOURNAL          the journal's path (default: journal.json next to this file)
 //
 //   node bridge.mjs          run
-//   node bridge.mjs --once   one round, for a check by hand
+//   node bridge.mjs --check  can it see ErpNet.FP, the printer and the server? (claims nothing)
+//   node bridge.mjs --once   one round
 //
 // Node 18 or newer; nothing to install.
 
@@ -162,8 +163,46 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     log(`${job.code}: refused — ${errorsOf(result)}`);
   }
 
+  /**
+   * A report or duplicate staff asked for (zreport, xreport, duplicate): the
+   * same care as a receipt — journal before and after, looked up rather than
+   * sent twice — since a Z report closes the day.
+   */
+  async function handleCommand(job) {
+    const report = (event, extra = {}) => server("/api/qr/fiscal/report.php", { id: job.id, command: true, event, ...extra });
+    const finish = async (result) => {
+      journal.set(job.taskId, { result });
+      if (truthy(result.ok)) {
+        await report("done");
+        log(`${job.command}: printed`);
+      } else {
+        await report("failed", { error: errorsOf(result) });
+        log(`${job.command}: refused — ${errorsOf(result)}`);
+      }
+    };
+    const entry = journal.get(job.taskId);
+    if (entry?.result) return finish(entry.result);
+    if (job.submitted || entry?.sent) {
+      const result = await waitForTask(job.taskId);
+      if (result === "pending") return;
+      if (result !== "unknown") return finish(result);
+      if (entry?.sent) {
+        await report("check", { error: `sent to the printer as ${job.taskId}, but ErpNet.FP no longer knows the answer: check whether the ${job.command} printed` });
+        return;
+      }
+    }
+    const said = await report("submitted", { taskId: job.taskId });
+    if (said.status !== 200) throw new Error(`the server did not take ${job.command} as sent: HTTP ${said.status}`);
+    journal.set(job.taskId, { command: job.command, sent: true });
+    await erpnet(`/printers/${printer.id}/${job.command}?asyncTimeout=0&taskId=${encodeURIComponent(job.taskId)}`, { method: "POST", body: {} });
+    const result = await waitForTask(job.taskId);
+    if (result === "pending" || result === "unknown") return;
+    return finish(result);
+  }
+
   /** One receipt, from claim to report. */
   async function handle(job) {
+    if (job.kind === "command") return handleCommand(job);
     const entry = journal.get(job.taskId);
     // 1. Already answered: report it (again), print nothing.
     if (entry?.result) return reportResult(job, entry.result);
@@ -246,7 +285,28 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     return claim.body.pollMs ?? 3000;
   }
 
-  return { step, journal };
+  /**
+   * A check by hand (--check): can the bridge see ErpNet.FP, the printer and
+   * the server, with the right key? Claims nothing. Returns lines to show.
+   */
+  async function check() {
+    const out = [];
+    const state = await printerState();
+    out.push(printer ? `✓ ErpNet.FP ${config.erpnet}: printer ${printer.id} (${printer.manufacturer || ""} ${printer.model || ""}, ${printer.serialNumber})`
+      : `✗ ErpNet.FP ${config.erpnet}: ${state.message}`);
+    if (printer) out.push(state.ok ? "✓ the printer is ready" : `✗ the printer is not ready: ${state.message}`);
+    try {
+      const res = await server("/api/qr/fiscal/claim.php", { version: VERSION, printer: state, check: true });
+      out.push(res.status === 200
+        ? `✓ ${config.server}: the key is accepted; receipts are ${res.body.mode ? `on (${res.body.mode})` : "off on the server (QR_FISCAL_MODE)"}`
+        : `✗ ${config.server}: HTTP ${res.status} ${res.body?.error || ""}`);
+    } catch (e) {
+      out.push(`✗ ${config.server}: ${e.message}`);
+    }
+    return out;
+  }
+
+  return { step, check, journal };
 }
 
 // ── run ──────────────────────────────────────────────────────────────
@@ -257,6 +317,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     process.exit(1);
   }
   const bridge = createBridge(config);
+  if (process.argv.includes("--check")) {
+    const lines = await bridge.check();
+    console.log(lines.join("\n"));
+    process.exit(lines.some((l) => l.startsWith("✗")) ? 1 : 0);
+  }
   console.log(`fiscal bridge ${VERSION}: ${config.server} ⇄ ${config.erpnet}`);
   for (;;) {
     let wait = 3000;

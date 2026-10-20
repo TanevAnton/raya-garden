@@ -198,7 +198,8 @@ function qr_bill_payment_staff_json(PDO $pdo, array $p): array
 {
     $json = qr_bill_payment_json($p);
     $json['lines'] = array_map(function ($l) {
-        return ['qty' => (int) $l['qty'], 'nameBg' => (string) $l['name_bg'], 'detailBg' => (string) $l['detail_bg'], 'code' => (string) $l['code']];
+        return ['qty' => (int) $l['qty'], 'nameBg' => (string) $l['name_bg'], 'detailBg' => (string) $l['detail_bg'], 'code' => (string) $l['code'],
+            'price' => (int) $l['unit_cents']];
     }, qr_bill_payment_lines($pdo, (int) $p['id']));
     return $json;
 }

@@ -26,5 +26,8 @@ $event = $body['event'] ?? null;
 if (!is_int($id) || !is_string($event)) {
     qr_fail(400, 'invalid');
 }
-list($status, $response) = qr_fiscal_report($id, $event, $body, qr_now());
+// A report or duplicate (see qr_fiscal_command_report), or a receipt.
+list($status, $response) = !empty($body['command'])
+    ? qr_fiscal_command_report($id, $event, $body, qr_now())
+    : qr_fiscal_report($id, $event, $body, qr_now());
 qr_json($status, $response);

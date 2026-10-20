@@ -779,6 +779,23 @@ receipt here, on a printer of their own.
   printed receipt ticks itself, a tick by hand stops one not yet printed, and
   no tick or untick is accepted while it's printing or once it's printed.
 
+### Added 20.10.2026
+
+- **Reports from the tablet.** Z, X and "duplicate of the last receipt" are
+  requests the bridge picks up like receipts: claimed, sent under our task
+  id, looked up rather than sent twice. A Z report closes the day, so it
+  waits while any receipt is still pending, claimed or sent. One asked twice
+  is one report.
+- **The operations log** (`audit_log`) is written by SQLite triggers, not by
+  PHP, so nothing escapes it, and triggers also refuse UPDATE and DELETE on
+  it. Plain SQL only, because the host's SQLite (3.26) may lack JSON
+  functions. No names, since they're erased after 3 days elsewhere.
+- **„За касата“ for entering by hand**: items as they go into the till (qty ×
+  name, unit price, line total), and a chime and blinking tab when a new
+  phone payment arrives. Found in testing: with nothing on the list at load,
+  the first new payment was counted as already seen. The baseline is now
+  taken when the first poll returns.
+
 ### Still open
 
 - **Whether this makes our system "СУПТО"** under Наредба Н-18 (Annex 29).

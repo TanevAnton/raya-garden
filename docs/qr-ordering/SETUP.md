@@ -442,6 +442,22 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
   isn't ready. Anything can still be entered by hand ("Въведена ръчно ✓"),
   which stops it from printing.
 
+- **Reports**: „За касата“ → "Касата за онлайн плащания" asks the bridge for
+  the day's Z report, an X report, or a duplicate of the last receipt. A Z
+  report is never printed while a receipt is still on its way.
+- **Setup on the day**: `sudo ./install-linux.sh` on a Raspberry Pi / Linux
+  (a service that starts on boot); `node bridge.mjs --check` tells what the
+  bridge can and can't see, printing nothing.
+
+### The operations log
+
+Every order, line, cancellation, payment, refund, till tick, receipt and
+report is written into `audit_log` by the database itself (triggers, schema
+v14), so no code path can leave one out. The triggers refuse any change or
+deletion, and the log holds no names. „История“ downloads it for an evening
+or a month ("журнал на операциите"). It's the groundwork for Наредба Н-18's
+sales-software rules, if the accountant says they apply.
+
 ⚠ **Open before going live:** the accountant's answers in
 `FISCAL-QUESTIONS-BG.md`, above all whether this makes our system "СУПТО"
 under Наредба Н-18 (Annex 29: УНП, audit log, НАП export, registration).

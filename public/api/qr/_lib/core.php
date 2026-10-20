@@ -153,7 +153,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 13;
+const QR_SCHEMA_VERSION = 14;
 
 function qr_db(): PDO
 {
@@ -621,6 +621,100 @@ function qr_migrate(PDO $pdo)
                     seq INTEGER NOT NULL DEFAULT 0
                 );
                 INSERT OR IGNORE INTO fiscal_bridge (id) VALUES (1);
+            ");
+        }
+        if ($version < 14) {
+            // Reports and duplicates for the fiscal printer, asked for from
+            // „За касата“ and printed by the bridge once no receipt is waiting
+            // (_lib/fiscal.php): kind 'zreport', 'xreport' or 'duplicate';
+            // status 'pending' → 'claimed' → 'submitted' → 'done', or 'failed'.
+            //
+            // The operations log (audit_log): every order, line, cancellation,
+            // payment, refund, till tick and fiscal receipt, written by the
+            // database itself (triggers), so no code path can leave one out;
+            // and never changed or deleted — the triggers refuse. The
+            // groundwork for Наредба Н-18's sales-software (СУПТО) rules, if
+            // they apply. No names in it: those are erased after 3 days.
+            // Plain SQL only (the host's SQLite is 3.26; JSON functions may be
+            // missing): details are "field=value" pairs.
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS fiscal_commands (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    test INTEGER NOT NULL,
+                    kind TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    tries INTEGER NOT NULL DEFAULT 0,
+                    claimed_at INTEGER NOT NULL DEFAULT 0,
+                    task_id TEXT NOT NULL DEFAULT '',
+                    requested_at INTEGER NOT NULL,
+                    done_at INTEGER NOT NULL DEFAULT 0,
+                    error TEXT NOT NULL DEFAULT '',
+                    seq INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS fiscal_commands_status ON fiscal_commands (status);
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+                    kind TEXT NOT NULL,
+                    ref TEXT NOT NULL DEFAULT '',
+                    amount_cents INTEGER NOT NULL DEFAULT 0,
+                    detail TEXT NOT NULL DEFAULT ''
+                );
+                CREATE INDEX IF NOT EXISTS audit_log_at ON audit_log (at);
+                CREATE TRIGGER IF NOT EXISTS audit_log_no_update BEFORE UPDATE ON audit_log
+                    BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS audit_log_no_delete BEFORE DELETE ON audit_log
+                    BEGIN SELECT RAISE(ABORT, 'audit_log is append-only'); END;
+
+                CREATE TRIGGER IF NOT EXISTS audit_order_new AFTER INSERT ON orders BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('order', NEW.code, NEW.total_cents,
+                        'id=' || NEW.id || ';table=' || NEW.table_no || ';status=' || NEW.status || ';pay=' || NEW.pay_status);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_order_change AFTER UPDATE OF status, pay_status, refunded_cents, till_at, till_void_at ON orders
+                    WHEN OLD.status IS NOT NEW.status OR OLD.pay_status IS NOT NEW.pay_status OR OLD.refunded_cents IS NOT NEW.refunded_cents
+                      OR OLD.till_at IS NOT NEW.till_at OR OLD.till_void_at IS NOT NEW.till_void_at BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('order_change', NEW.code, NEW.total_cents,
+                        'id=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';pay=' || OLD.pay_status || '>' || NEW.pay_status
+                        || ';refunded=' || OLD.refunded_cents || '>' || NEW.refunded_cents || ';till=' || OLD.till_at || '>' || NEW.till_at
+                        || ';till_void=' || OLD.till_void_at || '>' || NEW.till_void_at || ';reason=' || NEW.cancel_reason);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_line_new AFTER INSERT ON order_items BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('line', (SELECT code FROM orders WHERE id = NEW.order_id),
+                        NEW.unit_cents * NEW.qty, 'order=' || NEW.order_id || ';line=' || NEW.line || ';item=' || NEW.item_id || '/' || NEW.variant_id
+                        || ';qty=' || NEW.qty || ';unit=' || NEW.unit_cents);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_line_void AFTER UPDATE OF void_qty ON order_items WHEN OLD.void_qty IS NOT NEW.void_qty BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('line_void', (SELECT code FROM orders WHERE id = NEW.order_id),
+                        NEW.unit_cents * (NEW.void_qty - OLD.void_qty), 'order=' || NEW.order_id || ';line=' || NEW.line || ';item=' || NEW.item_id
+                        || ';void=' || OLD.void_qty || '>' || NEW.void_qty || ';reason=' || NEW.void_reason);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_payment_new AFTER INSERT ON bill_payments BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('bill_payment', NEW.code, NEW.amount_cents,
+                        'id=' || NEW.id || ';table=' || NEW.table_no || ';status=' || NEW.status);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_payment_change AFTER UPDATE OF status, refunded_cents, till_at, till_void_at ON bill_payments
+                    WHEN OLD.status IS NOT NEW.status OR OLD.refunded_cents IS NOT NEW.refunded_cents
+                      OR OLD.till_at IS NOT NEW.till_at OR OLD.till_void_at IS NOT NEW.till_void_at BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('bill_payment_change', NEW.code, NEW.amount_cents,
+                        'id=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';refunded=' || OLD.refunded_cents || '>' || NEW.refunded_cents
+                        || ';till=' || OLD.till_at || '>' || NEW.till_at || ';till_void=' || OLD.till_void_at || '>' || NEW.till_void_at);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_receipt_new AFTER INSERT ON fiscal_docs BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('receipt_queued', NEW.code, NEW.total_cents,
+                        'doc=' || NEW.id || ';kind=' || NEW.kind || ';sale=' || NEW.sale_id || ';usn_seq=' || NEW.usn_seq || ';test=' || NEW.test);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_receipt_change AFTER UPDATE OF status ON fiscal_docs WHEN OLD.status IS NOT NEW.status BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail) VALUES ('receipt_' || NEW.status, NEW.code, NEW.total_cents,
+                        'doc=' || NEW.id || ';kind=' || NEW.kind || ';status=' || OLD.status || '>' || NEW.status || ';usn=' || NEW.usn
+                        || ';receipt=' || NEW.receipt_number || ';at=' || NEW.receipt_at || ';fm=' || NEW.fm_number || ';error=' || NEW.error);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_command_new AFTER INSERT ON fiscal_commands BEGIN
+                    INSERT INTO audit_log (kind, ref, detail) VALUES ('report_requested', NEW.kind, 'command=' || NEW.id || ';test=' || NEW.test);
+                END;
+                CREATE TRIGGER IF NOT EXISTS audit_command_change AFTER UPDATE OF status ON fiscal_commands WHEN OLD.status IS NOT NEW.status BEGIN
+                    INSERT INTO audit_log (kind, ref, detail) VALUES ('report_' || NEW.status, NEW.kind,
+                        'command=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';error=' || NEW.error);
+                END;
             ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);

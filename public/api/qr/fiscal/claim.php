@@ -5,6 +5,8 @@
 //
 //   {"version": "1.0.0", "printer": {"id": "dt279013", "serialNumber": "DT279013",
 //    "ok": true, "message": ""}}
+// With "check": true the bridge's state is recorded and nothing is claimed
+// (node bridge.mjs --check).
 //
 // 200 {"ok": true, "job": {…} | null, "pollMs": 3000} · 401 wrong key ·
 // 503 printing receipts is off.

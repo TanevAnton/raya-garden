@@ -312,3 +312,80 @@ describe("fiscal receipts: by hand, and switches", () => {
     rmSync(work, { recursive: true, force: true });
   });
 });
+
+describe("fiscal printer: reports and the duplicate", () => {
+  it("a Z report waits for the receipts still to print; asked twice, it is one report", async () => {
+    const admin = await setUp();
+    printer.setStatusOk(false);
+    await paid(4, [["tiramisu"]]);
+    const z1 = await admin.admin("/api/qr/admin/fiscal.php", { action: "zreport" });
+    const z2 = await admin.admin("/api/qr/admin/fiscal.php", { action: "zreport" });
+    assert.equal(z1.status, 200, z1.text);
+    assert.equal(z2.body.command.id, z1.body.command.id, "one Z report, however often asked");
+    printer.setStatusOk(true);
+    await drain(bridge());
+    assert.deepEqual(printer.posts.map((p) => p.kind), ["receipt", "zreport"], "the day's receipts first");
+    assert.equal(printer.reports.length, 1);
+    const feed = (await admin.get("/api/qr/admin/feed.php?since=0")).body;
+    assert.deepEqual(feed.fiscal.commands.map((c) => [c.kind, c.status]), [["zreport", "done"]]);
+  });
+
+  it("a Z report never jumps a receipt the bridge already holds while the printer is not ready", async () => {
+    const admin = await setUp();
+    printer.setStatusOk(false);
+    await paid(4, [["tiramisu"]]);
+    await bridge().step(); // the receipt is claimed; the printer is not ready
+    assert.equal(docs()[0].status, "claimed");
+    assert.equal((await admin.admin("/api/qr/admin/fiscal.php", { action: "zreport" })).status, 200);
+    printer.setStatusOk(true);
+    await drain(bridge()); // within the receipt's lease: the Z report must wait
+    assert.equal(printer.reports.length, 0);
+    await drain(bridge({ later: 130 }));
+    assert.deepEqual(printer.posts.map((p) => p.kind), ["receipt", "zreport"]);
+  });
+
+  it("an X report and a duplicate of the last receipt; nothing when printing is off", async () => {
+    const admin = await setUp();
+    assert.equal((await admin.admin("/api/qr/admin/fiscal.php", { action: "xreport" })).status, 200);
+    assert.equal((await admin.admin("/api/qr/admin/fiscal.php", { action: "duplicate" })).status, 200);
+    await drain(bridge());
+    assert.deepEqual(printer.reports.map((r) => r.kind), ["xreport", "duplicate"]);
+    srv.config({ fiscal_mode: "off" });
+    const off = await admin.admin("/api/qr/admin/fiscal.php", { action: "zreport" });
+    assert.deepEqual([off.status, off.body.error], [409, "fiscal_off"]);
+    assert.equal((await admin.admin("/api/qr/admin/fiscal.php", { action: "format-the-printer" })).status, 400);
+  });
+
+  it("the bridge's check claims nothing, and tells what it sees", async () => {
+    await setUp();
+    await paid(4, [["tiramisu"]]);
+    const lines = await bridge().check();
+    assert.deepEqual(lines.map((l) => l[0]), ["✓", "✓", "✓"], lines.join("\n"));
+    assert.match(lines[2], /receipts are on \(test\)/);
+    assert.equal(docs()[0].status, "pending", "nothing claimed");
+    assert.equal(printer.paper.length, 0);
+  });
+});
+
+describe("the operations log", () => {
+  it("records an order's whole life, from the database itself; never changed or deleted; no names", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["caesar", "chicken", 1], ["coca-cola-products", "std", 2, "sprite"]], { name: "Мария Тестова" });
+    await drain();
+    assert.equal((await admin.admin("/api/qr/admin/order.php", { id: placed.order.id, action: "void", line: 1, qty: 1, have: 2, reason: "Изчерпан продукт" })).status, 200);
+    await drain();
+    const log = JSON.parse(srv.sqlite("SELECT kind, ref, amount_cents, detail FROM audit_log ORDER BY id"));
+    const kinds = log.map((r) => r.kind);
+    for (const k of ["order", "line", "order_change", "receipt_queued", "receipt_printed", "line_void"]) assert.ok(kinds.includes(k), `${k} in ${kinds.join(",")}`);
+    assert.ok(log.filter((r) => r.kind === "receipt_printed").length === 2, "the sale and its storno");
+    assert.ok(log.some((r) => r.kind === "order_change" && /pay=pending>paid/.test(r.detail)));
+    assert.ok(!JSON.stringify(log).includes("Мария"), "no names");
+    assert.throws(() => srv.sqlite("UPDATE audit_log SET kind = 'x'"), /append-only/);
+    assert.throws(() => srv.sqlite("DELETE FROM audit_log"), /append-only/);
+
+    const csv = await admin.get(`/api/qr/admin/export.php?kind=audit&from=2026-01-01&to=2026-12-31`);
+    assert.equal(csv.status, 200);
+    assert.match(csv.text, /№;време;операция;поръчка \/ документ;сума;подробности/);
+    assert.ok(csv.text.includes(`;receipt_printed;${placed.order.code};`));
+  });
+});

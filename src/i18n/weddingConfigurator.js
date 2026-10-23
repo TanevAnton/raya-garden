@@ -20,9 +20,18 @@ const bg = {
     title: "Конфигурирайте своята сватбена оферта",
     lead: "Изберете меню, допълнителни услуги и детайли за Вашия ден. В края ще получите ориентировъчна стойност и ще можете да изпратите запитването си директно към нашия екип.",
     heroAlt: "Сватбена маса в ресторанта на RAYA Garden",
+    leadMobile: "Изберете меню и услуги — накрая ще видите ориентировъчна стойност.",
   },
   steps: ["Дата и гости", "Избор на меню", "Допълнителни услуги", "Преглед и изпращане"],
   nav: { back: "Назад", next: "Напред", edit: "Редактирай", step: "Стъпка" },
+  callback: {
+    lead: "Ако предпочитате, ще Ви се обадим",
+    submit: "Обадете ми се",
+    sending: "Изпращане…",
+    sent: "Благодарим! Ще Ви се обадим скоро.",
+    error: "Не успяхме да изпратим. Опитайте отново или ни се обадете на {phone}.",
+    call: "Обади се: {phone}",
+  },
 
   date: {
     legend: "Кога планирате тържеството",
@@ -185,9 +194,18 @@ const en = {
     title: "Configure your wedding offer",
     lead: "Choose your menu, extra services and the details of your day. At the end you'll see an indicative estimate and can send your enquiry straight to our team.",
     heroAlt: "The top table at a RAYA Garden wedding",
+    leadMobile: "Choose your menu and services — you'll see an indicative estimate at the end.",
   },
   steps: ["Date & guests", "Menu", "Extra services", "Review & send"],
   nav: { back: "Back", next: "Next", edit: "Edit", step: "Step" },
+  callback: {
+    lead: "If you prefer, we'll call you",
+    submit: "Call me",
+    sending: "Sending…",
+    sent: "Thank you! We'll call you soon.",
+    error: "We couldn't send it. Please try again or call us on {phone}.",
+    call: "Call: {phone}",
+  },
 
   date: {
     legend: "When are you planning the celebration",
@@ -349,9 +367,18 @@ const ro = {
     title: "Configurați-vă oferta de nuntă",
     lead: "Alegeți meniul, serviciile suplimentare și detaliile zilei dumneavoastră. La final veți vedea o valoare orientativă și veți putea trimite solicitarea direct echipei noastre.",
     heroAlt: "Masa mirilor la o nuntă la RAYA Garden",
+    leadMobile: "Alegeți meniul și serviciile — la final veți vedea o valoare orientativă.",
   },
   steps: ["Data și invitații", "Meniu", "Servicii suplimentare", "Verificare și trimitere"],
   nav: { back: "Înapoi", next: "Înainte", edit: "Modifică", step: "Pasul" },
+  callback: {
+    lead: "Dacă preferați, vă sunăm noi",
+    submit: "Sunați-mă",
+    sending: "Se trimite…",
+    sent: "Vă mulțumim! Vă vom suna în curând.",
+    error: "Nu am putut trimite. Încercați din nou sau sunați-ne la {phone}.",
+    call: "Sunați: {phone}",
+  },
 
   date: {
     legend: "Când planificați petrecerea",

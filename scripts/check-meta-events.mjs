@@ -117,9 +117,11 @@ const json = (body, status = 200) => ({
 
 const formspreeBodies = [];
 
-const open = async (path, { failBackends = false, mobile = false } = {}) => {
+const open = async (path, { failBackends = false, mobile = false, size = null } = {}) => {
   const page = await browser.newPage();
-  if (mobile) {
+  if (size) {
+    await page.setViewport({ ...size, isMobile: size.width < 768, hasTouch: size.width < 768 });
+  } else if (mobile) {
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   }
   await page.evaluateOnNewDocument(CAPTURE);
@@ -478,6 +480,185 @@ const clockLinks = {};
 await clockLink("book: link to Clock, same tab, on /hotel", null);
 await clockLink("book: link to Clock, new tab, on /hotel", "_blank");
 
+// ── Part A: the wedding configurator on a phone ──────────────────────
+// What the ads' visitors meet first, at 375×812 (and 1280×900 for the step
+// changes): the first question on the first screen, a НАПРЕД that shows its
+// errors, step changes that land on the step, the quick callback, and the
+// call button. Each case fails with a reason rather than throwing.
+const PHONE = { width: 375, height: 812 };
+const DESKTOP = { width: 1280, height: 900 };
+const configuratorChecks = [];
+const check = (name, ok, detail = "") => {
+  configuratorChecks.push({ name, ok, detail });
+  if (!ok) failures.push(`configurator: ${name}${detail ? ` — ${detail}` : ""}`);
+};
+// Where things are on screen: the header's bottom, the mobile bar's top.
+const frame = (page) => page.evaluate(() => {
+  const header = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+  const bar = [...document.querySelectorAll("div.fixed.bottom-0")].find((d) => d.offsetParent !== null || getComputedStyle(d).display !== "none");
+  const barTop = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().top : innerHeight;
+  return { header, barTop, innerHeight };
+});
+const tapNext = (page) => page.evaluate(() => {
+  // The visible НАПРЕД: the mobile bar's on a phone, the page's on a desktop.
+  const b = [...document.querySelectorAll("button")].filter((x) => /^Напред$/.test(x.textContent.trim()) && x.getClientRects().length);
+  b[b.length - 1].click();
+});
+const tapBack = (page) => page.evaluate(() => {
+  [...document.querySelectorAll("button")].find((x) => /^Назад$/.test(x.textContent.trim())).click();
+});
+const stepperTop = (page) => page.evaluate(() => document.querySelector('nav[aria-label] ol').getBoundingClientRect().top);
+
+// 1. The first question and НАПРЕД without scrolling.
+{
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  const f = await frame(page);
+  const q = await page.evaluate(() => {
+    const h = [...document.querySelectorAll("h2")].find((e) => /Кога планирате/.test(e.textContent));
+    const d = document.querySelector('input[type="date"]').getBoundingClientRect();
+    const next = [...document.querySelectorAll("button")].filter((x) => /^Напред$/.test(x.textContent.trim()) && x.getClientRects().length).pop().getBoundingClientRect();
+    return { heading: h.getBoundingClientRect().top, dateBottom: d.bottom, nextTop: next.top, nextBottom: next.bottom, scrollY };
+  });
+  check("375×812: the first question and its date field are on the first screen",
+    q.scrollY === 0 && q.heading >= f.header && q.dateBottom <= Math.min(f.barTop, 812),
+    `heading at ${Math.round(q.heading)}, date field ends at ${Math.round(q.dateBottom)}, bar from ${Math.round(f.barTop)}`);
+  check("375×812: НАПРЕД is on the first screen", q.nextBottom <= 812 && q.nextTop >= 0, `НАПРЕД at ${Math.round(q.nextTop)}–${Math.round(q.nextBottom)}`);
+  await page.close();
+}
+
+// 2. НАПРЕД with nothing filled in: the first error in view, its field focused.
+for (const size of [PHONE, DESKTOP]) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  // Start lower down, as a guest who has read the page would be.
+  await page.evaluate(() => scrollTo(0, 400));
+  await sleep(300);
+  await tapNext(page);
+  await sleep(1300);
+  const f = await frame(page);
+  const e = await page.evaluate(() => {
+    const alert = document.querySelector('[role="alert"]');
+    const r = alert.getBoundingClientRect();
+    const active = document.activeElement;
+    return { top: r.top, bottom: r.bottom, text: alert.textContent.trim(), focusType: active?.type, focusInvalid: active?.getAttribute("aria-invalid"), live: document.querySelectorAll('[role="alert"]').length };
+  });
+  const tag = `${size.width}×${size.height}`;
+  check(`${tag}: a bad НАПРЕД brings the first error into view`, e.top >= f.header && e.bottom <= f.barTop, `"${e.text}" at ${Math.round(e.top)}–${Math.round(e.bottom)}, visible ${Math.round(f.header)}–${Math.round(f.barTop)}`);
+  check(`${tag}: …and puts the cursor in its field`, e.focusType === "date" && e.focusInvalid === "true", `focus on ${e.focusType}`);
+  check(`${tag}: …with the messages still role="alert"`, e.live >= 2, `${e.live} alerts`);
+  await page.close();
+}
+
+// 3. Each step change lands on the step's progress bar, not the page top —
+// НАПРЕД 1→2→3→4, then НАЗАД 4→3.
+for (const size of [PHONE, DESKTOP]) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  await fill(page, "input[type=date]", "2027-06-12");
+  await fill(page, "input[type=number]", "60", 0);
+  await sleep(300);
+  const tag = `${size.width}×${size.height}`;
+  const landed = [];
+  for (const [label, act] of [
+    ["→ step 2", () => tapNext(page)],
+    ["→ step 3", async () => { await clickText(page, /^Избери$/); await sleep(300); await tapNext(page); }],
+    ["→ step 4", () => tapNext(page)],
+    ["НАЗАД → step 3", () => tapBack(page)],
+  ]) {
+    // From further down the page, as after reading a step.
+    await page.evaluate(() => scrollTo(0, document.body.scrollHeight / 2));
+    await sleep(200);
+    await act();
+    await sleep(1400);
+    const f = await frame(page);
+    const top = await stepperTop(page);
+    const y = await page.evaluate(() => Math.round(scrollY));
+    landed.push(`${label}: scrollY ${y}, steps bar at ${Math.round(top)}`);
+    check(`${tag}: ${label} lands on the step, not the page top`, y > 0 && top >= f.header - 1 && top <= f.header + 40, `scrollY ${y}, steps bar at ${Math.round(top)}, header ends ${Math.round(f.header)}`);
+  }
+  console.log(`${tag} step changes: ${landed.join("; ")}`);
+  await page.close();
+}
+
+// 4. The quick callback: EventEnquiry once, only on Formspree's confirmation,
+// and not again when the same visit sends the full configurator.
+async function callback(where, { failBackends = false, name = "Тест Тестов", phone = "+359888123456", thenFull = false } = {}) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE, failBackends });
+  await page.waitForSelector("[data-quick-callback] form", { timeout: 8000 });
+  const sentBefore = formspreeBodies.length;
+  await fill(page, '[data-quick-callback] input[autocomplete="name"]', name);
+  await fill(page, '[data-quick-callback] input[type="tel"]', phone);
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await page.evaluate(() => document.querySelector('[data-quick-callback] button[type="submit"]').click());
+  await sleep(1200);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  const sent = formspreeBodies.slice(sentBefore);
+  callbackPosts[where] = sent;
+  if (thenFull) {
+    // The same visit goes on to send the whole configuration.
+    await fill(page, "input[type=date]", "2027-06-12");
+    await fill(page, "input[type=number]", "60", 0);
+    await sleep(300);
+    await tapNext(page); await sleep(700);
+    await clickText(page, /^Избери$/); await sleep(300);
+    await tapNext(page); await sleep(700);
+    await tapNext(page); await sleep(700);
+    await fill(page, "input[type=text]", "Тест Тестов", 0);
+    await fill(page, "input[type=tel]", "+359888123456", 0);
+    await fill(page, "input[type=email]", "test@example.com", 0);
+    await page.evaluate(() => { const b = document.querySelectorAll("input[type=checkbox]"); b[b.length - 1].click(); });
+    await sleep(200);
+    await page.evaluate(() => (window.__fbqCalls.length = 0));
+    await clickText(page, /Изпрати запитване/);
+    await sleep(1800);
+    record(`${where}, then the full configurator`, await page.evaluate(() => window.__fbqCalls));
+  }
+  await page.close();
+}
+const callbackPosts = {};
+await callback("configurator callback sent");
+await callback("configurator callback refused by Formspree", { failBackends: true });
+await callback("configurator callback with the phone empty", { phone: "" });
+await callback("configurator callback sent then the full form", { thenFull: true });
+{
+  const body = callbackPosts["configurator callback sent"][0] || "";
+  check("the callback reaches Formspree once, marked as a quick callback",
+    callbackPosts["configurator callback sent"].length === 1 && /name="kind"\r\n\r\nquick_callback/.test(body) && /name="phone"\r\n\r\n\+359888123456/.test(body),
+    `${callbackPosts["configurator callback sent"].length} post(s)`);
+  check("a callback with the phone empty sends nothing", callbackPosts["configurator callback with the phone empty"].length === 0);
+}
+
+// 5. The call button on a phone: PhoneClick once per tap.
+{
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE });
+  await page.waitForSelector("[data-configurator-call]", { timeout: 8000 });
+  const box = await page.evaluate(() => {
+    const r = document.querySelector("[data-configurator-call]").getBoundingClientRect();
+    return { height: r.height, top: r.top, href: document.querySelector("[data-configurator-call]").getAttribute("href"), text: document.querySelector("[data-configurator-call]").textContent.trim() };
+  });
+  check("the call button is at least 44px tall and on the first screen", box.height >= 44 && box.top < 812, `${Math.round(box.height)}px at ${Math.round(box.top)}`);
+  check("the call button reads «Обади се: +359 896 100 100» and dials it", box.text === "Обади се: +359 896 100 100" && box.href === "tel:+359896100100", `"${box.text}" → ${box.href}`);
+  for (const n of [1, 2]) {
+    await page.evaluate(() => {
+      window.__fbqCalls.length = 0;
+      const a = document.querySelector("[data-configurator-call]");
+      a.addEventListener("click", (e) => e.preventDefault(), { once: true });
+      a.click();
+    });
+    await sleep(300);
+    record(`configurator call button, tap ${n}`, await page.evaluate(() => window.__fbqCalls));
+  }
+  await page.close();
+  const desktop = await open("/svatben-konfigurator?lang=bg", { size: DESKTOP });
+  await desktop.waitForSelector('input[type="date"]', { timeout: 8000 });
+  const shown = await desktop.evaluate(() => document.querySelector("[data-configurator-call]")?.getClientRects().length || 0);
+  check("the call button is for phones only (hidden at 1280)", shown === 0);
+  const photo = await desktop.evaluate(() => !!document.querySelector('img[src="/img/wedding-head-table.jpg"]')?.getClientRects().length);
+  check("the desktop hero keeps its photo", photo);
+  await desktop.close();
+}
+
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
 // every effect in development and not in a production build, so a dev
@@ -808,6 +989,13 @@ const ENQUIRY_FIRES = {
   "contact link: viber on /svatben-konfigurator": { method: "viber", event_type: "wedding" },
   "contact link: wa.me on /svatben-konfigurator": { method: "whatsapp", event_type: "wedding" },
   "contact link: tel on /svatben-konfigurator?for=corporate": { method: "phone", event_type: "wedding" },
+  // The configurator's quick callback, on Formspree's confirmation only —
+  // and nothing more when the same visit then sends the full form.
+  "configurator callback sent": { source: "configurator_callback" },
+  "configurator callback sent then the full form": { source: "configurator_callback" },
+  // Its call button is a tel: link: the same enquiry as any call from here.
+  "configurator call button, tap 1": { method: "phone", event_type: "wedding" },
+  "configurator call button, tap 2": { method: "phone", event_type: "wedding" },
 };
 const everyWhere = new Set([...rows.map((r) => r.where), ...Object.keys(ENQUIRY_FIRES)]);
 let enquiryFires = 0;
@@ -877,6 +1065,8 @@ for (const c of CONTACT_CASES) {
   }
 }
 for (const [where, path] of [
+  ["configurator call button, tap 1", "/svatben-konfigurator"],
+  ["configurator call button, tap 2", "/svatben-konfigurator"],
   ["/events enquiry call button", "/events"],
   ["/events mobile bar: call", "/events"],
   [`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}`],
@@ -916,6 +1106,20 @@ if (clockLinks["book: link to Clock, new tab, on /hotel"]?.held) {
   failures.push("a new-tab link to Clock was held — it should be left alone");
 }
 console.log(`link to Clock: same tab held then followed ${sameTab?.held && sameTab?.navigated ? "yes" : "NO"}; new tab left alone ${clockLinks["book: link to Clock, new tab, on /hotel"]?.held === false ? "yes" : "NO"}`);
+
+// The full configurator after a callback: its Lead as always, no second
+// EventEnquiry (asserted above). The callback itself sends no Lead.
+{
+  const after = "configurator callback sent then the full form, then the full configurator";
+  const leads = rows.filter((r) => r.where === after && r.event === "Lead").length;
+  check("the full form after a callback still sends its Lead, once", leads === 1, `${leads} Lead(s)`);
+  for (const where of ["configurator callback sent", "configurator callback refused by Formspree", "configurator callback with the phone empty"]) {
+    const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
+    if (n) failures.push(`${where}: Lead fired ${n} time(s) — the callback sends EventEnquiry only`);
+  }
+}
+console.log(`\n${"=".repeat(96)}\n  WEDDING CONFIGURATOR\n${"=".repeat(96)}`);
+for (const c of configuratorChecks) console.log(`${c.ok ? "PASS" : "FAIL"}  ${c.name}${c.detail ? `  (${c.detail})` : ""}`);
 
 // The one that silently ruins reported revenue.
 const purchase = find("Purchase", "clock: completed");

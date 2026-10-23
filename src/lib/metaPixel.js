@@ -150,6 +150,38 @@ export function trackEventEnquiry({ method, event_type } = {}) {
 }
 
 /**
+ * EventEnquiry from the wedding configurator's quick callback ("Обадете ми
+ * се"): a name and a phone, sent before the full four steps. Its own params,
+ * so it can be told apart from a finished configurator in Events Manager.
+ * Only once Formspree has confirmed.
+ */
+export function trackCallbackEnquiry() {
+  return send("trackCustom", "EventEnquiry", { source: "configurator_callback" });
+}
+
+/**
+ * One EventEnquiry per visit from the wedding configurator: the quick
+ * callback and the full form are the same enquiry. The flag lives in
+ * sessionStorage, so it covers this tab's visit and no longer; when storage
+ * is unavailable (private mode), both may count.
+ */
+const WEDDING_ENQUIRY_FLAG = "raya.wedding.enquiryTracked";
+export function weddingEnquiryTracked() {
+  try {
+    return window.sessionStorage.getItem(WEDDING_ENQUIRY_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+export function markWeddingEnquiryTracked() {
+  try {
+    window.sessionStorage.setItem(WEDDING_ENQUIRY_FLAG, "1");
+  } catch {
+    /* storage unavailable — nothing to remember with */
+  }
+}
+
+/**
  * Is this link a way into booking a room? Every «Резервирай» button on the
  * site is a link to /book, which opens Clock's booking window on the same
  * page. A direct link to Clock's booking engine counts too — there are none

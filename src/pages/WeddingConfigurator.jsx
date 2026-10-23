@@ -1,17 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChevronUp } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronUp, Phone } from "lucide-react";
 import { useSeo } from "../hooks/useSeo.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { weddingStrings, fill } from "../i18n/weddingConfigurator.js";
 import { buildQuote, formatMoney, toCount, upgradesForMenu } from "../lib/weddingPricing.js";
-import { trackMeta, trackEventEnquiry } from "../lib/metaPixel.js";
+import {
+  trackMeta,
+  trackEventEnquiry,
+  weddingEnquiryTracked,
+  markWeddingEnquiryTracked,
+} from "../lib/metaPixel.js";
 import offer from "../../public/api/wedding-offer.json";
 import StepDateGuests from "../components/wedding/StepDateGuests.jsx";
 import StepMenus from "../components/wedding/StepMenus.jsx";
 import StepExtras from "../components/wedding/StepExtras.jsx";
 import StepReview from "../components/wedding/StepReview.jsx";
 import SummaryPanel from "../components/wedding/SummaryPanel.jsx";
+import QuickCallback from "../components/wedding/QuickCallback.jsx";
 
 // The offer JSON lives under public/ so the PHP endpoint can read the very
 // same file at runtime; importing it here means the page and the server can
@@ -43,6 +49,18 @@ const emptyConfig = () => ({
  * only — keeping a menu choice is no reason to leave someone's personal data
  * in the browser.
  */
+/**
+ * Scroll so `el` sits just below the fixed header — smoothly, and never under
+ * it. Used for the step content on a step change and for the first error.
+ */
+function scrollBelowHeader(el) {
+  if (!el) return;
+  const header = document.querySelector("header");
+  const offset = Math.min(header ? header.offsetHeight : 72, 96) + 12;
+  const top = el.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
 function loadStoredConfig() {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
@@ -72,7 +90,13 @@ export default function WeddingConfigurator() {
   const [reference, setReference] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const startedAt = useRef(Date.now());
-  const topRef = useRef(null);
+  // The stepper: where a step change lands — the step's progress and
+  // heading, not the hero above them.
+  const stepsRef = useRef(null);
+  const contentRef = useRef(null);
+  // Bumped on every failed validation; the effect below then brings the
+  // first error into view once it has rendered.
+  const [errorScroll, setErrorScroll] = useState(0);
 
   useSeo({
     title: s.meta.title,
@@ -256,17 +280,42 @@ export default function WeddingConfigurator() {
     setStep(index);
     setErrors({});
     setSheetOpen(false);
-    // Land on the step's heading rather than wherever the previous step
-    // happened to be scrolled to.
-    window.requestAnimationFrame(() => {
-      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    // Land on the step's progress and heading rather than wherever the
+    // previous step happened to be scrolled to — or the hero above it.
+    window.requestAnimationFrame(() => scrollBelowHeader(stepsRef.current));
   }, []);
+
+  // A failed НАПРЕД (or submit): bring the first error into view and put the
+  // cursor in its field. Without this, a tap on a phone seemed to do nothing —
+  // the messages were a screen or two further down. The messages themselves
+  // are role="alert", as before.
+  useEffect(() => {
+    if (!errorScroll) return;
+    const root = contentRef.current;
+    if (!root) return;
+    const field = root.querySelector('[aria-invalid="true"]');
+    const alert = root.querySelector('[role="alert"]');
+    const target = field || alert;
+    if (!target) return;
+    // Whichever comes first on the page: a message without its own field
+    // (the children's menus, an extra) can sit above the first invalid input.
+    const first =
+      field && alert && alert.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING ? alert : target;
+    scrollBelowHeader(first.closest("div") || first);
+    if (field) {
+      try {
+        field.focus({ preventScroll: true });
+      } catch {
+        /* an old browser without preventScroll — the scroll above still ran */
+      }
+    }
+  }, [errorScroll]);
 
   const next = () => {
     const found = validateStep(step);
     setErrors(found);
     if (Object.keys(found).length === 0) goToStep(step + 1);
+    else setErrorScroll((n) => n + 1);
   };
 
   // ── Submission ─────────────────────────────────────────────────────
@@ -300,7 +349,10 @@ export default function WeddingConfigurator() {
 
     const found = validateStep(3);
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+    if (Object.keys(found).length > 0) {
+      setErrorScroll((n) => n + 1);
+      return;
+    }
 
     setStatus("submitting");
     setErrorMessage("");
@@ -378,15 +430,18 @@ export default function WeddingConfigurator() {
           content_category: "events",
           lang,
         });
-        trackEventEnquiry({ method: "form", event_type: "wedding" });
+        // One EventEnquiry per visit: a quick callback sent earlier in this
+        // visit already counted the enquiry.
+        if (!weddingEnquiryTracked()) {
+          trackEventEnquiry({ method: "form", event_type: "wedding" });
+          markWeddingEnquiryTracked();
+        }
         try {
           window.sessionStorage.removeItem(STORAGE_KEY);
         } catch {
           /* ignore */
         }
-        window.requestAnimationFrame(() => {
-          topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
+        window.requestAnimationFrame(() => scrollBelowHeader(stepsRef.current));
         return;
       }
 
@@ -402,6 +457,7 @@ export default function WeddingConfigurator() {
         const first = Object.keys(body.fields)[0];
         const target = stepOfField(first);
         if (target !== 3) goToStep(target);
+        else setErrorScroll((n) => n + 1);
         return;
       }
 
@@ -417,7 +473,25 @@ export default function WeddingConfigurator() {
   };
 
   const steps = [
-    <StepDateGuests key="0" s={s} offer={offer} config={config} update={update} errors={errors} />,
+    <StepDateGuests
+      key="0"
+      s={s}
+      offer={offer}
+      config={config}
+      update={update}
+      errors={errors}
+      callback={
+        <QuickCallback
+          s={s}
+          lang={lang}
+          phone={phone}
+          config={config}
+          update={update}
+          standard={standard}
+          children={children}
+        />
+      }
+    />,
     <StepMenus
       key="1"
       s={s}
@@ -464,24 +538,31 @@ export default function WeddingConfigurator() {
 
   return (
     <div className="bg-ink-950 min-h-screen">
-      {/* Intro — deliberately short, so step 1 is on screen almost at once. */}
-      <section ref={topRef} className="pt-28 md:pt-32 pb-10 scroll-mt-24">
+      {/* Intro — deliberately short, so step 1 is on screen almost at once.
+          On a phone (< md) it is shorter still: one line of lead, no photo,
+          so the first question and НАПРЕД are on the first screen. From md
+          up it is as before. */}
+      <section className="pt-24 md:pt-32 pb-5 md:pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 text-center">
           <span className="text-xs tracking-[0.4em] uppercase text-gold-300/80">
             {s.intro.eyebrow}
           </span>
-          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl text-cream-50 mt-4 text-balance">
+          <h1 className="font-display text-3xl md:text-5xl lg:text-6xl text-cream-50 mt-3 md:mt-4 text-balance">
             {s.intro.title}
           </h1>
-          <p className="text-base lg:text-lg text-cream-100/70 mt-5 max-w-2xl mx-auto font-light leading-relaxed">
+          <p className="md:hidden text-sm text-cream-100/70 mt-3 font-light leading-relaxed">
+            {s.intro.leadMobile}
+          </p>
+          <p className="hidden md:block text-base lg:text-lg text-cream-100/70 mt-5 max-w-2xl mx-auto font-light leading-relaxed">
             {s.intro.lead}
           </p>
-          <div className="divider-gold mt-8 w-32 mx-auto" />
+          <div className="hidden md:block divider-gold mt-8 w-32 mx-auto" />
         </div>
 
         {/* One photograph of the room this enquiry is about — the same
-            picture the brochure opens with. */}
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-10 mt-10">
+            picture the brochure opens with. Not on a phone, where it filled
+            the first screen. */}
+        <div className="hidden md:block max-w-5xl mx-auto px-4 sm:px-6 lg:px-10 mt-10">
           <img
             src="/img/wedding-head-table.jpg"
             alt={s.intro.heroAlt}
@@ -493,7 +574,7 @@ export default function WeddingConfigurator() {
       </section>
 
       {/* Stepper */}
-      <nav aria-label={s.nav.step} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+      <nav ref={stepsRef} aria-label={s.nav.step} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         <ol className="flex flex-wrap gap-x-6 gap-y-3 justify-center border-y border-gold-300/10 py-4">
           {s.steps.map((label, i) => {
             const state = i === step ? "current" : i < step ? "done" : "todo";
@@ -522,13 +603,28 @@ export default function WeddingConfigurator() {
       </nav>
 
       <div
-        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-10 lg:py-14 ${
+        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 pt-6 pb-10 md:py-10 lg:py-14 ${
           showMobileBar ? "pb-32 lg:pb-14" : ""
         }`}
       >
         <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Not a <main>: Layout already provides the page landmark. */}
-          <div className="lg:col-span-8 min-w-0">{steps[step]}</div>
+          <div ref={contentRef} className="lg:col-span-8 min-w-0">
+            {/* Phones: the hotel's number, one tap away on every step.
+                Layout's listener counts the tap (Contact, PhoneClick and,
+                on this page, EventEnquiry) like any tel: link. */}
+            {status !== "sent" && (
+              <a
+                href={`tel:${phone.replace(/[^\d+]/g, "")}`}
+                data-configurator-call
+                className="md:hidden mb-6 flex min-h-[44px] w-full items-center justify-center gap-2 border border-gold-300/40 text-gold-200 px-4 py-3 text-xs tracking-[0.2em] uppercase rounded-sm"
+              >
+                <Phone className="w-4 h-4" />
+                {fill(s.callback.call, { phone })}
+              </a>
+            )}
+            {steps[step]}
+          </div>
 
           {/* Desktop rail — follows the guest down the page. */}
           <aside className="hidden lg:block lg:col-span-4 sticky top-28">

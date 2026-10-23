@@ -2,8 +2,11 @@ import { CalendarDays, Users } from "lucide-react";
 import { StepHeading, Field, SliderNumberField, TextField, CheckBox, Notice, inputClass, labelClass } from "./fields.jsx";
 import { fill } from "../../i18n/weddingConfigurator.js";
 
-/** Step 1 — when, and how many people eat what. */
-export default function StepDateGuests({ s, offer, config, update, errors }) {
+/**
+ * Step 1 — when, and how many people eat what. `callback` is the quick
+ * "Обадете ми се" block, shown right under the first question.
+ */
+export default function StepDateGuests({ s, offer, config, update, errors, callback }) {
   const { date, guests } = config;
   const maxGuests = offer.package.maxGuests;
   const standard = Number.parseInt(guests.standard, 10) || 0;
@@ -87,6 +90,8 @@ export default function StepDateGuests({ s, offer, config, update, errors }) {
           </Notice>
         </div>
       </section>
+
+      {callback}
 
       <section>
         <StepHeading>{s.date.guestsLegend}</StepHeading>

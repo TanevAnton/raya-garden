@@ -798,6 +798,13 @@ receipt here, on a printer of their own.
 
 ### Still open
 
+- **22–23.10.2026:** the accountant's answer. In a site that uses a "СУПТО",
+  every fiscal device must be driven by a registered "СУПТО" (чл. 52з,
+  ал. 3), so this printer can't be used while our program is unregistered.
+  Two registered programs in one site appear to be allowed (Annex 29, т. 9;
+  чл. 52з, ал. 9), so registering ours wouldn't mean dropping Clock. That
+  reading waits on the accountant. The gap against all 23 points of Annex 29,
+  the registration and the effort: `SUPTO-ANNEX29.md`.
 - **Whether this makes our system "СУПТО"** under Наредба Н-18 (Annex 29).
   If it does, there's more to build: the full УНП rules, a log of every
   operation with nothing deleted, the audit file for НАП, and the producer's

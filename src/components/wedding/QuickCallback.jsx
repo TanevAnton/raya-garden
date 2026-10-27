@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { PhoneCall } from "lucide-react";
 import { TextField } from "./fields.jsx";
 import { fill } from "../../i18n/weddingConfigurator.js";
@@ -27,10 +27,12 @@ export default function QuickCallback({ s, lang, phone, config, update, standard
   const [tel, setTel] = useState("");
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
+  // Set before the first await: a double tap sends once.
+  const busy = useRef(false);
 
   async function onSubmit(event) {
     event.preventDefault();
-    if (status === "sending") return;
+    if (status === "sending" || busy.current) return;
     const found = {};
     if (name.trim().length < 2) found.name = s.contact.errRequired;
     const digits = tel.replace(/\D+/g, "");
@@ -46,6 +48,7 @@ export default function QuickCallback({ s, lang, phone, config, update, standard
       setStatus("error");
       return;
     }
+    busy.current = true;
     setStatus("sending");
     try {
       const data = new FormData();
@@ -77,6 +80,7 @@ export default function QuickCallback({ s, lang, phone, config, update, standard
       }
       trackEnquirySubmitted({ source: "configurator_callback", event_type: "wedding" });
     } catch (err) {
+      busy.current = false;
       console.error("[wedding callback]", err);
       setStatus("error");
     }

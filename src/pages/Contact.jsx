@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   MapPin,
@@ -120,11 +120,20 @@ export default function Contact() {
   });
   const [status, setStatus] = useState("idle"); // idle | submitting | sent | error
   const [errorMsg, setErrorMsg] = useState("");
+  // Set before the first await, so a second tap in the same instant — before
+  // React has re-rendered the button as disabled — sends nothing.
+  const busy = useRef(false);
 
   async function onSubmit(e) {
     e.preventDefault();
-    // Read before the await: the form element is gone once "sent" renders.
-    const honeypotFilled = Boolean(e.currentTarget.elements._gotcha?.value);
+    if (busy.current) return;
+    // A bot filled the hidden field: look successful, send nothing, count
+    // nothing.
+    if (e.currentTarget.elements._gotcha?.value) {
+      setStatus("sent");
+      return;
+    }
+    busy.current = true;
     setStatus("submitting");
     setErrorMsg("");
 
@@ -168,8 +177,9 @@ export default function Contact() {
         content_category: TOPIC_CATEGORY[tp.topics.indexOf(form.topic)],
         lang,
       });
-      if (!honeypotFilled) trackEnquirySubmitted({ source: "contact_form" });
+      trackEnquirySubmitted({ source: "contact_form" });
     } catch (err) {
+      busy.current = false;
       console.error("[Formspree] error:", err);
       setStatus("error");
       setErrorMsg(

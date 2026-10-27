@@ -116,6 +116,7 @@ const json = (body, status = 200) => ({
 });
 
 const formspreeBodies = [];
+const weddingPosts = [];
 
 const open = async (path, { failBackends = false, mobile = false, size = null } = {}) => {
   const page = await browser.newPage();
@@ -140,6 +141,7 @@ const open = async (path, { failBackends = false, mobile = false, size = null } 
       return req.respond(failBackends ? json({ errors: [{ message: "test refusal" }] }, 422) : json({}));
     }
     if (url.includes("/api/wedding-enquiry.php")) {
+      if (req.method() === "POST") weddingPosts.push(req.postData() || "");
       if (failBackends === "network") return req.abort("failed");
       if (failBackends) return req.respond(json({ ok: false, errors: { email: "invalid" } }, 422));
       // As the real endpoint does: a filled honeypot gets a success-shaped
@@ -777,7 +779,7 @@ for (const [sizeName, size] of [["phone", PHONE], ["desktop", DESKTOP]]) {
       const where = `submitted: ${name}, ${c} (${sizeName})`;
       const failBackends = c === "network failure" ? "network" : c === "refused 422";
       const page = await open(form.path, { size, failBackends });
-      const postsBefore = formspreeBodies.length;
+      const postsBefore = formspreeBodies.length + weddingPosts.length;
       if (c === "sent again in the same visit") {
         // The first send, then a reload in the same tab and a second one.
         await form.fill(page, {});
@@ -791,7 +793,7 @@ for (const [sizeName, size] of [["phone", PHONE], ["desktop", DESKTOP]]) {
       await pressSubmit(page, form, c === "double tap" ? 2 : 1);
       await sleep(1800);
       record(where, await page.evaluate(() => window.__fbqCalls));
-      submittedCases.push({ where, form: name, case: c, size: sizeName, posts: formspreeBodies.length - postsBefore });
+      submittedCases.push({ where, form: name, case: c, size: sizeName, posts: formspreeBodies.length + weddingPosts.length - postsBefore });
       await page.close();
     }
   }
@@ -1246,9 +1248,8 @@ for (const c of submittedCases) {
   console.log(`\nEnquirySubmitted: right count and params at ${fired}/${Object.keys(SUBMITTED_FIRES).length} submissions; silent, correctly, at the other ${silent} actions — ${taps}/${tapWheres.size} of them taps on phone/e-mail/Viber/WhatsApp links`);
 }
 
-// Lead and EventEnquiry in the same matrix: as they were. The honeypot and
-// double-tap rows are printed, not asserted — what those two do there is not
-// this change's (a double tap sends a form twice today, and both count).
+// Lead and EventEnquiry in the same matrix. A double tap is one send (one
+// post, everything once); a filled honeypot is none (no post, nothing).
 const LEAD_ON_SUCCESS = { "contact form": 1, "events form": 1, "configurator form": 1, "configurator callback": 0 };
 const ENQUIRY_ON_SUCCESS = { "contact form": 0, "events form": 1, "configurator form": 1, "configurator callback": 1 };
 // A repeat in the same visit: EventEnquiry is once per visit on the
@@ -1262,12 +1263,18 @@ for (const c of submittedCases) {
   const lead = n("Lead");
   const enq = n("EventEnquiry");
   let ok = true;
-  if (c.form !== "both" && c.case !== "honeypot" && c.case !== "double tap") {
-    const success = c.case === "sent" || c.case === "sent again in the same visit";
+  if (c.form !== "both") {
+    const success = c.case === "sent" || c.case === "double tap" || c.case === "sent again in the same visit";
     const wantLead = success ? LEAD_ON_SUCCESS[c.form] : 0;
     const wantEnq = !success ? 0 : c.case === "sent again in the same visit" ? ENQUIRY_ON_REPEAT[c.form] : ENQUIRY_ON_SUCCESS[c.form];
     if (lead !== wantLead) { ok = false; failures.push(`${c.where}: Lead fired ${lead} time(s), expected ${wantLead}`); }
     if (enq !== wantEnq) { ok = false; failures.push(`${c.where}: EventEnquiry fired ${enq} time(s), expected ${wantEnq}`); }
+    // Posts to Formspree or the wedding endpoint; the configurator's
+    // honeypot does reach the endpoint, which answers ok and sends nothing.
+    const wantPosts = c.case === "invalid" ? 0
+      : c.case === "honeypot" ? (c.form === "configurator form" ? 1 : 0)
+      : c.case === "sent again in the same visit" ? 2 : 1;
+    if (c.posts !== wantPosts) { ok = false; failures.push(`${c.where}: ${c.posts} post(s), expected ${wantPosts}`); }
   }
   if (c.form === "both" && (lead !== 1 || enq !== 1)) {
     ok = false;

@@ -81,11 +81,14 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
   });
   const [status, setStatus] = useState("idle"); // idle | sending | sent | error
   const honeypot = useRef(null);
+  // Set before the first await: a second tap in the same instant, before the
+  // button re-renders as disabled, sends nothing.
+  const busy = useRef(false);
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
 
   async function onSubmit(e) {
     e.preventDefault();
-    if (status === "sending") return;
+    if (status === "sending" || busy.current) return;
 
     // A bot filled the hidden field: look successful, send nothing, count
     // nothing.
@@ -98,6 +101,7 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
       return;
     }
 
+    busy.current = true;
     setStatus("sending");
     const typeBg = bg.types[form.type];
     const monthBg =
@@ -138,6 +142,7 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
       trackEventEnquiry({ method: "form", event_type: form.type });
       trackEnquirySubmitted({ source: "events_form", event_type: SUBMITTED_TYPE[form.type] });
     } catch (err) {
+      busy.current = false;
       console.error("[events enquiry]", err);
       setStatus("error");
     }

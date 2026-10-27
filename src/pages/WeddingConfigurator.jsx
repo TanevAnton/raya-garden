@@ -91,6 +91,9 @@ export default function WeddingConfigurator() {
   const [reference, setReference] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const startedAt = useRef(Date.now());
+  // Set before the first await: a second tap in the same instant, before the
+  // button re-renders as disabled, sends nothing.
+  const busy = useRef(false);
   // The stepper: where a step change lands — the step's progress and
   // heading, not the hero above them.
   const stepsRef = useRef(null);
@@ -346,7 +349,7 @@ export default function WeddingConfigurator() {
 
   const onSubmit = async (event) => {
     event.preventDefault();
-    if (status === "submitting") return; // a second click must not send twice
+    if (status === "submitting" || busy.current) return; // a second click must not send twice
 
     const found = validateStep(3);
     setErrors(found);
@@ -355,6 +358,7 @@ export default function WeddingConfigurator() {
       return;
     }
 
+    busy.current = true;
     setStatus("submitting");
     setErrorMessage("");
     setErrorDetail("");
@@ -425,21 +429,22 @@ export default function WeddingConfigurator() {
         setReference(body.reference || "");
         setStatus("sent");
         // The endpoint confirmed delivery — see README-wedding-enquiry.md;
-        // a 422 or a transport failure never reaches this branch.
-        trackMeta("Lead", {
-          content_name: "Wedding configurator",
-          content_category: "events",
-          lang,
-        });
-        // One EventEnquiry per visit: a quick callback sent earlier in this
-        // visit already counted the enquiry.
-        if (!weddingEnquiryTracked()) {
-          trackEventEnquiry({ method: "form", event_type: "wedding" });
-          markWeddingEnquiryTracked();
-        }
-        // A real submission only: the endpoint answers a honeypot or a
-        // too-quick bot with ok and the all-zero reference.
-        if (!config.website.trim() && body.reference !== "RG-WD-00000000-0000") {
+        // a 422 or a transport failure never reaches this branch. A honeypot
+        // or a too-quick bot gets the same ok with the all-zero reference,
+        // and nothing was sent: it counts as nothing.
+        const genuine = !config.website.trim() && body.reference !== "RG-WD-00000000-0000";
+        if (genuine) {
+          trackMeta("Lead", {
+            content_name: "Wedding configurator",
+            content_category: "events",
+            lang,
+          });
+          // One EventEnquiry per visit: a quick callback sent earlier in this
+          // visit already counted the enquiry.
+          if (!weddingEnquiryTracked()) {
+            trackEventEnquiry({ method: "form", event_type: "wedding" });
+            markWeddingEnquiryTracked();
+          }
           trackEnquirySubmitted({ source: "configurator_form", event_type: "wedding" });
         }
         try {
@@ -457,6 +462,7 @@ export default function WeddingConfigurator() {
         for (const [field, code] of Object.entries(body.fields)) {
           mapped[field] = serverFieldMessage(field, code);
         }
+        busy.current = false;
         setErrors(mapped);
         setStatus("error");
         setErrorMessage(s.contact.fixErrors);
@@ -471,6 +477,7 @@ export default function WeddingConfigurator() {
     } catch (err) {
       // Never claim delivery we cannot see: any non-ok answer keeps the
       // configuration and asks the guest to retry.
+      busy.current = false;
       console.error("[wedding-enquiry]", err);
       setStatus("error");
       setErrorMessage(s.contact.errSend);

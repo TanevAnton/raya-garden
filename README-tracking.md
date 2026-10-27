@@ -99,9 +99,15 @@ taps, which `EventEnquiry` counts too. It changes nothing else — `Lead` and
 
 Never for a tap, a refused, failed or invalid submit, or a filled honeypot
 (on the configurator: the endpoint's all-zero reference). Once per form per
-visit — a flag per `source` in sessionStorage — so a double tap or a resend
-after a reload counts once; the callback and the full configurator are two
-submissions and count once each.
+visit — a flag per `source` in sessionStorage — so a resend after a reload
+counts once; the callback and the full configurator are two submissions and
+count once each.
+
+Since 27.10.2026 every form also holds a `busy` ref from the moment it sends
+until it fails, so a double tap is one post and one of each event (before,
+it sent the form twice and counted twice); and a filled honeypot fires
+nothing at all — /contact used to send it to Formspree and fire `Lead`, the
+configurator fired `Lead` and `EventEnquiry` on the endpoint's decoy ok.
 
 ### `content_category`
 

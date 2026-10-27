@@ -14,7 +14,7 @@ import {
 import PageHero from "../components/PageHero.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
-import { trackMeta } from "../lib/metaPixel.js";
+import { trackMeta, trackEnquirySubmitted } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 import { heroImage } from "../lib/images.js";
@@ -123,6 +123,8 @@ export default function Contact() {
 
   async function onSubmit(e) {
     e.preventDefault();
+    // Read before the await: the form element is gone once "sent" renders.
+    const honeypotFilled = Boolean(e.currentTarget.elements._gotcha?.value);
     setStatus("submitting");
     setErrorMsg("");
 
@@ -166,6 +168,7 @@ export default function Contact() {
         content_category: TOPIC_CATEGORY[tp.topics.indexOf(form.topic)],
         lang,
       });
+      if (!honeypotFilled) trackEnquirySubmitted({ source: "contact_form" });
     } catch (err) {
       console.error("[Formspree] error:", err);
       setStatus("error");

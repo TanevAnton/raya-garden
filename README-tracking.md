@@ -14,9 +14,10 @@ src/lib/metaPixel.js        trackMeta() / useMetaEvent() — every site event
   ├── Hotel.jsx             ViewContent
   ├── Restaurant.jsx        ViewContent
   ├── EventPage.jsx         ViewContent
-  ├── Contact.jsx           Lead
-  ├── EventEnquiry.jsx      Lead (the /events enquiry block)
-  └── WeddingConfigurator   Lead
+  ├── Contact.jsx           Lead, EnquirySubmitted
+  ├── EventEnquiry.jsx      Lead, EnquirySubmitted (the /events enquiry block)
+  ├── QuickCallback.jsx     EventEnquiry, EnquirySubmitted (the configurator's «Обадете ми се»)
+  └── WeddingConfigurator   Lead, EnquirySubmitted
 
 index.html (inline script)  the Clock PMS booking funnel
 ```
@@ -42,6 +43,7 @@ would race it. That is why the funnel is not in the React bundle.
 | `EventEnquiry` (custom, `trackCustom`) | see below | `method`, `event_type` |
 | `BookingIntent` (custom) | a tap on any link to `/book` or to Clock's engine; the `/book` form's button | `page` (the path), `source` (`button` / `search`) |
 | `PhoneClick` (custom) | a tap on any `tel:` link — beside `Contact`, not instead | `page` |
+| `EnquirySubmitted` (custom) | a form sent and confirmed — never a tap | `source`, `event_type` |
 
 ### `BookingIntent` and `PhoneClick`
 
@@ -80,6 +82,26 @@ Never on a refused or invalid submit, never from `/contact` (even its
 the home page, and not from the mobile bar's «Запитване», which only
 scrolls. `isEventEnquiryPage()`, `eventTypeForTap()` and
 `trackEventEnquiry()` in `src/lib/metaPixel.js` decide it.
+
+### `EnquirySubmitted`
+
+Added 27.10.2026: real enquiries only, so they can be reported apart from
+taps, which `EventEnquiry` counts too. It changes nothing else — `Lead` and
+`EventEnquiry` fire exactly as before, and the ad sets keep optimising on
+`EventEnquiry`.
+
+| Form | `source` | `event_type` |
+| --- | --- | --- |
+| wedding configurator, confirmed by `/api/wedding-enquiry.php` | `configurator_form` | `wedding` |
+| the configurator's quick callback, confirmed by Formspree | `configurator_callback` | `wedding` |
+| /events enquiry block, confirmed by Formspree | `events_form` | `corporate` / `wedding` / `private` (a birthday); absent for «Друго» |
+| /contact, confirmed by Formspree | `contact_form` | absent |
+
+Never for a tap, a refused, failed or invalid submit, or a filled honeypot
+(on the configurator: the endpoint's all-zero reference). Once per form per
+visit — a flag per `source` in sessionStorage — so a double tap or a resend
+after a reload counts once; the callback and the full configurator are two
+submissions and count once each.
 
 ### `content_category`
 
@@ -202,6 +224,11 @@ every event with its params and asserts:
   `/book` form, a link straight to Clock in this tab and in a new one) — and
   nowhere else; the same-tab Clock link held, then followed
 - `PhoneClick` exactly once beside every `tel:` tap, and nowhere else
+- `EnquirySubmitted` for each of the four forms at 375×812 and 1280×900:
+  once on a confirmed send, a double tap, and the callback-then-form visit
+  (once each); nothing on an invalid form, a network failure, a 422, a
+  filled honeypot or a resend in the same visit; nothing on any tap in the
+  run — with `Lead` and `EventEnquiry` counted beside it, as before
 - `9900` → `99`, never `9900`
 - nulls and empty strings stripped rather than sent
 - an `eventID` on every site event, and `clock-<numbers>` on `Purchase`

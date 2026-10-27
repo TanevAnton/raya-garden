@@ -6,6 +6,7 @@ import {
   trackCallbackEnquiry,
   weddingEnquiryTracked,
   markWeddingEnquiryTracked,
+  trackEnquirySubmitted,
 } from "../../lib/metaPixel.js";
 
 // The quick callback on step 1: a name and a phone, for a couple who would
@@ -74,6 +75,7 @@ export default function QuickCallback({ s, lang, phone, config, update, standard
         trackCallbackEnquiry();
         markWeddingEnquiryTracked();
       }
+      trackEnquirySubmitted({ source: "configurator_callback", event_type: "wedding" });
     } catch (err) {
       console.error("[wedding callback]", err);
       setStatus("error");

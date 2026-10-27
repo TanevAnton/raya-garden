@@ -10,6 +10,7 @@ import {
   trackEventEnquiry,
   weddingEnquiryTracked,
   markWeddingEnquiryTracked,
+  trackEnquirySubmitted,
 } from "../lib/metaPixel.js";
 import offer from "../../public/api/wedding-offer.json";
 import StepDateGuests from "../components/wedding/StepDateGuests.jsx";
@@ -435,6 +436,11 @@ export default function WeddingConfigurator() {
         if (!weddingEnquiryTracked()) {
           trackEventEnquiry({ method: "form", event_type: "wedding" });
           markWeddingEnquiryTracked();
+        }
+        // A real submission only: the endpoint answers a honeypot or a
+        // too-quick bot with ok and the all-zero reference.
+        if (!config.website.trim() && body.reference !== "RG-WD-00000000-0000") {
+          trackEnquirySubmitted({ source: "configurator_form", event_type: "wedding" });
         }
         try {
           window.sessionStorage.removeItem(STORAGE_KEY);

@@ -182,6 +182,40 @@ export function markWeddingEnquiryTracked() {
 }
 
 /**
+ * EnquirySubmitted — a form that was actually sent, and nothing else: no
+ * taps on phone, e-mail, Viber or WhatsApp links. It stands beside Lead and
+ * EventEnquiry and changes neither; it exists so real enquiries can be
+ * reported apart from taps, which EventEnquiry counts too.
+ *
+ *   source      configurator_form | configurator_callback | events_form |
+ *               contact_form
+ *   event_type  corporate | private | wedding, when the form says which
+ *
+ * Only after the endpoint has confirmed, and never for a honeypot-filled
+ * form. Once per source per visit (sessionStorage, as for EventEnquiry
+ * above, under its own key): a form shows its thank-you instead of itself
+ * once sent, so a second one from the same source in the same visit can only
+ * be a repeat. Different sources are different submissions and each count.
+ */
+const ENQUIRY_SUBMITTED_FLAG = "raya.enquirySubmitted.";
+export function trackEnquirySubmitted({ source, event_type } = {}) {
+  try {
+    if (window.sessionStorage.getItem(ENQUIRY_SUBMITTED_FLAG + source) === "1") return null;
+  } catch {
+    /* storage unavailable — send, with nothing to remember it by */
+  }
+  const id = send("trackCustom", "EnquirySubmitted", { source, event_type });
+  if (id) {
+    try {
+      window.sessionStorage.setItem(ENQUIRY_SUBMITTED_FLAG + source, "1");
+    } catch {
+      /* as above */
+    }
+  }
+  return id;
+}
+
+/**
  * Is this link a way into booking a room? Every «Резервирай» button on the
  * site is a link to /book, which opens Clock's booking window on the same
  * page. A direct link to Clock's booking engine counts too — there are none

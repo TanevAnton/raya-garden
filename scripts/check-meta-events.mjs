@@ -132,16 +132,21 @@ const open = async (path, { failBackends = false, mobile = false, size = null } 
       return req.respond(json({ result: sanityAnswer(url) }));
     }
     // Both enquiry backends answer success, so the Lead paths are reachable
-    // — or, with failBackends, refuse, to prove a Lead needs a real success.
+    // — or, with failBackends, refuse, to prove a Lead needs a real success;
+    // with failBackends "network", never answer at all.
     if (url.includes("formspree.io")) {
       formspreeBodies.push(req.postData() || "");
+      if (failBackends === "network") return req.abort("failed");
       return req.respond(failBackends ? json({ errors: [{ message: "test refusal" }] }, 422) : json({}));
     }
     if (url.includes("/api/wedding-enquiry.php")) {
-      return req.respond(
-        failBackends ? json({ ok: false, errors: { email: "invalid" } }, 422)
-                     : json({ ok: true, reference: "RG-WD-TEST" })
-      );
+      if (failBackends === "network") return req.abort("failed");
+      if (failBackends) return req.respond(json({ ok: false, errors: { email: "invalid" } }, 422));
+      // As the real endpoint does: a filled honeypot gets a success-shaped
+      // answer with the all-zero reference, and nothing is sent.
+      let website = "";
+      try { website = String(JSON.parse(req.postData() || "{}").website || "").trim(); } catch { /* not JSON */ }
+      return req.respond(json({ ok: true, reference: website ? "RG-WD-00000000-0000" : "RG-WD-TEST" }));
     }
     // Clock's real bundle would register its own callback; the page defines
     // ours regardless, and the funnel steps are invoked directly below.
@@ -659,6 +664,154 @@ await callback("configurator callback sent then the full form", { thenFull: true
   await desktop.close();
 }
 
+// ── Part A: EnquirySubmitted — real submissions, and nothing else ────
+// Every enquiry form on the site, at a phone and a desktop width, through
+// each way a send can end: confirmed, stopped by validation, the network
+// gone, refused (4xx), a bot in the honeypot, a double tap on the button,
+// and the same form sent again later in the same visit (the page reloaded,
+// sessionStorage kept). Lead and EventEnquiry are counted beside it, to show
+// they are as they were.
+const SUBMIT_FORMS = {
+  "contact form": {
+    path: "/contact?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector("main form", { timeout: 8000 });
+      await page.evaluate(({ invalid, honeypot }) => {
+        const set = (el, v) => {
+          Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value").set.call(el, v);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        for (const el of document.querySelectorAll("main form input, main form textarea")) {
+          if (el.type === "hidden" || el.name === "_gotcha") continue;
+          // invalid: the name left empty — the browser's required stops it.
+          if (invalid && el.required && el.type === "text") continue;
+          set(el, el.type === "email" ? "test@example.com" : "Тест Тестов");
+        }
+        set(document.querySelector("main form select"), document.querySelector("main form select").options[1].value);
+        if (honeypot) document.querySelector('main form input[name="_gotcha"]').value = "http://spam.example";
+      }, { invalid, honeypot });
+    },
+    submit: 'main form button[type="submit"]',
+  },
+  "events form": {
+    path: "/events?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector("#enquiry form", { timeout: 8000 });
+      if (!invalid) await fill(page, '#enquiry input[autocomplete="name"]', "Тест Тестов");
+      await fill(page, '#enquiry input[type="tel"]', "+359888123456");
+      await fill(page, "#enquiry select", "corporate", 0);
+      await fill(page, "#enquiry select", "20-50", 1);
+      await fill(page, "#enquiry select", "unknown", 2);
+      await page.evaluate(() => document.querySelector('#enquiry input[type="checkbox"]').click());
+      if (honeypot) await page.evaluate(() => (document.querySelector('#enquiry input[name="_gotcha"]').value = "http://spam.example"));
+    },
+    submit: '#enquiry button[type="submit"]',
+  },
+  "configurator form": {
+    path: "/svatben-konfigurator?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+      await fill(page, "input[type=date]", "2027-06-12");
+      await fill(page, "input[type=number]", "60", 0);
+      await sleep(300);
+      await tapNext(page); await sleep(700);
+      await clickText(page, /^Избери$/); await sleep(300);
+      await tapNext(page); await sleep(700);
+      await tapNext(page); await sleep(700);
+      await fill(page, "input[type=text]", "Тест Тестов", 0);
+      await fill(page, "input[type=tel]", "+359888123456", 0);
+      await fill(page, "input[type=email]", "test@example.com", 0);
+      if (honeypot) await fill(page, "#website-url", "http://spam.example");
+      // invalid: consent left unticked — the form's own check stops it.
+      if (!invalid) await page.evaluate(() => { const b = document.querySelectorAll("input[type=checkbox]"); b[b.length - 1].click(); });
+      await sleep(200);
+    },
+    submitText: /Изпрати запитване/,
+  },
+  "configurator callback": {
+    path: "/svatben-konfigurator?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+      if (honeypot) {
+        // The honeypot is on the last step: a bot that filled it there and
+        // came back to step 1 for the callback.
+        await fill(page, "input[type=date]", "2027-06-12");
+        await fill(page, "input[type=number]", "60", 0);
+        await sleep(300);
+        await tapNext(page); await sleep(700);
+        await clickText(page, /^Избери$/); await sleep(300);
+        await tapNext(page); await sleep(700);
+        await tapNext(page); await sleep(700);
+        await fill(page, "#website-url", "http://spam.example");
+        for (let i = 0; i < 3; i++) { await tapBack(page); await sleep(700); }
+      }
+      await page.waitForSelector("[data-quick-callback] form", { timeout: 8000 });
+      await fill(page, '[data-quick-callback] input[autocomplete="name"]', "Тест Тестов");
+      // invalid: the phone left empty.
+      await fill(page, '[data-quick-callback] input[type="tel"]', invalid ? "" : "+359888123456");
+    },
+    submit: '[data-quick-callback] button[type="submit"]',
+  },
+};
+const SUBMIT_CASES = ["sent", "invalid", "network failure", "refused 422", "honeypot", "double tap", "sent again in the same visit"];
+
+async function pressSubmit(page, form, times = 1) {
+  // The same button clicked `times` times in one go, as a double tap is:
+  // before React has re-rendered it as disabled.
+  const ok = await page.evaluate(({ sel, text, times }) => {
+    const b = sel
+      ? document.querySelector(sel)
+      : [...document.querySelectorAll("button")].find((e) => new RegExp(text).test(e.textContent.trim()));
+    if (!b) return false;
+    for (let i = 0; i < times; i++) b.click();
+    return true;
+  }, { sel: form.submit || null, text: form.submitText?.source || null, times });
+  if (!ok) throw new Error(`no submit button for ${form.submit || form.submitText}`);
+}
+
+const submittedCases = [];
+for (const [sizeName, size] of [["phone", PHONE], ["desktop", DESKTOP]]) {
+  for (const [name, form] of Object.entries(SUBMIT_FORMS)) {
+    for (const c of SUBMIT_CASES) {
+      const where = `submitted: ${name}, ${c} (${sizeName})`;
+      const failBackends = c === "network failure" ? "network" : c === "refused 422";
+      const page = await open(form.path, { size, failBackends });
+      const postsBefore = formspreeBodies.length;
+      if (c === "sent again in the same visit") {
+        // The first send, then a reload in the same tab and a second one.
+        await form.fill(page, {});
+        await pressSubmit(page, form);
+        await sleep(1800);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await sleep(1400);
+      }
+      await form.fill(page, { invalid: c === "invalid", honeypot: c === "honeypot" });
+      await page.evaluate(() => (window.__fbqCalls.length = 0));
+      await pressSubmit(page, form, c === "double tap" ? 2 : 1);
+      await sleep(1800);
+      record(where, await page.evaluate(() => window.__fbqCalls));
+      submittedCases.push({ where, form: name, case: c, size: sizeName, posts: formspreeBodies.length - postsBefore });
+      await page.close();
+    }
+  }
+  // Two submissions in one visit: the callback, then the full configurator.
+  {
+    const where = `submitted: configurator callback, then the full form (${sizeName})`;
+    const page = await open("/svatben-konfigurator?lang=bg", { size });
+    await SUBMIT_FORMS["configurator callback"].fill(page, {});
+    await page.evaluate(() => (window.__fbqCalls.length = 0));
+    await pressSubmit(page, SUBMIT_FORMS["configurator callback"]);
+    await sleep(1400);
+    await SUBMIT_FORMS["configurator form"].fill(page, {});
+    await pressSubmit(page, SUBMIT_FORMS["configurator form"]);
+    await sleep(1800);
+    record(where, await page.evaluate(() => window.__fbqCalls));
+    submittedCases.push({ where, form: "both", case: "callback then full form", size: sizeName });
+    await page.close();
+  }
+}
+
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
 // every effect in development and not in a production build, so a dev
@@ -997,7 +1150,8 @@ const ENQUIRY_FIRES = {
   "configurator call button, tap 1": { method: "phone", event_type: "wedding" },
   "configurator call button, tap 2": { method: "phone", event_type: "wedding" },
 };
-const everyWhere = new Set([...rows.map((r) => r.where), ...Object.keys(ENQUIRY_FIRES)]);
+// The EnquirySubmitted matrix counts EventEnquiry case by case, below.
+const everyWhere = new Set([...rows.map((r) => r.where).filter((w) => !w.startsWith("submitted: ")), ...Object.keys(ENQUIRY_FIRES)]);
 let enquiryFires = 0;
 let enquirySilent = 0;
 for (const where of everyWhere) {
@@ -1037,6 +1191,91 @@ for (const where of [
   "/svatben-konfigurator submit without consent",
 ]) {
   if (!rows.some((r) => r.where === where && r.event === "EventEnquiry")) console.log(`no EventEnquiry, correctly: ${where}`);
+}
+
+// EnquirySubmitted: exactly once per confirmed submission, with exactly
+// these params — and nowhere else in the whole run: no page load, no tap on
+// a phone, e-mail, Viber or WhatsApp link, no call button or mobile bar, no
+// refused, failed, invalid or honeypot send, no repeat in the same visit.
+const SUBMITTED = {
+  "contact form": { source: "contact_form" },
+  "events form": { source: "events_form", event_type: "corporate" },
+  "configurator form": { source: "configurator_form", event_type: "wedding" },
+  "configurator callback": { source: "configurator_callback", event_type: "wedding" },
+};
+const SUBMITTED_FIRES = {
+  "/contact submit [topic: Резервация]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Сватба или събитие]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Ресторант]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Езеро]": [SUBMITTED["contact form"]],
+  "/svatben-konfigurator submit": [SUBMITTED["configurator form"]],
+  "/events?for=corporate enquiry sent": [SUBMITTED["events form"]],
+  "/events enquiry sent [Сватба]": [{ source: "events_form", event_type: "wedding" }],
+  "configurator callback sent": [SUBMITTED["configurator callback"]],
+  "configurator callback sent then the full form": [SUBMITTED["configurator callback"]],
+  "configurator callback sent then the full form, then the full configurator": [SUBMITTED["configurator form"]],
+};
+for (const c of submittedCases) {
+  if (c.form === "both") SUBMITTED_FIRES[c.where] = [SUBMITTED["configurator callback"], SUBMITTED["configurator form"]];
+  else if (c.case === "sent" || c.case === "double tap") SUBMITTED_FIRES[c.where] = [SUBMITTED[c.form]];
+}
+{
+  const wheres = new Set([...rows.map((r) => r.where), ...Object.keys(SUBMITTED_FIRES)]);
+  let fired = 0;
+  let silent = 0;
+  let taps = 0;
+  const tapWheres = new Set([
+    ...CONTACT_CASES.filter((c) => c.href !== "/contact").map((c) => c.where),
+    "configurator call button, tap 1", "configurator call button, tap 2",
+    "/events enquiry call button", "/events mobile bar: call", `/event/${EVENT_SLUG} mobile bar: call`,
+    "/events?for=corporate mobile bar: call", `/event/${OTHER_EVENT_SLUG} mobile bar: call`,
+  ]);
+  for (const where of wheres) {
+    const got = rows.filter((r) => r.where === where && r.event === "EnquirySubmitted");
+    const want = SUBMITTED_FIRES[where] || [];
+    if (tapWheres.has(where) && got.length === 0) taps++;
+    if (got.length !== want.length) {
+      failures.push(`${where}: EnquirySubmitted fired ${got.length} time(s), expected ${want.length}`);
+      continue;
+    }
+    if (!want.length) { silent++; continue; }
+    const bad = got.find((g, i) => g.kind !== "trackCustom" || JSON.stringify(g.params) !== JSON.stringify(want[i]));
+    if (bad) failures.push(`${where}: EnquirySubmitted ${bad.kind} ${JSON.stringify(got.map((g) => g.params))}, expected trackCustom ${JSON.stringify(want)}`);
+    else fired++;
+  }
+  console.log(`\nEnquirySubmitted: right count and params at ${fired}/${Object.keys(SUBMITTED_FIRES).length} submissions; silent, correctly, at the other ${silent} actions — ${taps}/${tapWheres.size} of them taps on phone/e-mail/Viber/WhatsApp links`);
+}
+
+// Lead and EventEnquiry in the same matrix: as they were. The honeypot and
+// double-tap rows are printed, not asserted — what those two do there is not
+// this change's (a double tap sends a form twice today, and both count).
+const LEAD_ON_SUCCESS = { "contact form": 1, "events form": 1, "configurator form": 1, "configurator callback": 0 };
+const ENQUIRY_ON_SUCCESS = { "contact form": 0, "events form": 1, "configurator form": 1, "configurator callback": 1 };
+// A repeat in the same visit: EventEnquiry is once per visit on the
+// configurator (both forms share its flag), per send on /events.
+const ENQUIRY_ON_REPEAT = { "contact form": 0, "events form": 1, "configurator form": 0, "configurator callback": 0 };
+console.log(`\n${"=".repeat(96)}\n  ENQUIRY SUBMITTED — every form, phone (375×812) and desktop (1280×900)\n${"=".repeat(96)}`);
+console.log(pad("CASE", 70) + pad("Submitted", 11) + pad("Lead", 6) + pad("EventEnq", 10) + "posts");
+for (const c of submittedCases) {
+  const n = (event) => rows.filter((r) => r.where === c.where && r.event === event).length;
+  const sub = n("EnquirySubmitted");
+  const lead = n("Lead");
+  const enq = n("EventEnquiry");
+  let ok = true;
+  if (c.form !== "both" && c.case !== "honeypot" && c.case !== "double tap") {
+    const success = c.case === "sent" || c.case === "sent again in the same visit";
+    const wantLead = success ? LEAD_ON_SUCCESS[c.form] : 0;
+    const wantEnq = !success ? 0 : c.case === "sent again in the same visit" ? ENQUIRY_ON_REPEAT[c.form] : ENQUIRY_ON_SUCCESS[c.form];
+    if (lead !== wantLead) { ok = false; failures.push(`${c.where}: Lead fired ${lead} time(s), expected ${wantLead}`); }
+    if (enq !== wantEnq) { ok = false; failures.push(`${c.where}: EventEnquiry fired ${enq} time(s), expected ${wantEnq}`); }
+  }
+  if (c.form === "both" && (lead !== 1 || enq !== 1)) {
+    ok = false;
+    failures.push(`${c.where}: Lead ${lead}, EventEnquiry ${enq} — expected 1 and 1, as before`);
+  }
+  const wantSub = (SUBMITTED_FIRES[c.where] || []).length;
+  if (sub !== wantSub) ok = false;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${pad(c.where.replace("submitted: ", ""), 64)}${pad(sub, 11)}${pad(lead, 6)}${pad(enq, 10)}${c.posts ?? ""}`);
 }
 
 // BookingIntent: exactly once per «Резервирай» tap or /book search, with

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Phone } from "lucide-react";
 import { Field, TextField, CheckBox, inputClass } from "./wedding/fields.jsx";
-import { trackMeta, trackEventEnquiry } from "../lib/metaPixel.js";
+import { trackMeta, trackEventEnquiry, trackEnquirySubmitted } from "../lib/metaPixel.js";
 import { translations } from "../translations.js";
 
 // The short enquiry form under the /events hero — for the visitor who came
@@ -22,6 +22,9 @@ const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || "";
 const PHONE_HREF = "tel:+359896100100";
 
 const TYPE_CODES = ["corporate", "wedding", "birthday", "other"];
+// event_type for EnquirySubmitted, which reports in three kinds: a birthday
+// is private; "other" says nothing about which, so it is left out.
+const SUBMITTED_TYPE = { corporate: "corporate", wedding: "wedding", birthday: "private" };
 const GUEST_CODES = ["lt20", "20-50", "50-100", "gt100"];
 const LOCALE = { bg: "bg-BG", en: "en-GB", ro: "ro-RO" };
 
@@ -133,6 +136,7 @@ export default function EventEnquiry({ t, lang, corporate = false }) {
         lang,
       });
       trackEventEnquiry({ method: "form", event_type: form.type });
+      trackEnquirySubmitted({ source: "events_form", event_type: SUBMITTED_TYPE[form.type] });
     } catch (err) {
       console.error("[events enquiry]", err);
       setStatus("error");

@@ -154,6 +154,7 @@ function qr_clock_lines(PDO $pdo, string $source, array $row): array
         $item = $index[$items[$line['key']] ?? ''] ?? null;
         $lines[] = [
             'key' => $line['key'],
+            'item' => (string) ($items[$line['key']] ?? ''),
             'name' => $line['name'],
             'qty' => (int) $line['qty'],
             'unit' => (int) $line['unit'],

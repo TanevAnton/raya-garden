@@ -31,4 +31,14 @@ return [
     // codes are 0001–8999, from „Персонал“.)
     // A comment line printed at the top of every receipt (empty: none).
     'header_comment' => 'QR меню',
+    // VAT rate (%) of each tax group, for НАП's tables (Annex 29 т. 18,
+    // _lib/nap.php): prices include VAT, the tables split it out.
+    'vat_rates' => [1 => 0, 2 => 20, 3 => 20, 4 => 9, 5 => 0, 6 => 0, 7 => 0, 8 => 0],
+    // The site and the workplace, as declared to НАП (Annex 29 т. 18.9).
+    // ⚠ To fill in from the restaurant's registration: the site's code and address.
+    'site_code' => '0001',
+    'site_name' => 'Ресторант Park Hotel RAYA Garden',
+    'site_address' => '',
+    'workplace_code' => '01',
+    'workplace_name' => 'QR меню (плащане в телефона)',
 ];

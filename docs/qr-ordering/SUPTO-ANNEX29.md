@@ -55,10 +55,10 @@ producers (`kontrolen-list-supto.txt`).
 | 13 | No deletion of completed sales; storno kept | ✓ | Nothing deletes orders, payments or receipts; refunds are reversal receipts; `audit_log` refuses UPDATE and DELETE. |
 | 14 | No non-fiscal document with the word "фискален" | ✓ | Checked 23.10.2026: none. (The e-receipt is off and uses "Електронна бележка".) |
 | 15 | Structured log of operator actions: who, code, when, what. At least login/logout, storno, cancellation (with УНП), changes to catalogues, operator changes | ◐ | Done 29.10: operator code and name on every row; logins, failed logins, logouts; operator and role changes; settings and sold-out changes; УНП on orders, voids, bills, receipts. Left: **menu and price changes** (the menu is a JSON file changed by deploy, so each deploy has to write its changes into the log). |
-| 16 | View of that log in the interface, filterable by period, operator and action | ✗ | A screen in `/admin` with filters (period, operator, kind of action). |
+| 16 | View of that log in the interface, filterable by period, operator and action | ✓ | Done 29.10 (phase 3): „Журнал“ in /admin, by period, operator and kind of action, newest first, paged. |
 | 17 | Access through the interface to data for the statutory period (ДОПК чл. 38: 10 years); archives accessible | ◐ | „История“ reads every past evening. To add: guarantee 10-year retention and access (no pruning; archive copies readable from the interface). |
-| 18 | Views and exports (XLS/XLSX/CSV) with filters (period, site, printer, workplace, operator) of NAP's tables 18.1–18.9 with fixed columns: sales summary, payments, sale details, storno, cancellations, catalogues; deliveries and stock movement only if the software has them | ✗ | Nine exports with the prescribed columns, net/VAT split, filters. Mechanical but sizeable. 18.6–18.8 (deliveries, stock) don't apply. |
-| 19 | Auditor profile: read-only, access to 16–18, settings and all reports | ◐ | The "Проверяващ" role exists (29.10): reads everything, every change refused. Left: the screens of 16–18 it is for. |
+| 18 | Views and exports (XLS/XLSX/CSV) with filters (period, site, printer, workplace, operator) of NAP's tables 18.1–18.9 with fixed columns | ◐ | Done 29.10 (phase 3): „Справки НАП“, on screen and CSV, 18.1–18.5 and the 18.9 nomenclatures, filters period / printer / operator (one site, one workplace). Left: the site's code and address, and the items' dates (need menu changes logged, т. 15). 18.6–18.8 don't apply. |
+| 19 | Auditor profile: read-only, access to 16–18, settings and all reports | ◐ | The "Проверяващ" role reads everything including „Журнал“ and „Справки НАП“; every change refused. Left: show the configuration (settings files) read-only. |
 | 20 | No test or training mode | ✗ | The declared version must have no test mode: no Stripe-test switch and no `fiscal_mode` "test". The tests and the sandbox stay outside the declared build. |
 | 21 | If part of an integrated system that can't meet 16–19, the integrated system meets them | — | Not integrated with another system. |
 | 22 | Automated import of sales follows Annexes 41/42 | — | We import nothing. If the QR orders ever had to be handed to Clock, that's Annex 41. |
@@ -73,8 +73,9 @@ producers (`kontrolen-list-supto.txt`).
   payment taken while the printer isn't ready (8); the bridge keeps the
   printer's clock right at start, daily and on drift, and phone payments
   stop past 5 minutes off (5).
-- Next: (3) the log screen with filters and НАП's nine exports (16,
-  18); (4) no test mode in the declared build, integrity checks (4, 20);
+- **Phase 3, 29.10.2026 (branch, not deployed):** „Журнал“ (16) and
+  „Справки НАП“ (18), both for the manager and the auditor (19 in part).
+- Next: (4) no test mode in the declared build, integrity checks (4, 20);
   (5) the transfer to Clock; (6) the manual and the Annex 31 information.
 
 ## The transfer to Clock (the condition)

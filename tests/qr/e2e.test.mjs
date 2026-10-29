@@ -323,6 +323,17 @@ describe("the staff screen", () => {
       throw new Error(`${e.message}: ${await page.evaluate(() => document.body.innerText.slice(0, 400))}`);
     });
     assert.match(await page.evaluate(() => document.body.innerText), /Мария Петрова · 0001/);
+
+    // The operations log and НАП's tables, for the manager.
+    await clickText(page, "nav", /^Журнал$/);
+    await page.waitForSelector('[data-audit-row="login"]');
+    await page.select("[data-audit] select[name=kind]", "staff_new");
+    await page.waitForFunction(() => [...document.querySelectorAll("[data-audit-row]")].every((r) => r.dataset.auditRow === "staff_new"));
+    await clickText(page, "nav", /^Справки НАП$/);
+    await page.waitForSelector("[data-nap-total]");
+    await page.select("[data-nap] select[name=table]", "nom_operators");
+    await page.waitForFunction(() => document.querySelector("[data-nap]").innerText.includes("Мария Петрова"));
+    assert.match(await page.$eval("[data-nap-csv]", (a) => a.getAttribute("href")), /table=nom_operators.*format=csv/);
     await page.close();
   });
 

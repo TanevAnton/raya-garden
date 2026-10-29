@@ -589,7 +589,7 @@ function Dashboard({ operator, onSignedOut }) {
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
             ["history", "История"],
-            ...(manages ? [["staff", "Персонал"]] : []),
+            ...(manages ? [["staff", "Персонал"], ["log", "Журнал"], ["nap", "Справки НАП"]] : []),
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} data-flash={id === "till" && tillFlash ? "1" : undefined}
               className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"} ${id === "till" && tillFlash ? "animate-pulse text-gold-100 bg-gold-300/15" : ""}`}>
@@ -636,6 +636,8 @@ function Dashboard({ operator, onSignedOut }) {
         {tab === "till" && <Till entries={tillEntries} onTill={till} clockInfo={clockInfo} clockDocs={clockDocs} onClock={clockAction} fiscalInfo={fiscalInfo} onFiscal={fiscalRetry} onCommand={fiscalCommand} />}
         {tab === "history" && <History onSignedOut={onSignedOut} />}
         {tab === "staff" && <Staff operator={operator} say={say} onSignedOut={onSignedOut} />}
+        {tab === "log" && <AuditLog say={say} onSignedOut={onSignedOut} />}
+        {tab === "nap" && <NapReports say={say} onSignedOut={onSignedOut} />}
       </main>
 
       {toast && (
@@ -2275,6 +2277,173 @@ function Staff({ operator, say, onSignedOut }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+const todaySofia = () => sofiaDate(Math.floor(Date.now() / 1000));
+const stamp = (unix) => `${dayOf(unix)} ${new Intl.DateTimeFormat("bg-BG", { timeZone: "Europe/Sofia", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(unix * 1000))}`;
+
+/**
+ * „Журнал“: every action in the operations log, newest first, filtered by
+ * period, operator and kind of action (Наредба Н-18, Annex 29 т. 16). For
+ * a manager or the auditor.
+ */
+function AuditLog({ say, onSignedOut }) {
+  const [filter, setFilter] = useState(() => ({ from: todaySofia(), to: todaySofia(), operator: "", kind: "" }));
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load(before = 0) {
+    setBusy(true);
+    try {
+      const q = new URLSearchParams({ ...filter, ...(before ? { before } : {}) });
+      const res = await adminApi(`audit.php?${q}`);
+      if (res.status === 401) return onSignedOut();
+      if (!res.ok) return say("Проверете датите.");
+      setData((d) => (before && d ? { ...res, rows: [...d.rows, ...res.rows] } : res));
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, [filter]);
+
+  const set = (key) => (e) => setFilter({ ...filter, [key]: e.target.value });
+  return (
+    <div data-audit>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl">
+        <Field label="От"><input type="date" name="from" value={filter.from} onChange={set("from")} className={inputClass} /></Field>
+        <Field label="До"><input type="date" name="to" value={filter.to} onChange={set("to")} className={inputClass} /></Field>
+        <Field label="Оператор">
+          <select name="operator" value={filter.operator} onChange={set("operator")} className={inputClass}>
+            <option value="">Всички</option>
+            {(data?.operators || []).map((o) => (
+              <option key={o.code} value={o.code}>{o.code} · {o.name}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Действие">
+          <select name="kind" value={filter.kind} onChange={set("kind")} className={inputClass}>
+            <option value="">Всички</option>
+            {(data?.kinds || []).map((k) => (
+              <option key={k.code} value={k.code}>{k.name}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      {data && data.rows.length === 0 && <p className="text-cream-100/60 mt-6">Няма действия за избраното.</p>}
+      {data && data.rows.length > 0 && (
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs tracking-[0.15em] uppercase text-gold-300/80">
+              <tr><th className="py-2 pr-3">Кога</th><th className="pr-3">Оператор</th><th className="pr-3">Действие</th><th className="pr-3">Поръчка / документ</th><th className="pr-3 text-right">Сума</th><th>Подробности</th></tr>
+            </thead>
+            <tbody>
+              {data.rows.map((r) => (
+                <tr key={r.id} className="border-t border-gold-300/10 align-top" data-audit-row={r.kind}>
+                  <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{stamp(r.at)}</td>
+                  <td className="pr-3 whitespace-nowrap">{r.operator} <span className="text-cream-100/60">{r.operatorName}</span></td>
+                  <td className="pr-3">{r.kindName}</td>
+                  <td className="pr-3 font-mono text-xs">{r.ref}</td>
+                  <td className="pr-3 text-right tabular-nums">{r.amount ? money(r.amount) : ""}</td>
+                  <td className="text-xs text-cream-100/60 break-all">{r.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.more && (
+            <button type="button" disabled={busy} onClick={() => load(data.rows[data.rows.length - 1].id)} className="mt-4 h-10 px-4 rounded-sm border border-gold-300/25 text-sm text-cream-100/80">
+              По-стари…
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const NAP_TABLES = [
+  ["18.1", "18.1 Обобщени данни за продажбите"],
+  ["18.2", "18.2 Плащания по продажбите"],
+  ["18.3", "18.3 Детайлни данни за продажбите"],
+  ["18.4", "18.4 Сторнирани продажби"],
+  ["18.5", "18.5 Анулирани продажби"],
+  ["nom_items", "18.9 Стоки / услуги"],
+  ["nom_operations", "18.9 Видове операции"],
+  ["nom_payments", "18.9 Видове плащания"],
+  ["nom_sites", "18.9 Търговски обекти"],
+  ["nom_workplaces", "18.9 Работни места"],
+  ["nom_operators", "18.9 Оператори"],
+  ["nom_roles", "18.9 Роли"],
+  ["nom_rights", "18.9 Права"],
+];
+
+/**
+ * „Справки НАП“: the tables of Annex 29 т. 18 on screen, and as a
+ * spreadsheet, for a period, one fiscal printer and one operator. 18.6–18.8
+ * (deliveries, stock) don't apply. For a manager or the auditor.
+ */
+function NapReports({ say, onSignedOut }) {
+  const month = todaySofia().slice(0, 8);
+  const [filter, setFilter] = useState(() => ({ table: "18.1", from: `${month}01`, to: todaySofia(), fu: "", operator: "" }));
+  const [data, setData] = useState(null);
+  const query = new URLSearchParams(Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== "")));
+
+  useEffect(() => {
+    setData(null);
+    adminApi(`nap.php?${query}`)
+      .then((res) => {
+        if (res.status === 401) return onSignedOut();
+        if (res.ok) setData(res);
+        else say("Проверете филтрите (дати, ФУ: 8 знака, оператор: 4 цифри).");
+      })
+      .catch(() => say("Няма връзка — опитайте отново."));
+  }, [query.toString()]);
+
+  const set = (key) => (e) => setFilter({ ...filter, [key]: e.target.value });
+  return (
+    <div data-nap>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <Field label="Таблица" className="col-span-2">
+          <select name="table" value={filter.table} onChange={set("table")} className={inputClass}>
+            {NAP_TABLES.map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="От"><input type="date" name="from" value={filter.from} onChange={set("from")} className={inputClass} /></Field>
+        <Field label="До"><input type="date" name="to" value={filter.to} onChange={set("to")} className={inputClass} /></Field>
+        <Field label="ФУ (номер)"><input name="fu" maxLength={8} placeholder="всички" value={filter.fu} onChange={set("fu")} className={inputClass} /></Field>
+        <Field label="Оператор (код)"><input name="operator" maxLength={4} inputMode="numeric" placeholder="всички" value={filter.operator} onChange={set("operator")} className={inputClass} /></Field>
+      </div>
+      <p className="text-xs text-cream-100/50 mt-2">Търговски обект и работно място: по един (ресторантът, QR менюто). Сумите са в евро, с ДДС отделно по данъчна група.</p>
+      <div className="mt-4 flex items-center gap-3">
+        <a href={`/api/qr/admin/nap.php?${query}&format=csv`} className="btn-gold h-10 px-4 rounded-sm text-xs tracking-[0.15em] uppercase font-medium inline-flex items-center" data-nap-csv>
+          Изтегли (CSV)
+        </a>
+        {data && <span className="text-sm text-cream-100/60" data-nap-total={data.total}>{data.total} реда{data.total > data.rows.length ? `, показани ${data.rows.length}` : ""}</span>}
+      </div>
+      {!data && <p className="text-cream-100/60 mt-6">Зареждане…</p>}
+      {data && (
+        <div className="mt-4 overflow-x-auto">
+          <table className="text-xs">
+            <thead className="text-left text-cream-100/70">
+              <tr>{data.columns.map((c) => <th key={c} className="py-2 pr-3 align-bottom font-medium">{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {data.rows.map((row, i) => (
+                <tr key={i} className="border-t border-gold-300/10" data-nap-row>
+                  {row.map((cell, j) => <td key={j} className="py-1.5 pr-3 whitespace-nowrap tabular-nums">{cell}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

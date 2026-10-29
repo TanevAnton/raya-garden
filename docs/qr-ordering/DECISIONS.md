@@ -869,6 +869,24 @@ started. Phase 1:
   warned about. The 30 s / 5 min thresholds are ours; a printer that refuses
   a new time before its Z report is reported, not forced.
 
+## The log screen and НАП's tables, 29.10.2026 (СУПТО phase 3)
+
+- **A sale is what has a УНП**: an order paid on the phone, or a bill.
+  Pay-staff evenings are Clock's sales and don't appear.
+- **Cancellations (18.5) come from the operations log**, not from the
+  order rows: the log has the time and the operator of each, the rows
+  only the result. Same for who caused a storno (18.4): the operator of
+  the log row that queued it.
+- **VAT is split per line** from the gross price by the tax group's rate,
+  rounded per line; the sale's VAT is the sum of its lines'.
+- **Amounts in euro**, though the Annex says "лв.": Bulgaria's currency
+  since 1.1.2026.
+- **18.2 includes what staff took on a bill** (paid via Clock's till), as a
+  payment type of its own with no fiscal printer: our sale, Clock's receipt.
+  This is open question 1 in `SUPTO-ANNEX29.md` and may change.
+- **The nomenclatures are separate tables** (Annex 29 allows alternative
+  nomenclature tables of the same scope).
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

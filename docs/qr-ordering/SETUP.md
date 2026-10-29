@@ -462,6 +462,25 @@ sign-outs, settings, sold-out items and staff-account changes are in it
 too. „История“ downloads it for an evening or a month ("журнал на
 операциите"), with the operator columns.
 
+### The log screen and НАП's tables (Annex 29 т. 16, 18)
+
+For a manager or the auditor, in /admin:
+- **„Журнал“**: the operations log, newest first, by period, operator and
+  kind of action (`admin/audit.php`).
+- **„Справки НАП“**: the tables of т. 18 on screen and as CSV, by period,
+  fiscal printer (serial) and operator (`admin/nap.php`, `_lib/nap.php`):
+  18.1 sales, 18.2 payments, 18.3 sale lines, 18.4 storno, 18.5
+  cancellations, and the 18.9 nomenclatures (items, operations, payment
+  types, site, workplace, operators, roles, rights). 18.6–18.8 (deliveries,
+  stock) don't apply.
+
+A sale is what has a УНП: an order paid on the phone, or a bill. Prices
+include VAT; the tables split it by the tax group's rate (`vat_rates` in
+`fiscal-settings.php`). Amounts are in euro. ⚠ Before registering: fill in
+the site's code and address in `fiscal-settings.php` (`site_code`,
+`site_address`), and the items' dates (first configured, last changed,
+deactivated) are still empty until menu changes are logged.
+
 ### No sale the printer can't take (Annex 29 т. 5 and 8)
 
 With the fiscal mode on and guests paying on the phone, a sale is opened

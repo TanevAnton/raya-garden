@@ -51,6 +51,15 @@ describe("orders paid to staff are off: the QR code is the menu only", () => {
     assert.deepEqual([res.status, res.body.error], [409, "closed"]);
   });
 
+  it("pay at the end goes too: it can't be chosen, and one already set is the menu only", async () => {
+    const { boss } = await setUp("online");
+    const res = await boss.admin("/api/qr/admin/settings.php", { paymentMode: "tab" });
+    assert.deepEqual([res.status, res.body.error], [409, "mode_unavailable"]);
+    srv.sqlite("UPDATE settings SET payment_mode = 'tab'");
+    const state = (await client(srv.base, { now: AT_20H }).get("/api/qr/state.php")).body;
+    assert.deepEqual([state.payment, state.reason], ["on_site", "menu_only"]);
+  });
+
   it("paying on the phone, ordering is open", async () => {
     await setUp("online");
     assert.equal((await client(srv.base, { now: AT_20H }).get("/api/qr/state.php")).body.open, true);
@@ -143,5 +152,12 @@ describe("menu changes are logged, item by item (Annex 29 т. 15, 18.9)", () => 
     } finally {
       srv.writeMenu(original);
     }
+  });
+});
+
+describe("the database description for НАП", () => {
+  it("describes every table and field the code makes, and nothing that's gone", () => {
+    const out = execFileSync("node", ["scripts/qr-db-doc.mjs"], { encoding: "utf8" });
+    assert.match(out, /database-bg\.md: \d+ tables/);
   });
 });

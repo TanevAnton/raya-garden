@@ -95,6 +95,9 @@ if (array_key_exists('paymentMode', $body)) {
     if ($body['paymentMode'] !== 'on_site' && !qr_stripe_configured()) {
         qr_fail(409, 'payments_not_configured');
     }
+    if ($body['paymentMode'] === 'tab' && !qr_staff_orders_on()) {
+        qr_fail(409, 'mode_unavailable'); // pay at the end means paying staff too: off with orders paid to staff
+    }
     $update['payment_mode'] = $body['paymentMode'];
 }
 if (!$update) {

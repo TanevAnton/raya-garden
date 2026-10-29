@@ -1124,6 +1124,11 @@ function qr_state(array $settings, int $now): array
     }
     $payment = in_array($settings['payment_mode'] ?? '', ['online', 'tab'], true) && qr_stripe_configured()
         ? (string) $settings['payment_mode'] : 'on_site';
+    // "Pay at the end" has staff take what the phones don't: a payment to
+    // staff, so it goes with them (qr_staff_orders_on) — off since 29.10.2026.
+    if ($payment === 'tab' && !qr_staff_orders_on()) {
+        $payment = 'on_site';
+    }
     // Paying on the phone, every order is a sale opened and paid at once:
     // none while the fiscal printer isn't ready. On a bill, orders onto a
     // bill already open go on; a new bill, and paying, wait (bill.php).

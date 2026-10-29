@@ -319,6 +319,11 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
 
 ### Pay at the end ("Сметка накрая")
 
+**Off since 29.10.2026**, with orders paid to staff: staff settling the
+rest of a bill is a payment to staff. It can't be chosen in „Вечерта“, and
+an evening already set to it shows the menu only. `QR_STAFF_ORDERS` = `on`
+brings both back (never in the registered version).
+
 It uses the same keys, webhook and events; nothing more needs setting up.
 Choose *Сметка накрая* in `/admin` → **Вечерта**.
 

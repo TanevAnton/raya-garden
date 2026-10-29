@@ -903,6 +903,9 @@ started. Phase 1:
   state (no cron on the host). A failure warns and logs; it doesn't stop
   service: a hosting hiccup shouldn't close the kitchen, and the log keeps
   the proof either way.
+- **"Сметка накрая" off with staff orders** (the user, 29.10): staff
+  settling the rest of a bill is a payment to staff, so pay at the end
+  goes with them; only "pay on the phone" and "Само меню" remain.
 - **Menu changes logged by the same check**: the menu file changes only by
   deploy, so comparing it to `menu_items` on each new file catches every
   change with its time; the operator is "Система" (the deploy).

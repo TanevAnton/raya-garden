@@ -92,15 +92,25 @@ export default function AdminApp() {
       .catch(() => setSession({ signedIn: false, configured: true, offline: true }));
   }, []);
   if (!session) return <Centered>Зареждане…</Centered>;
-  if (!session.signedIn) return <Login configured={session.configured} onDone={() => setSession({ signedIn: true, configured: true })} />;
-  return <Dashboard onSignedOut={() => setSession({ signedIn: false, configured: true })} />;
+  if (!session.signedIn)
+    return (
+      <Login
+        configured={session.configured}
+        bootstrap={session.bootstrap}
+        onDone={(operator) => setSession({ signedIn: true, configured: true, operator })}
+      />
+    );
+  return <Dashboard operator={session.operator} onSignedOut={() => setSession({ signedIn: false, configured: true, bootstrap: session.bootstrap })} />;
 }
+
+const ROLE_LABEL = { waiter: "Сервитьор", manager: "Управител", auditor: "Проверяващ" };
 
 function Centered({ children }) {
   return <div className="min-h-screen flex items-center justify-center px-6 text-cream-100/70">{children}</div>;
 }
 
-function Login({ configured, onDone }) {
+function Login({ configured, bootstrap, onDone }) {
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -109,12 +119,14 @@ function Login({ configured, onDone }) {
     setBusy(true);
     setError("");
     try {
-      const res = await api("admin/login.php", { method: "POST", body: { password } });
-      if (res.ok) onDone();
+      const res = await api("admin/login.php", { method: "POST", body: { code: code.trim(), password } });
+      if (res.ok) onDone(res.operator);
       else
         setError(
           {
-            wrong_password: "Грешна парола.",
+            wrong_password: code.trim() ? "Грешен код или парола." : "Грешна парола.",
+            personal_required: "Общата парола вече не важи — влезте с личния си код и парола.",
+            inactive: "Този профил не е активен. Обърнете се към управителя.",
             rate_limited: "Твърде много опити. Опитайте отново след 15 минути.",
             not_configured: "Паролата не е настроена на сървъра — виж docs/qr-ordering/SETUP.md.",
           }[res.error] || "Нещо се обърка. Опитайте отново."
@@ -132,14 +144,32 @@ function Login({ configured, onDone }) {
         <h1 className="font-display text-3xl text-cream-50">Поръчки · вход</h1>
         {!configured && <p className="text-sm text-red-300 mt-3">Паролата не е настроена на сървъра — виж docs/qr-ordering/SETUP.md.</p>}
         <label className="block mt-6">
+          <span className="text-xs tracking-[0.2em] uppercase text-gold-300/80">Личен код</span>
+          <input
+            inputMode="numeric"
+            autoComplete="username"
+            maxLength={4}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            name="code"
+            className="mt-2 w-full bg-ink-950 border border-gold-300/25 rounded-sm px-3 py-3 text-cream-50 tracking-[0.3em]"
+            autoFocus
+          />
+          {bootstrap && (
+            <span className="block text-xs text-cream-100/50 mt-2">
+              Още няма профил на управител: без код се влиза с общата парола, за да се създаде.
+            </span>
+          )}
+        </label>
+        <label className="block mt-4">
           <span className="text-xs tracking-[0.2em] uppercase text-gold-300/80">Парола</span>
           <input
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            name="password"
             className="mt-2 w-full bg-ink-950 border border-gold-300/25 rounded-sm px-3 py-3 text-cream-50"
-            autoFocus
           />
         </label>
         {error && <p role="alert" className="text-sm text-red-300 mt-3">{error}</p>}
@@ -183,7 +213,9 @@ function useChime() {
   return { enabled, enable, play };
 }
 
-function Dashboard({ onSignedOut }) {
+function Dashboard({ operator, onSignedOut }) {
+  const roles = operator?.roles || [];
+  const manages = roles.includes("manager") || roles.includes("auditor");
   const [orders, setOrders] = useState(() => new Map());
   const [tabs, setTabs] = useState(() => new Map());
   const [billPayments, setBillPayments] = useState(() => new Map());
@@ -527,6 +559,11 @@ function Dashboard({ onSignedOut }) {
                 🔔 Включи звук
               </button>
             )}
+            {operator && (
+              <span className="hidden sm:inline text-xs text-cream-100/60 px-2" data-operator={operator.code}>
+                {operator.name} · {operator.code}
+              </span>
+            )}
             <button
               type="button"
               onClick={async () => {
@@ -552,6 +589,7 @@ function Dashboard({ onSignedOut }) {
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
             ["history", "История"],
+            ...(manages ? [["staff", "Персонал"]] : []),
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} data-flash={id === "till" && tillFlash ? "1" : undefined}
               className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"} ${id === "till" && tillFlash ? "animate-pulse text-gold-100 bg-gold-300/15" : ""}`}>
@@ -587,6 +625,7 @@ function Dashboard({ onSignedOut }) {
         {tab === "tabs" && <Tabs tabs={tabs} waiterOf={(table, evening) => (evening === state?.serviceDate ? waiters[table] : "")} onAction={billAction} />}
         {tab === "till" && <Till entries={tillEntries} onTill={till} clockInfo={clockInfo} clockDocs={clockDocs} onClock={clockAction} fiscalInfo={fiscalInfo} onFiscal={fiscalRetry} onCommand={fiscalCommand} />}
         {tab === "history" && <History onSignedOut={onSignedOut} />}
+        {tab === "staff" && <Staff operator={operator} say={say} onSignedOut={onSignedOut} />}
       </main>
 
       {toast && (
@@ -777,6 +816,7 @@ function OrderCard({ job, waiter, flash, onMove, onCancel, onVoid, onRefund }) {
         <div className="text-right">
           <div className={`inline-block text-[10px] tracking-[0.25em] uppercase px-2 py-0.5 rounded-sm mb-1 ${station === "bar" ? "bg-sky-900/60 text-sky-100" : "bg-amber-900/50 text-amber-100"}`}>{STATIONS[station]}</div>
           <div className="font-mono text-lg text-gold-100">{order.code}</div>
+          {order.usn && <div className="font-mono text-[11px] text-cream-100/50" data-usn>УНП {order.usn}</div>}
           <div className="text-sm text-cream-100/70">{clock(order.createdAt)}</div>
           <div className={`text-sm ${late}`}>{elapsed(order.createdAt)}</div>
         </div>
@@ -1445,6 +1485,7 @@ function Tabs({ tabs, waiterOf, onAction }) {
                 <div>
                   <div className="text-[10px] tracking-[0.25em] uppercase text-cream-100/50">Маса</div>
                   <div className="font-sans font-semibold tabular-nums text-5xl leading-none text-cream-50">{x.table}</div>
+                  {x.usn && <div className="font-mono text-[11px] text-cream-100/50 mt-1" data-usn>УНП {x.usn}</div>}
                   {waiterOf(x.table, x.evening) && <div className="text-sm text-cream-100/70 mt-1" data-waiter>Сервитьор: <span className="text-cream-50">{waiterOf(x.table, x.evening)}</span></div>}
                 </div>
                 <dl className="text-right text-sm space-y-0.5">
@@ -2076,5 +2117,144 @@ function MonthlyEmail({ month, signedOut }) {
         </ul>
       )}
     </section>
+  );
+}
+
+const STAFF_ERRORS = {
+  weak_password: "Паролата трябва да е поне 8 знака.",
+  code_taken: "Този код вече е зает.",
+  last_manager: "Трябва да остане поне един активен управител.",
+  manager_only: "Само управител може да променя профилите.",
+  invalid: "Проверете полетата.",
+};
+const dayOf = (unix) => (unix ? sofiaDate(unix).split("-").reverse().join(".") : "");
+const roleHeld = (r, now) => r.from <= now && (r.to === 0 || r.to > now);
+
+/**
+ * „Персонал“: the staff accounts (a manager changes them, the auditor only
+ * reads). Each person has a code, at least two names as on their ID, their
+ * own password, and roles with the dates they hold them. Nobody is deleted:
+ * someone who leaves is made inactive. Every change is in the operations log.
+ */
+function Staff({ operator, say, onSignedOut }) {
+  const canEdit = operator?.roles?.includes("manager");
+  const [list, setList] = useState(null);
+  const [form, setForm] = useState({ firstName: "", middleName: "", lastName: "", code: "", password: "", role: "waiter" });
+  const [busy, setBusy] = useState(false);
+  const now = Math.floor(Date.now() / 1000);
+
+  useEffect(() => {
+    adminApi("staff.php")
+      .then((res) => {
+        if (res.status === 401) return onSignedOut();
+        if (res.ok) setList(res.staff);
+      })
+      .catch(() => say("Няма връзка — опитайте отново."));
+  }, []);
+
+  async function change(body, done) {
+    setBusy(true);
+    try {
+      const res = await adminApi("staff.php", body);
+      if (res.status === 401) return onSignedOut();
+      if (res.ok) {
+        setList(res.staff);
+        done?.(res);
+      } else say(STAFF_ERRORS[res.error] || "Не успях да запиша.");
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function create(e) {
+    e.preventDefault();
+    change({ action: "create", ...form }, (res) => {
+      say(`Профилът е създаден. Код за вход: ${res.done.code}`);
+      setForm({ firstName: "", middleName: "", lastName: "", code: "", password: "", role: "waiter" });
+    });
+  }
+
+  function newPassword(person) {
+    const password = window.prompt(`Нова парола за ${person.firstName} ${person.lastName} (поне 8 знака):`);
+    if (password) change({ action: "password", id: person.id, password }, () => say("Паролата е сменена."));
+  }
+
+  if (!list) return <p className="text-cream-100/60">Зареждане…</p>;
+  return (
+    <div className="max-w-3xl" data-staff>
+      {canEdit && (
+        <form onSubmit={create} className="border border-gold-300/20 rounded-sm bg-ink-900 p-4 mb-6" data-staff-new>
+          <h2 className="font-display text-xl text-cream-50">Нов профил</h2>
+          <div className="grid sm:grid-cols-3 gap-3 mt-3">
+            {[
+              ["firstName", "Име"],
+              ["middleName", "Презиме"],
+              ["lastName", "Фамилия"],
+            ].map(([key, label]) => (
+              <Field key={key} label={label}>
+                <input name={key} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className={inputClass} required={key !== "middleName"} />
+              </Field>
+            ))}
+            <Field label="Код (празно: следващият)">
+              <input name="code" inputMode="numeric" maxLength={4} value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, "") })} className={inputClass} />
+            </Field>
+            <Field label="Парола (поне 8 знака)">
+              <input name="password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputClass} required minLength={8} />
+            </Field>
+            <Field label="Роля">
+              <select name="role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className={inputClass}>
+                {Object.entries(ROLE_LABEL).map(([id, label]) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <p className="text-xs text-cream-100/50 mt-2">Имената — както са в личната карта. Паролата се дава лично на човека; после той може да я смени само чрез управител.</p>
+          <button type="submit" disabled={busy} className="btn-gold mt-4 h-11 px-5 rounded-sm text-xs tracking-[0.15em] uppercase font-medium">Създай</button>
+        </form>
+      )}
+      {list.length === 0 && <p className="text-cream-100/60">Още няма профили.</p>}
+      <ul className="space-y-3">
+        {list.map((p) => (
+          <li key={p.id} className={`border rounded-sm bg-ink-900 p-4 ${p.active ? "border-gold-300/20" : "border-cream-100/10 opacity-60"}`} data-person={p.code}>
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <span className="font-mono text-gold-100">{p.code}</span>
+              <span className="text-cream-50">{[p.firstName, p.middleName, p.lastName].filter(Boolean).join(" ")}</span>
+              {!p.active && <span className="text-xs text-red-300">неактивен</span>}
+              {p.id === operator?.id && <span className="text-xs text-sage-200">това сте вие</span>}
+            </div>
+            <ul className="mt-2 text-sm">
+              {p.roles.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 py-1" data-role={r.role}>
+                  <span className={roleHeld(r, now) ? "text-cream-50" : "text-cream-100/40"}>{ROLE_LABEL[r.role] || r.role}</span>
+                  <span className="text-cream-100/50">от {dayOf(r.from)}{r.to ? ` до ${dayOf(r.to)}` : ""}</span>
+                  {canEdit && roleHeld(r, now) && (
+                    <button type="button" disabled={busy} onClick={() => window.confirm("Да прекратя ли тази роля от днес?") && change({ action: "endRole", roleId: r.id })}
+                      className="ml-auto text-xs text-red-300 underline">Прекрати</button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {canEdit && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                <select aria-label="Добави роля" defaultValue="" disabled={busy}
+                  onChange={(e) => { const role = e.target.value; e.target.value = ""; if (role) change({ action: "addRole", id: p.id, role }); }}
+                  className="h-10 bg-ink-950 border border-gold-300/25 rounded-sm px-2 text-sm text-cream-50 [color-scheme:dark]">
+                  <option value="">+ Роля…</option>
+                  {Object.entries(ROLE_LABEL).map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
+                <button type="button" disabled={busy} onClick={() => newPassword(p)} className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/80">Нова парола</button>
+                <button type="button" disabled={busy} onClick={() => change({ action: "active", id: p.id, active: !p.active })}
+                  className="h-10 px-3 rounded-sm border border-gold-300/25 text-xs text-cream-100/80">{p.active ? "Направи неактивен" : "Активирай"}</button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

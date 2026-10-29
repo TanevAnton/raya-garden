@@ -26,6 +26,7 @@ $seq = qr_write(function (PDO $pdo) use ($itemId, $soldOut, $now) {
     } else {
         $pdo->prepare('DELETE FROM sold_out WHERE item_id = ?')->execute([$itemId]);
     }
+    qr_audit($pdo, $soldOut ? 'sold_out' : 'back_in', $itemId, '');
     return qr_bump_seq($pdo);
 });
 qr_json(200, ['ok' => true, 'soldOut' => qr_sold_out(), 'seq' => $seq]);

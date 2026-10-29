@@ -191,11 +191,14 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         $code = qr_new_code($pdo, $now);
         $insert = $pdo->prepare('INSERT INTO orders
             (code, token_hash, idem_key, payload_hash, table_no, status, pay_status, total_cents, lang, ip_hash, created_at, updated_at, seq, tab_id, guest_name,
-             kitchen_status, bar_status, evening, tip_cents)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+             kitchen_status, bar_status, evening, tip_cents, usn)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([$code, hash('sha256', $token), $idemKey, $payloadHash, $table, $status,
             $status === 'pending_payment' ? 'pending' : '', $total, $lang, $ipHash, $now, $now, $seq, $tab ? (int) $tab['id'] : 0, $guestName,
-            $stations['kitchen'], $stations['bar'], (string) $settings['service_date'], $tip]);
+            $stations['kitchen'], $stations['bar'], (string) $settings['service_date'], $tip,
+            // Paid on the phone, the order is the sale: its УНП now (_lib/fiscal.php).
+            // On a bill, the bill is the sale and has the УНП.
+            $status === 'pending_payment' ? qr_usn_new_sale($pdo, $now) : '']);
         if ($tab) {
             qr_touch_tab($pdo, (int) $tab['id'], $seq);
         }

@@ -829,9 +829,33 @@ secret, brings them back), not removed:
 
 The tip code and its tests stay (the test server switches tips on).
 
+## Staff accounts and the УНП at entry, 29.10.2026 (СУПТО phase 1)
+
+The accountant confirmed two СУПТО may share the restaurant (each its own
+printer, our sales also passed to Clock), so the plan in `SUPTO-ANNEX29.md`
+started. Phase 1:
+- **Personal accounts** (Annex 29 т. 6–7, чл. 52л): code, names, password,
+  roles waiter/manager/auditor with from/to dates (`staff`, `staff_roles`,
+  schema v15). Never deleted (triggers refuse). The cookie is bound to the
+  person's password hash, and their state and roles are checked on every
+  request, so making someone inactive, ending a role or changing a password
+  signs them out at once.
+- **The shared password** stays only as a way in until the first manager
+  exists. Simpler than seeding an account from a GitHub secret, and the
+  live site keeps working on deploy day.
+- **The operator on every log row** is set by the database, not the code:
+  `qr_write()` writes the current operator into `audit_actor` first thing
+  in the transaction, and the triggers copy it. A code path that forgets
+  can't leave a row without one; the default is "Система".
+- **Guests are operator 9001** (the УНП's middle part: guests enter the
+  sales); 9000 the system, 9002 the shared password.
+- **The УНП when the sale is entered**, not at payment: the order on a
+  phone-payment evening, the bill on a pay-at-the-end evening. One counter
+  per printer serial. A printer not seen for 2 hours → given at claim, so
+  printing never waits on it. Phase 2 will block ordering instead.
+- **Pausing stays with everyone**; the rest of „Вечерта“ is a manager's.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.
-- **Per-person accounts.** One staff password; a manager-only view of the
-  takings would need accounts.
 - **Per-seat ordering and splitting one line between people.**

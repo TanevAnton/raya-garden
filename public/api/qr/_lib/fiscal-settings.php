@@ -27,10 +27,8 @@ return [
     // Only if tips are ever switched back on: the tip is then a line of its
     // own, so the receipt's total is what the card paid.
     'tip_text' => 'Бакшиш',
-    // The middle part of the УНП (unique sale number, Наредба Н-18): the
-    // operator / workplace code, 4 characters. The УНП is
-    // <printer serial>-<this>-<7-digit sequence>.
-    'operator_code' => '0001',
+    // (The УНП's operator code is the QR guest's, 9001: core.php. Staff
+    // codes are 0001–8999, from „Персонал“.)
     // A comment line printed at the top of every receipt (empty: none).
     'header_comment' => 'QR меню',
 ];

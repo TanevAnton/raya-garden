@@ -1,8 +1,8 @@
 # QR menu and table ordering — setup
 
 Guests scan one QR code, pick their table, and order from the menu on their
-phone. Staff see the orders on **rayagarden.bg/admin**, behind one shared
-password.
+phone. Staff see the orders on **rayagarden.bg/admin**, each signing in
+with their own code and password („Персонал“, see "Staff accounts").
 
 Payment is chosen per evening:
 
@@ -109,7 +109,7 @@ GitHub → the repository → Settings → Secrets and variables → Actions:
 
 | Secret | What |
 | --- | --- |
-| `QR_ADMIN_PASSWORD` | the staff password, at least 8 characters (set) |
+| `QR_ADMIN_PASSWORD` | the shared password, at least 8 characters (set): only until the first manager account exists |
 | `QR_STRIPE_SECRET_KEY` | a **restricted** Stripe key, `rk_test_…` or `rk_live_…` (see below) |
 | `QR_STRIPE_WEBHOOK_SECRET` | the signing secret of the Stripe webhook, `whsec_…` |
 | `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "Phone payments into Clock PMS+") |
@@ -454,9 +454,26 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
 Every order, line, cancellation, payment, refund, till tick, receipt and
 report is written into `audit_log` by the database itself (triggers, schema
 v14), so no code path can leave one out. The triggers refuse any change or
-deletion, and the log holds no names. „История“ downloads it for an evening
-or a month ("журнал на операциите"). It's the groundwork for Наредба Н-18's
-sales-software rules, if the accountant says they apply.
+deletion, and the log holds no guests' names. Since schema v15 every row
+also names its **operator** (code and name): the signed-in person, `9001`
+"QR гост" for what a guest does on the phone, `9000` "Система" for Stripe's
+webhook, the bridge and the clean-ups. Sign-ins (and failed ones),
+sign-outs, settings, sold-out items and staff-account changes are in it
+too. „История“ downloads it for an evening or a month ("журнал на
+операциите"), with the operator columns.
+
+### The УНП (unique sale number)
+
+`<printer serial>-<operator code>-<7 digits>`, given **when the sale is
+entered** (Annex 29 т. 9): when the order is placed on a "pay on the phone"
+evening, when the table's bill opens on a "pay at the end" evening (every
+payment from that bill carries the bill's УНП). One sequence per printer
+(`usn_counters`). The operator code is `9001`: guests enter the sales. It is
+given only when the fiscal mode is on and the bridge has reported its
+printer within the last 2 hours; otherwise the receipt gets it when the
+bridge claims it. It's shown on the order card and the bill in /admin.
+"Pay staff" evenings get none (the sale is Clock's). ⚠ To check on the real
+printer: that it takes the same УНП on several receipts of one bill.
 
 ⚠ **Open before going live:** the accountant's answers in
 `FISCAL-QUESTIONS-BG.md`, above all whether this makes our system "СУПТО"
@@ -583,6 +600,28 @@ reach the sandbox.
 
 **To turn it off:** `QR_CLOCK_MODE` = `off`, and deploy. Payments wait on
 „За касата“ to be entered by hand again; nothing is lost.
+
+## Staff accounts
+
+Each person has a code (4 digits, `0001`–`8999`), at least two names as on
+their ID, their own password (at least 8 characters) and roles, each with
+the dates it's held (Наредба Н-18, Annex 29 т. 6–7):
+
+| Role | May |
+| --- | --- |
+| Сервитьор | the service: orders, bills, „За касата“, pause, sold-out, waiters, history, the printer's reports |
+| Управител | also „Вечерта“ (window, tables, payment mode), the monthly e-mail address, „Персонал“ |
+| Проверяващ | reads everything, changes nothing (for НАП's inspectors) |
+
+**The first time:** sign in at /admin with the shared password and no code
+(it only works while no manager exists), open „Персонал“, make the first
+manager account. From then on the shared password is refused and its
+sessions end; everyone signs in with their code.
+
+Nothing is deleted: someone who leaves is made inactive (signed out at
+once), a role that ends gets its end date. A new password signs the person
+out everywhere. The last manager can't be made inactive or lose the role.
+Every change is in the operations log with the manager who made it.
 
 ## Printing the cards
 

@@ -11,6 +11,8 @@
 //        before the order goes out; or at the end, from the table's bill —
 //        "online" and "tab" only once Stripe is configured, else 409
 // Keys left out keep their value, so the pause button sends only "paused".
+// Pausing is for anyone on the service; everything else is a manager's.
+// Each change goes in the operations log, with who made it.
 //
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
 
@@ -21,8 +23,8 @@ require dirname(__DIR__) . '/_lib/core.php';
 require dirname(__DIR__) . '/_lib/auth.php';
 
 qr_require_method('POST');
-qr_require_admin(true);
 $body = qr_body();
+qr_require_admin(true, array_keys($body) === ['paused'] ? 'waiter' : 'manager');
 $now = qr_now();
 $current = qr_settings();
 $update = [];
@@ -107,6 +109,13 @@ $settings = qr_write(function (PDO $pdo) use ($update, $now) {
         $sets[] = $column . ' = ?';
     }
     $pdo->prepare('UPDATE settings SET ' . implode(', ', $sets) . ' WHERE id = 1')->execute(array_values($update));
+    $detail = [];
+    foreach ($update as $column => $value) {
+        if ($column !== 'seq' && $column !== 'updated_at') {
+            $detail[] = $column . '=' . $value;
+        }
+    }
+    qr_audit($pdo, 'settings', '', implode(';', $detail));
     return $pdo->query('SELECT * FROM settings WHERE id = 1')->fetch();
 });
 qr_json(200, ['ok' => true, 'state' => qr_state($settings, $now), 'seq' => (int) $settings['seq']]);

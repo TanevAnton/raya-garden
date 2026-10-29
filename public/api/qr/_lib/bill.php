@@ -45,8 +45,9 @@ function qr_open_tab(PDO $pdo, int $table, string $evening, bool $create, int $n
     if (is_array($tab) || !$create) {
         return is_array($tab) ? $tab : null;
     }
-    $pdo->prepare('INSERT INTO tabs (table_no, evening, opened_at, seq) VALUES (?, ?, ?, ?)')
-        ->execute([$table, $evening, $now, qr_bump_seq($pdo)]);
+    // The bill is the sale: its УНП now (_lib/fiscal.php).
+    $pdo->prepare('INSERT INTO tabs (table_no, evening, opened_at, seq, usn) VALUES (?, ?, ?, ?, ?)')
+        ->execute([$table, $evening, $now, qr_bump_seq($pdo), qr_usn_new_sale($pdo, $now)]);
     $find->execute([$table, $evening]);
     $tab = $find->fetch();
     $find->closeCursor();
@@ -136,6 +137,7 @@ function qr_tab_json(PDO $pdo, array $tab, int $now, bool $forStaff): array
         'evening' => (string) $tab['evening'],
         'openedAt' => (int) $tab['opened_at'],
         'closedAt' => (int) $tab['closed_at'],
+        'usn' => (string) ($tab['usn'] ?? ''),
         'lines' => $lines,
         'totals' => $totals,
     ];

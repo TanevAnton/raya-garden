@@ -89,13 +89,14 @@ describe("fiscal receipts: printing", () => {
     const C = price("caesar", "chicken");
     const S = price("coca-cola-products");
     const placed = await paid(4, [["caesar", "chicken", 2], ["coca-cola-products", "std", 3, "sprite"]], { tip: 150 });
-    assert.deepEqual(docs().map((d) => [d.kind, d.status, d.usn_seq]), [["sale", "pending", 1]]);
+    // No printer seen yet when it was placed: the УНП is given when the bridge claims it.
+    assert.deepEqual(docs().map((d) => [d.kind, d.status, d.usn]), [["sale", "pending", ""]]);
 
     await drain();
     assert.equal(printer.paper.length, 1);
     const [r] = printer.paper;
     assert.equal(r.kind, "receipt");
-    assert.equal(r.body.uniqueSaleNumber, `${PRINTER.serialNumber}-0001-0000001`);
+    assert.equal(r.body.uniqueSaleNumber, `${PRINTER.serialNumber}-9001-0000001`);
     assert.deepEqual(r.body.items.map((i) => [i.type ?? "sale", i.quantity, i.unitPrice, i.taxGroup]), [
       ["comment", undefined, undefined, undefined],
       ["sale", 2, C / 100, 2],
@@ -123,7 +124,47 @@ describe("fiscal receipts: printing", () => {
     await paid(5, [["tiramisu"]]);
     await stripe.pay(stripe.sessions.get(new URL(a.checkoutUrl).pathname.slice(5)).id);
     await drain();
-    assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), ["DT279013-0001-0000001", "DT279013-0001-0000002"]);
+    assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), ["DT279013-9001-0000001", "DT279013-9001-0000002"]);
+  });
+
+  it("with the printer seen, the УНП is given when the order is placed, shown on it, and printed as given", async () => {
+    await setUp();
+    await bridge().check();
+    const placed = await paid(4, [["tiramisu"]]);
+    assert.equal(placed.order.usn, "DT279013-9001-0000001");
+    assert.equal(row(placed.order.id).usn, placed.order.usn);
+    assert.deepEqual(docs().map((d) => d.usn), [placed.order.usn]);
+    await drain();
+    assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), [placed.order.usn]);
+    const log = JSON.parse(srv.sqlite("SELECT kind, operator, detail FROM audit_log WHERE kind = 'order'"));
+    assert.equal(log[0].operator, "9001", "the guest placed it");
+    assert.match(log[0].detail, /usn=DT279013-9001-0000001/);
+  });
+
+  it("a printer not seen for 2 hours gives no УНП at ordering; the claim gives one", async () => {
+    await setUp();
+    await bridge({ later: AT_20H - 3 * 3600 - now() }).check();
+    const placed = await paid(4, [["tiramisu"]]);
+    assert.equal(placed.order.usn, "");
+    await drain();
+    assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), ["DT279013-9001-0000001"]);
+  });
+
+  it("a table's bill is one sale: its УНП when it opens, on every payment from it", async () => {
+    await setUp("tab");
+    await bridge().check();
+    const a = (await guest().post("/api/qr/order.php", orderBody(menu, 5, [["tiramisu"], ["illy-coffee"]]), { headers: { "Idempotency-Key": newKey() } })).body;
+    const usn = JSON.parse(srv.sqlite("SELECT usn FROM tabs"))[0].usn;
+    assert.equal(usn, "DT279013-9001-0000001");
+    assert.equal(a.order.usn, "", "the bill is the sale, not the order");
+    for (const line of [0, 1]) {
+      const amount = price(line === 0 ? "tiramisu" : "illy-coffee");
+      const pay = await guest().post("/api/qr/bill-pay.php", { table: 5, lang: "bg", items: [{ code: a.order.code, line }], expectedAmount: amount }, { headers: { "Idempotency-Key": newKey() } });
+      assert.equal(pay.status, 201, pay.text);
+      await stripe.pay(new URL(pay.body.checkoutUrl).pathname.slice(5));
+    }
+    await drain();
+    assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), [usn, usn]);
   });
 
   it("a table's bill: each payment its own receipt", async () => {

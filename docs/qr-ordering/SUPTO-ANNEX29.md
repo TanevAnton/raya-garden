@@ -45,24 +45,34 @@ producers (`kontrolen-list-supto.txt`).
 | 3 | No duplicate sales functionality in other modules | ✓ | One module sells. Describe it. |
 | 4 | Built-in protection against unauthorised changes or modules | ✗ | Checksums of the deployed code, checked at start-up and shown to the auditor; a version manifest; deploys only from the declared tag. |
 | 5 | Exact time; sync with the fiscal printer at start and at least daily | ✗ | The bridge sets the printer's clock (ErpNet.FP "set date and time") when it starts and every day; the server compares it with its own and warns. |
-| 6 | Operators: unique code, at least two names, role/rights, active period per role | ✗ | **Separate staff accounts** in place of the one shared password: code, names as on the ID, roles (waiter, manager, auditor) with from/to dates. Every change logged. |
-| 7 | Unambiguous authentication | ✗ | Each person logs in with their own code and password; actions are attributed to them. |
+| 6 | Operators: unique code, at least two names, role/rights, active period per role | ✓ | Done 29.10 (phase 1): `staff` + `staff_roles` (schema v15), „Персонал“ in /admin. Codes 0001–8999; names as on the ID; roles waiter, manager, auditor with from/to dates; never deleted; every change in `audit_log`. |
+| 7 | Unambiguous authentication | ✓ | Done 29.10: personal code + password; the shared password only until the first manager exists. Every `audit_log` row names its operator. |
 | 8 | Real-time link with the printer; block opening sales and payments when it isn't ready; the УНП may use a printer seen within 2 hours | ◐ | The bridge already reports the printer's state. To add: `state.php` exposes "can sell / can take payment"; the menu blocks ordering and payment while the printer isn't ready, or wasn't seen within 2 hours. |
-| 9 | УНП `XXXXXXXX-ZZZZ-0000001` generated when the sale is entered (shown on screen); sequence per printer; separate ranges when two programs share a printer | ◐ | Format already built (printer serial, operator code, 7-digit sequence), but generated at payment. Move it to **when the order is placed**. The operator code is the person who entered it, or a fixed code for "QR guest". Show it on the order. Sequence per printer serial. |
+| 9 | УНП `XXXXXXXX-ZZZZ-0000001` generated when the sale is entered (shown on screen); sequence per printer; separate ranges when two programs share a printer | ◐ | Done 29.10: given when the order is placed (phone payment) or the bill opened (pay at the end), operator code 9001 "QR гост", one sequence per printer serial (`usn_counters`), shown on the order card and the bill. Left: separate ranges only matter if two programs share a printer (ours won't). To check on the real printer: several receipts of one bill under one УНП. |
 | 10 | On a payment needing a receipt, command the printer, the receipt carrying the УНП; also on every payment and storno | ✓ | `_lib/fiscal.php` + bridge: receipt and reversal receipt with the УНП. |
 | 11 | No service slips for orders within one sale | ✓ | Kitchen and bar see orders on screens; nothing printed. |
-| 12 | Cancelling an open sale keeps full information (items, qty, value, operator) | ◐ | Cancellations and lines taken off are kept (`void_qty`, `cancel_reason`, `audit_log`). To add: the operator who did it (needs 6–7). |
+| 12 | Cancelling an open sale keeps full information (items, qty, value, operator) | ✓ | Cancellations and lines taken off are kept (`void_qty`, `cancel_reason`, `audit_log`), now with the operator and the sale's УНП. |
 | 13 | No deletion of completed sales; storno kept | ✓ | Nothing deletes orders, payments or receipts; refunds are reversal receipts; `audit_log` refuses UPDATE and DELETE. |
 | 14 | No non-fiscal document with the word "фискален" | ✓ | Checked 23.10.2026: none. (The e-receipt is off and uses "Електронна бележка".) |
-| 15 | Structured log of operator actions: who, code, when, what. At least login/logout, storno, cancellation (with УНП), changes to catalogues, operator changes | ◐ | `audit_log` has sales, payments, refunds, receipts and reports. To add: operator name and code on every row; logins and logouts; **menu and price changes** (today the menu is a JSON file changed by deploy, so each deploy has to write its changes into the log); operator and role changes. |
+| 15 | Structured log of operator actions: who, code, when, what. At least login/logout, storno, cancellation (with УНП), changes to catalogues, operator changes | ◐ | Done 29.10: operator code and name on every row; logins, failed logins, logouts; operator and role changes; settings and sold-out changes; УНП on orders, voids, bills, receipts. Left: **menu and price changes** (the menu is a JSON file changed by deploy, so each deploy has to write its changes into the log). |
 | 16 | View of that log in the interface, filterable by period, operator and action | ✗ | A screen in `/admin` with filters (period, operator, kind of action). |
 | 17 | Access through the interface to data for the statutory period (ДОПК чл. 38: 10 years); archives accessible | ◐ | „История“ reads every past evening. To add: guarantee 10-year retention and access (no pruning; archive copies readable from the interface). |
 | 18 | Views and exports (XLS/XLSX/CSV) with filters (period, site, printer, workplace, operator) of NAP's tables 18.1–18.9 with fixed columns: sales summary, payments, sale details, storno, cancellations, catalogues; deliveries and stock movement only if the software has them | ✗ | Nine exports with the prescribed columns, net/VAT split, filters. Mechanical but sizeable. 18.6–18.8 (deliveries, stock) don't apply. |
-| 19 | Auditor profile: read-only, access to 16–18, settings and all reports | ✗ | A read-only role for НАП inspectors, with those screens. |
+| 19 | Auditor profile: read-only, access to 16–18, settings and all reports | ◐ | The "Проверяващ" role exists (29.10): reads everything, every change refused. Left: the screens of 16–18 it is for. |
 | 20 | No test or training mode | ✗ | The declared version must have no test mode: no Stripe-test switch and no `fiscal_mode` "test". The tests and the sandbox stay outside the declared build. |
 | 21 | If part of an integrated system that can't meet 16–19, the integrated system meets them | — | Not integrated with another system. |
 | 22 | Automated import of sales follows Annexes 41/42 | — | We import nothing. If the QR orders ever had to be handed to Clock, that's Annex 41. |
 | 23 | Export to other software allowed | ✓ | CSV exports exist; describe them. |
+
+## Progress
+
+- **Phase 1, 29.10.2026 (branch `feat/qr-ordering`, not deployed):**
+  personal staff accounts and roles (6, 7, 19 in part), the operator on
+  every log row (12, 15 in part), the УНП when the sale is entered (9).
+- Next: (2) block ordering and payment when the printer isn't ready, time
+  sync (5, 8); (3) the log screen with filters and НАП's nine exports (16,
+  18); (4) no test mode in the declared build, integrity checks (4, 20);
+  (5) the transfer to Clock; (6) the manual and the Annex 31 information.
 
 ## The transfer to Clock (the condition)
 

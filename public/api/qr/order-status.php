@@ -14,6 +14,7 @@ declare(strict_types=1);
 define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
 require __DIR__ . '/_lib/pay.php';
+qr_as_guest();
 
 qr_require_method('GET');
 $raw = isset($_GET['t']) ? (string) $_GET['t'] : '';

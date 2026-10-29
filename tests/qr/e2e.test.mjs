@@ -292,6 +292,40 @@ describe("the staff screen", () => {
     await page.close();
   });
 
+  it("staff accounts: the first manager is made with the shared password, then everyone signs in with their own code", async () => {
+    await openEvening();
+    const first = await tablet();
+    await clickText(first, "nav", /^Персонал$/);
+    await first.waitForSelector("[data-staff-new]");
+    await first.type("[data-staff-new] input[name=firstName]", "Мария");
+    await first.type("[data-staff-new] input[name=lastName]", "Петрова");
+    await first.type("[data-staff-new] input[name=password]", "manager-pass-1");
+    await first.select("[data-staff-new] select[name=role]", "manager");
+    await first.click("[data-staff-new] button[type=submit]");
+    await first.waitForSelector('[data-person="0001"]');
+    assert.match(await first.evaluate(() => document.body.innerText), /Код за вход: 0001/);
+    await first.close();
+
+    const page = await browser.createBrowserContext().then((c) => c.newPage());
+    await page.setViewport({ width: 1180, height: 820 });
+    await page.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
+    await page.type('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForFunction(() => document.body.innerText.includes("Общата парола вече не важи"));
+    await page.type("input[name=code]", "0001");
+    await page.$eval("input[name=password]", (el) => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.type("input[name=password]", "manager-pass-1");
+    await page.click('button[type="submit"]');
+    await page.waitForSelector('[data-operator="0001"]').catch(async (e) => {
+      throw new Error(`${e.message}: ${await page.evaluate(() => document.body.innerText.slice(0, 400))}`);
+    });
+    assert.match(await page.evaluate(() => document.body.innerText), /Мария Петрова · 0001/);
+    await page.close();
+  });
+
   it("new orders appear by themselves; accept → served reaches the guest's phone", async () => {
     await openEvening();
     const staff = await tablet();

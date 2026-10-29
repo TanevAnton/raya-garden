@@ -153,7 +153,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 14;
+const QR_SCHEMA_VERSION = 15;
 
 function qr_db(): PDO
 {
@@ -717,6 +717,161 @@ function qr_migrate(PDO $pdo)
                 END;
             ");
         }
+        if ($version < 15) {
+            // Staff accounts (Наредба Н-18, Annex 29 т. 6–7, чл. 52л): each
+            // person signs in with their own code and password. A person has
+            // at least two names, and roles (waiter, manager, auditor), each
+            // with the period it is held — from_at, to_at (0: still held).
+            // Nothing here is ever deleted: a person who leaves is made
+            // inactive, a role that ends gets its to_at.
+            //
+            // audit_actor: who is acting in the current write transaction.
+            // qr_write() sets it first thing, so the triggers can put the
+            // operator on every row of audit_log; the triggers are made again
+            // below with the operator's code and name.
+            //
+            // УНП (Annex 29 т. 9): orders.usn for a sale paid on the phone,
+            // tabs.usn for a table's bill — given when the order is placed or
+            // the bill opened, from usn_counters, one sequence per printer.
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS staff (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    code TEXT NOT NULL UNIQUE,
+                    first_name TEXT NOT NULL,
+                    middle_name TEXT NOT NULL DEFAULT '',
+                    last_name TEXT NOT NULL,
+                    pass_hash TEXT NOT NULL,
+                    pass_changed_at INTEGER NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS staff_roles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    staff_id INTEGER NOT NULL REFERENCES staff (id),
+                    role TEXT NOT NULL,
+                    from_at INTEGER NOT NULL,
+                    to_at INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS staff_roles_staff ON staff_roles (staff_id);
+                CREATE TABLE IF NOT EXISTS audit_actor (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    code TEXT NOT NULL,
+                    name TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO audit_actor (id, code, name) VALUES (1, '9000', 'Система');
+                CREATE TABLE IF NOT EXISTS usn_counters (
+                    serial TEXT NOT NULL,
+                    test INTEGER NOT NULL,
+                    last INTEGER NOT NULL,
+                    PRIMARY KEY (serial, test)
+                );
+                ALTER TABLE orders ADD COLUMN usn TEXT NOT NULL DEFAULT '';
+                ALTER TABLE tabs ADD COLUMN usn TEXT NOT NULL DEFAULT '';
+                ALTER TABLE audit_log ADD COLUMN operator TEXT NOT NULL DEFAULT '';
+                ALTER TABLE audit_log ADD COLUMN operator_name TEXT NOT NULL DEFAULT '';
+                CREATE INDEX IF NOT EXISTS audit_log_operator ON audit_log (operator, at);
+
+                DROP TRIGGER IF EXISTS audit_order_new;
+                DROP TRIGGER IF EXISTS audit_order_change;
+                DROP TRIGGER IF EXISTS audit_line_new;
+                DROP TRIGGER IF EXISTS audit_line_void;
+                DROP TRIGGER IF EXISTS audit_payment_new;
+                DROP TRIGGER IF EXISTS audit_payment_change;
+                DROP TRIGGER IF EXISTS audit_receipt_new;
+                DROP TRIGGER IF EXISTS audit_receipt_change;
+                DROP TRIGGER IF EXISTS audit_command_new;
+                DROP TRIGGER IF EXISTS audit_command_change;
+
+                CREATE TRIGGER audit_order_new AFTER INSERT ON orders BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('order', NEW.code, NEW.total_cents,
+                        'id=' || NEW.id || ';table=' || NEW.table_no || ';status=' || NEW.status || ';pay=' || NEW.pay_status
+                        || ';tab=' || NEW.tab_id || ';usn=' || NEW.usn, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_order_change AFTER UPDATE OF status, pay_status, refunded_cents, till_at, till_void_at ON orders
+                    WHEN OLD.status IS NOT NEW.status OR OLD.pay_status IS NOT NEW.pay_status OR OLD.refunded_cents IS NOT NEW.refunded_cents
+                      OR OLD.till_at IS NOT NEW.till_at OR OLD.till_void_at IS NOT NEW.till_void_at BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('order_change', NEW.code, NEW.total_cents,
+                        'id=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';pay=' || OLD.pay_status || '>' || NEW.pay_status
+                        || ';refunded=' || OLD.refunded_cents || '>' || NEW.refunded_cents || ';till=' || OLD.till_at || '>' || NEW.till_at
+                        || ';till_void=' || OLD.till_void_at || '>' || NEW.till_void_at || ';reason=' || NEW.cancel_reason || ';usn=' || NEW.usn, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_line_new AFTER INSERT ON order_items BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('line', (SELECT code FROM orders WHERE id = NEW.order_id),
+                        NEW.unit_cents * NEW.qty, 'order=' || NEW.order_id || ';line=' || NEW.line || ';item=' || NEW.item_id || '/' || NEW.variant_id
+                        || ';qty=' || NEW.qty || ';unit=' || NEW.unit_cents, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_line_void AFTER UPDATE OF void_qty ON order_items WHEN OLD.void_qty IS NOT NEW.void_qty BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('line_void', (SELECT code FROM orders WHERE id = NEW.order_id),
+                        NEW.unit_cents * (NEW.void_qty - OLD.void_qty), 'order=' || NEW.order_id || ';line=' || NEW.line || ';item=' || NEW.item_id
+                        || ';void=' || OLD.void_qty || '>' || NEW.void_qty || ';reason=' || NEW.void_reason
+                        || ';usn=' || (SELECT CASE WHEN o.usn <> '' THEN o.usn ELSE COALESCE((SELECT t.usn FROM tabs t WHERE t.id = o.tab_id), '') END
+                            FROM orders o WHERE o.id = NEW.order_id), (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_tab_new AFTER INSERT ON tabs BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('tab_open', NEW.usn,
+                        'tab=' || NEW.id || ';table=' || NEW.table_no || ';evening=' || NEW.evening, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_tab_close AFTER UPDATE OF closed_at ON tabs WHEN OLD.closed_at IS NOT NEW.closed_at BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES (CASE WHEN NEW.closed_at > 0 THEN 'tab_close' ELSE 'tab_reopen' END,
+                        NEW.usn, 'tab=' || NEW.id || ';table=' || NEW.table_no || ';evening=' || NEW.evening, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_payment_new AFTER INSERT ON bill_payments BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('bill_payment', NEW.code, NEW.amount_cents,
+                        'id=' || NEW.id || ';table=' || NEW.table_no || ';status=' || NEW.status || ';tab=' || NEW.tab_id, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_payment_change AFTER UPDATE OF status, refunded_cents, till_at, till_void_at ON bill_payments
+                    WHEN OLD.status IS NOT NEW.status OR OLD.refunded_cents IS NOT NEW.refunded_cents
+                      OR OLD.till_at IS NOT NEW.till_at OR OLD.till_void_at IS NOT NEW.till_void_at BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('bill_payment_change', NEW.code, NEW.amount_cents,
+                        'id=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';refunded=' || OLD.refunded_cents || '>' || NEW.refunded_cents
+                        || ';till=' || OLD.till_at || '>' || NEW.till_at || ';till_void=' || OLD.till_void_at || '>' || NEW.till_void_at, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_receipt_new AFTER INSERT ON fiscal_docs BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('receipt_queued', NEW.code, NEW.total_cents,
+                        'doc=' || NEW.id || ';kind=' || NEW.kind || ';sale=' || NEW.sale_id || ';usn=' || NEW.usn || ';test=' || NEW.test, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_receipt_change AFTER UPDATE OF status ON fiscal_docs WHEN OLD.status IS NOT NEW.status BEGIN
+                    INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name) VALUES ('receipt_' || NEW.status, NEW.code, NEW.total_cents,
+                        'doc=' || NEW.id || ';kind=' || NEW.kind || ';status=' || OLD.status || '>' || NEW.status || ';usn=' || NEW.usn
+                        || ';receipt=' || NEW.receipt_number || ';at=' || NEW.receipt_at || ';fm=' || NEW.fm_number || ';error=' || NEW.error, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_command_new AFTER INSERT ON fiscal_commands BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('report_requested', NEW.kind,
+                        'command=' || NEW.id || ';test=' || NEW.test, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_command_change AFTER UPDATE OF status ON fiscal_commands WHEN OLD.status IS NOT NEW.status BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('report_' || NEW.status, NEW.kind,
+                        'command=' || NEW.id || ';status=' || OLD.status || '>' || NEW.status || ';error=' || NEW.error, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_staff_new AFTER INSERT ON staff BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('staff_new', NEW.code,
+                        'staff=' || NEW.id || ';name=' || NEW.first_name || ' ' || NEW.middle_name || ' ' || NEW.last_name || ';active=' || NEW.active, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_staff_change AFTER UPDATE ON staff
+                    WHEN OLD.first_name IS NOT NEW.first_name OR OLD.middle_name IS NOT NEW.middle_name OR OLD.last_name IS NOT NEW.last_name
+                      OR OLD.active IS NOT NEW.active OR OLD.pass_hash IS NOT NEW.pass_hash BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('staff_change', NEW.code,
+                        'staff=' || NEW.id || ';name=' || OLD.first_name || ' ' || OLD.middle_name || ' ' || OLD.last_name
+                        || '>' || NEW.first_name || ' ' || NEW.middle_name || ' ' || NEW.last_name || ';active=' || OLD.active || '>' || NEW.active
+                        || ';password=' || CASE WHEN OLD.pass_hash IS NOT NEW.pass_hash THEN 'changed' ELSE 'same' END, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_role_new AFTER INSERT ON staff_roles BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('role_new', (SELECT code FROM staff WHERE id = NEW.staff_id),
+                        'role=' || NEW.id || ';staff=' || NEW.staff_id || ';name=' || NEW.role || ';from=' || NEW.from_at || ';to=' || NEW.to_at, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER audit_role_change AFTER UPDATE ON staff_roles WHEN OLD.from_at IS NOT NEW.from_at OR OLD.to_at IS NOT NEW.to_at BEGIN
+                    INSERT INTO audit_log (kind, ref, detail, operator, operator_name) VALUES ('role_change', (SELECT code FROM staff WHERE id = NEW.staff_id),
+                        'role=' || NEW.id || ';staff=' || NEW.staff_id || ';name=' || NEW.role || ';from=' || OLD.from_at || '>' || NEW.from_at
+                        || ';to=' || OLD.to_at || '>' || NEW.to_at, (SELECT code FROM audit_actor WHERE id = 1), (SELECT name FROM audit_actor WHERE id = 1));
+                END;
+                CREATE TRIGGER staff_no_delete BEFORE DELETE ON staff
+                    BEGIN SELECT RAISE(ABORT, 'staff accounts are never deleted'); END;
+                CREATE TRIGGER staff_roles_no_delete BEFORE DELETE ON staff_roles
+                    BEGIN SELECT RAISE(ABORT, 'staff roles are never deleted'); END;
+            ");
+        }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');
     } catch (Throwable $e) {
@@ -740,6 +895,8 @@ function qr_write(callable $fn)
     $pdo = qr_db();
     $pdo->exec('BEGIN IMMEDIATE');
     try {
+        $actor = qr_actor();
+        $pdo->prepare('UPDATE audit_actor SET code = ?, name = ? WHERE id = 1')->execute([$actor['code'], $actor['name']]);
         $result = $fn($pdo);
         $pdo->exec('COMMIT');
         return $result;
@@ -747,6 +904,44 @@ function qr_write(callable $fn)
         $pdo->exec('ROLLBACK');
         throw $e;
     }
+}
+
+// ── who is acting ────────────────────────────────────────────────────
+//
+// Every row of audit_log names its operator: the signed-in person (set by
+// qr_require_admin(), _lib/auth.php), a guest ordering or paying on the
+// phone, or the system itself (Stripe's webhook, the fiscal bridge, the
+// clean-ups). Fixed codes for the last two, outside the staff codes
+// 0001–8999; the УНП of a sale a guest placed carries QR_OPERATOR_GUEST.
+
+const QR_OPERATOR_SYSTEM = '9000';
+const QR_OPERATOR_GUEST = '9001';
+const QR_OPERATOR_SHARED = '9002'; // the shared password, until the first manager account exists
+
+/** The operator of this request's writes; with $set, change it. */
+function qr_actor(?array $set = null): array
+{
+    static $actor = ['id' => 0, 'code' => QR_OPERATOR_SYSTEM, 'name' => 'Система', 'roles' => []];
+    if ($set !== null) {
+        $actor = $set;
+    }
+    return $actor;
+}
+
+/** This request is a guest's, on their phone. */
+function qr_as_guest()
+{
+    qr_actor(['id' => 0, 'code' => QR_OPERATOR_GUEST, 'name' => 'QR гост', 'roles' => []]);
+}
+
+/**
+ * A line in audit_log that no trigger writes: signing in and out. Inside
+ * qr_write() only, so the operator is the one acting.
+ */
+function qr_audit(PDO $pdo, string $kind, string $ref, string $detail)
+{
+    $pdo->prepare('INSERT INTO audit_log (kind, ref, detail, operator, operator_name)
+        SELECT ?, ?, ?, code, name FROM audit_actor WHERE id = 1')->execute([$kind, $ref, $detail]);
 }
 
 /** Next change number. Call inside qr_write() only. */
@@ -1030,6 +1225,7 @@ function qr_order_json(array $order, bool $withLines = true): array
     $out = [
         'id' => (int) $order['id'],
         'code' => (string) $order['code'],
+        'usn' => (string) ($order['usn'] ?? ''),
         'table' => (int) $order['table_no'],
         'status' => (string) $order['status'],
         'cancelReason' => (string) $order['cancel_reason'],

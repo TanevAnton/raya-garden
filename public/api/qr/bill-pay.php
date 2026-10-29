@@ -21,6 +21,7 @@ define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
 require __DIR__ . '/_lib/pay.php';
 require __DIR__ . '/_lib/bill.php';
+qr_as_guest();
 
 qr_require_method('POST');
 $idemKey = isset($_SERVER['HTTP_IDEMPOTENCY_KEY']) ? (string) $_SERVER['HTTP_IDEMPOTENCY_KEY'] : '';

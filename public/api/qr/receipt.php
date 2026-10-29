@@ -13,6 +13,7 @@ define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
 require __DIR__ . '/_lib/pay.php';
 require __DIR__ . '/_lib/qrcode.php';
+qr_as_guest();
 
 qr_require_method('GET');
 $id = isset($_GET['n']) && ctype_digit((string) $_GET['n']) ? (int) $_GET['n'] : 0;

@@ -33,8 +33,8 @@ if ($method === 'GET') {
     qr_json(200, qr_report_state());
 }
 qr_require_method('POST');
-qr_require_admin(true);
 $body = qr_body();
+qr_require_admin(true, array_key_exists('email', $body) ? 'manager' : 'waiter');
 $now = qr_now();
 
 if (array_key_exists('email', $body)) {

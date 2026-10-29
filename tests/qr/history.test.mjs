@@ -217,10 +217,16 @@ describe("history of past evenings", () => {
     const early = (await order(at("2026-10-03T19:00"), 3, [["tiramisu"]])).body.order;
     const late = (await order(at("2026-10-04T00:40"), 3, [["tiramisu"]])).body.order;
     srv.sqlite("UPDATE orders SET evening = ''");
-    // Back to how a v7 database looks: without what v8 to v14 add (the
+    // Back to how a v7 database looks: without what v8 to v15 add (the
     // operations log's triggers first: they write into tables dropped below).
     for (const { name } of JSON.parse(srv.sqlite("SELECT name FROM sqlite_master WHERE type = 'trigger'"))) srv.sqlite(`DROP TRIGGER ${name}`);
     srv.sqlite("DROP TABLE audit_log");
+    srv.sqlite("DROP TABLE staff_roles");
+    srv.sqlite("DROP TABLE staff");
+    srv.sqlite("DROP TABLE audit_actor");
+    srv.sqlite("DROP TABLE usn_counters");
+    srv.sqlite("ALTER TABLE orders DROP COLUMN usn");
+    srv.sqlite("ALTER TABLE tabs DROP COLUMN usn");
     srv.sqlite("DROP TABLE fiscal_commands");
     srv.sqlite("DROP INDEX orders_evening");
     srv.sqlite("DROP TABLE fiscal_docs");
@@ -235,7 +241,7 @@ describe("history of past evenings", () => {
     assert.equal(res.status, 200, res.text);
     const got = JSON.parse(srv.sqlite(`SELECT id, evening FROM orders ORDER BY id`));
     assert.deepEqual(got.map((r) => [r.id, r.evening]), [[early.id, "2026-10-03"], [late.id, "2026-10-03"]]);
-    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 14);
+    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 15);
   });
 });
 

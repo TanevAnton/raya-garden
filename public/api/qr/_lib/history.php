@@ -299,13 +299,14 @@ function qr_export_audit(PDO $pdo, string $from, string $to, callable $out)
 {
     $start = (new DateTime($from . ' 00:00', new DateTimeZone(QR_TZ)))->getTimestamp();
     $end = (new DateTime($to . ' 00:00', new DateTimeZone(QR_TZ)))->modify('+1 day')->getTimestamp();
-    $out(qr_csv_row(['№', 'време', 'операция', 'поръчка / документ', 'сума', 'подробности']));
+    $out(qr_csv_row(['№', 'време', 'операция', 'поръчка / документ', 'сума', 'подробности', 'код на оператора', 'оператор']));
     $stmt = $pdo->prepare('SELECT * FROM audit_log WHERE at >= ? AND at < ? ORDER BY id');
     $stmt->execute([$start, $end]);
     while (($row = $stmt->fetch()) !== false) {
         $out(qr_csv_row([
             (string) $row['id'], qr_csv_time((int) $row['at']), qr_csv_text((string) $row['kind']),
             qr_csv_text((string) $row['ref']), qr_csv_money((int) $row['amount_cents']), qr_csv_text((string) $row['detail']),
+            qr_csv_text((string) $row['operator']), qr_csv_text((string) $row['operator_name']),
         ]));
     }
     $stmt->closeCursor();

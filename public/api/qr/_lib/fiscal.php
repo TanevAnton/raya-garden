@@ -66,6 +66,62 @@ const QR_FISCAL_LEASE = 120;        // a claim not reported by then goes back to
 const QR_FISCAL_BRIDGE_LOST = 90;   // the bridge counts as offline after this long unheard
 const QR_FISCAL_BACKOFF = [30, 120, 600, 1800, 3600];
 
+const QR_USN_PRINTER_AGE = 7200;    // an УНП may name a printer seen within the last 2 hours (Annex 29 т. 8)
+
+// ── УНП: the sale's unique number ────────────────────────────────────
+//
+// "XXXXXXXX-ZZZZ-0000001" (Annex 29 т. 9): the fiscal printer's serial
+// number, the code of the operator who entered the sale, and the sale's
+// number in that printer's sequence (usn_counters). Given when the sale is
+// entered: the order placed when guests pay on the phone, the table's bill
+// opened when they pay at the end. Each later receipt for the sale, and its
+// reversal, carries it. A sale entered while no printer had been seen for 2
+// hours gets its УНП when its receipt is claimed for printing.
+
+/** The printer the bridge last reported, if seen within $age seconds: its serial, else ''. */
+function qr_usn_printer(PDO $pdo, int $now, int $age = QR_USN_PRINTER_AGE): string
+{
+    $find = $pdo->query('SELECT last_seen, printer_serial FROM fiscal_bridge WHERE id = 1');
+    $row = $find->fetch();
+    $find->closeCursor();
+    if (!is_array($row) || (int) $row['last_seen'] < $now - $age || !preg_match('/^[A-Za-z0-9]{8}$/', (string) $row['printer_serial'])) {
+        return '';
+    }
+    return (string) $row['printer_serial'];
+}
+
+/** The next УНП on this printer. Inside qr_write() only. */
+function qr_usn_next(PDO $pdo, string $serial, int $test, string $operatorCode): string
+{
+    $pdo->prepare('INSERT OR IGNORE INTO usn_counters (serial, test, last) VALUES (?, ?, 0)')->execute([$serial, $test]);
+    $pdo->prepare('UPDATE usn_counters SET last = last + 1 WHERE serial = ? AND test = ?')->execute([$serial, $test]);
+    $find = $pdo->prepare('SELECT last FROM usn_counters WHERE serial = ? AND test = ?');
+    $find->execute([$serial, $test]);
+    $last = (int) $find->fetchColumn();
+    $find->closeCursor();
+    return $serial . '-' . $operatorCode . '-' . sprintf('%07d', $last);
+}
+
+/**
+ * The УНП for a sale being entered now (an order, a bill), or '' when the
+ * printer is off or hasn't been seen for 2 hours. Inside qr_write() only.
+ */
+function qr_usn_new_sale(PDO $pdo, int $now): string
+{
+    $mode = qr_fiscal_mode();
+    if ($mode === '') {
+        return '';
+    }
+    $serial = qr_usn_printer($pdo, $now);
+    return $serial === '' ? '' : qr_usn_next($pdo, $serial, $mode === 'test' ? 1 : 0, QR_OPERATOR_GUEST);
+}
+
+/** The 7-digit sequence of an УНП, 0 if none. */
+function qr_usn_seq(string $usn): int
+{
+    return preg_match('/-(\d{7})$/', $usn, $m) ? (int) $m[1] : 0;
+}
+
 function qr_fiscal_settings(): array
 {
     static $settings = null;
@@ -115,10 +171,7 @@ function qr_fiscal_sale(PDO $pdo, string $source, array $row, array $session, in
         return;
     }
     $test = $mode === 'test' ? 1 : 0;
-    $next = $pdo->prepare("SELECT COALESCE(MAX(usn_seq), 0) + 1 FROM fiscal_docs WHERE kind = 'sale' AND test = ?");
-    $next->execute([$test]);
-    $usnSeq = (int) $next->fetchColumn();
-    $next->closeCursor();
+    $usn = qr_fiscal_source_usn($pdo, $source, $row);
     $lines = qr_clock_lines($pdo, $source, $row);
     qr_fiscal_insert($pdo, [
         'test' => $test,
@@ -128,7 +181,8 @@ function qr_fiscal_sale(PDO $pdo, string $source, array $row, array $session, in
         'source_id' => (int) $row['id'],
         'code' => (string) $row['code'],
         'payment_intent' => (string) ($session['payment_intent'] ?? ''),
-        'usn_seq' => $usnSeq,
+        'usn' => $usn,
+        'usn_seq' => qr_usn_seq($usn),
         'lines' => $lines,
         'total' => qr_ereceipt_lines_total($lines),
         'tip' => (int) $row['tip_cents'],
@@ -154,6 +208,7 @@ function qr_fiscal_refunds(PDO $pdo, string $source, int $sourceId, int $now)
         'source_id' => $sourceId,
         'code' => (string) $sale['code'],
         'payment_intent' => (string) $sale['payment_intent'],
+        'usn' => (string) $sale['usn'],
         'usn_seq' => (int) $sale['usn_seq'],
         'lines' => $due['lines'],
         'total' => $due['amount'],
@@ -161,13 +216,26 @@ function qr_fiscal_refunds(PDO $pdo, string $source, int $sourceId, int $now)
     ], $now);
 }
 
+/** The УНП the sale was given when it was entered: the order's, or its table's bill's. */
+function qr_fiscal_source_usn(PDO $pdo, string $source, array $row): string
+{
+    if ($source === 'order') {
+        return (string) ($row['usn'] ?? '');
+    }
+    $find = $pdo->prepare('SELECT usn FROM tabs WHERE id = ?');
+    $find->execute([(int) $row['tab_id']]);
+    $usn = (string) $find->fetchColumn();
+    $find->closeCursor();
+    return $usn;
+}
+
 function qr_fiscal_insert(PDO $pdo, array $doc, int $now): int
 {
-    $pdo->prepare('INSERT INTO fiscal_docs (test, kind, sale_id, source, source_id, code, payment_intent, usn_seq,
-        lines_json, total_cents, tip_cents, created_at, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    $pdo->prepare('INSERT INTO fiscal_docs (test, kind, sale_id, source, source_id, code, payment_intent, usn, usn_seq,
+        lines_json, total_cents, tip_cents, created_at, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
         ->execute([
             $doc['test'], $doc['kind'], $doc['sale_id'], $doc['source'], $doc['source_id'], $doc['code'],
-            $doc['payment_intent'], $doc['usn_seq'], json_encode($doc['lines'], JSON_UNESCAPED_UNICODE),
+            $doc['payment_intent'], $doc['usn'], $doc['usn_seq'], json_encode($doc['lines'], JSON_UNESCAPED_UNICODE),
             $doc['total'], $doc['tip'], $now, qr_bump_seq($pdo),
         ]);
     return (int) $pdo->lastInsertId();
@@ -242,6 +310,16 @@ function qr_fiscal_claim(array $bridge, int $now)
             if ($doc['kind'] === 'sale' && $doc['task_id'] === '' && qr_fiscal_entered_by_hand($pdo, $doc)) {
                 qr_fiscal_set_manual($pdo, $doc);
                 continue;
+            }
+            if ($doc['kind'] === 'sale' && $doc['usn'] === '') {
+                // Entered while no printer was seen: its УНП names this one.
+                $serial = qr_usn_printer($pdo, $now);
+                if ($serial === '') {
+                    return null; // a printer that hasn't said its serial number can't print it
+                }
+                $doc['usn'] = qr_usn_next($pdo, $serial, (int) $doc['test'], QR_OPERATOR_GUEST);
+                $doc['usn_seq'] = qr_usn_seq($doc['usn']);
+                $pdo->prepare('UPDATE fiscal_docs SET usn = ?, usn_seq = ? WHERE id = ?')->execute([$doc['usn'], $doc['usn_seq'], $doc['id']]);
             }
             $submitted = $doc['task_id'] !== '';
             $pdo->prepare('UPDATE fiscal_docs SET status = ?, tries = tries + 1, claimed_at = ?, seq = ? WHERE id = ?')
@@ -324,7 +402,7 @@ function qr_fiscal_job(PDO $pdo, array $doc, bool $submitted): array
         'submitted' => $submitted,
         'usn' => (string) $doc['usn'],
         'usnSequence' => (int) $doc['usn_seq'],
-        'operatorCode' => (string) ($settings['operator_code'] ?? '0001'),
+        'operatorCode' => QR_OPERATOR_GUEST,
         'amount' => round((int) $doc['total_cents'] / 100, 2),
         'receipt' => [
             'items' => $items,
@@ -374,7 +452,7 @@ function qr_fiscal_report(int $id, string $event, array $data, int $now): array
         if ($event === 'submitted') {
             $usn = (string) ($data['usn'] ?? '');
             $taskId = (string) ($data['taskId'] ?? '');
-            if (!preg_match('/^[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-\d{7}$/', $usn)) {
+            if (!preg_match('/^[A-Za-z0-9]{8}-[A-Za-z0-9]{4}-\d{7}$/', $usn) || ($doc['kind'] === 'sale' && $usn !== $doc['usn'])) {
                 return [400, ['ok' => false, 'error' => 'bad_usn']];
             }
             if (strpos($taskId, qr_fiscal_task_prefix($doc)) !== 0 || strlen($taskId) > 40) {

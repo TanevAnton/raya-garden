@@ -1,12 +1,14 @@
 # Registering the QR system as "СУПТО": the gap against Annex 29
 
-Status, 23.10.2026: **not started.** It waits on one answer from the
-accountant (Iva Lambeva) and Сашо Александров: is it acceptable for the
-restaurant to work with **two registered sales programs**? Clock would keep
-the till, and ours would drive a separate fiscal printer for payments made
-on the phone. If yes, this document is the work plan. If no, phone payments
-stay with Clock (eMenu, or a QR partner certified with Clock), and guests pay
-the waiter ("При сервитьора").
+Status, 29.10.2026: **the answer is yes.** The accountant (after talking to
+Сашо): two "СУПТО" can work in the restaurant **if each has its own fiscal
+printer**. Clock keeps the till and its printer; ours drives a separate
+printer for payments made on the phone. One condition: our system also
+**passes its sales to Clock**, so the restaurant's turnover is in one place
+and the two don't disagree. In practice that's Clock's end-of-day transfer of
+bills already paid and fiscalised (their "POS Guide, EOD"), done the way НАП's
+control sheet (section 3.2) and Annex 41 describe. This document is now the
+work plan.
 
 The source texts are in `nap/`: Annex 29 (`prilozhenie-29.txt`), Annex 31
 (`prilozhenie-31.txt`), and НАП's self-assessment control sheet for СУПТО
@@ -61,6 +63,22 @@ producers (`kontrolen-list-supto.txt`).
 | 21 | If part of an integrated system that can't meet 16–19, the integrated system meets them | — | Not integrated with another system. |
 | 22 | Automated import of sales follows Annexes 41/42 | — | We import nothing. If the QR orders ever had to be handed to Clock, that's Annex 41. |
 | 23 | Export to other software allowed | ✓ | CSV exports exist; describe them. |
+
+## The transfer to Clock (the condition)
+
+Each phone payment, once its receipt has printed on our printer, goes to Clock
+so Clock's reports hold the restaurant's whole turnover:
+- **Clock's way:** the end-of-day transfer from their POS Guide. A folio on a
+  company, the day's (or each bill's) items as charges, and the payment as
+  already settled, then closed. This is the first Clock build (folio,
+  `charges/bulk`, `credit_items`, `close`), parked in `_lib/clock.php`.
+- **НАП's way of booking it** (control sheet 3.2): an imported sale is closed
+  "с начин на плащане, неизискващ издаване на ФБ", named after its source,
+  e.g. "Продажба чрез ФУ с ИН <our printer's number>", so Clock never prints
+  a second receipt for it. Exchange between two "СУПТО" follows Annex 41
+  (чл. 52з, ал. 9). That text isn't in `nap/` yet and is needed.
+- **Clock's side:** their certification, a live API user, and a payment type
+  that doesn't fiscalise. To be agreed with them.
 
 ## Two questions that shape the build
 

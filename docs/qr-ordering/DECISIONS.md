@@ -805,6 +805,9 @@ receipt here, on a printer of their own.
   чл. 52з, ал. 9), so registering ours wouldn't mean dropping Clock. That
   reading waits on the accountant. The gap against all 23 points of Annex 29,
   the registration and the effort: `SUPTO-ANNEX29.md`.
+- **29.10.2026: confirmed.** Two "СУПТО" may work in the restaurant, each
+  with its own fiscal printer, provided our sales are also passed to Clock so
+  the turnover is in one place. Plan: `SUPTO-ANNEX29.md`.
 - **Whether this makes our system "СУПТО"** under Наредба Н-18 (Annex 29).
   If it does, there's more to build: the full УНП rules, a log of every
   operation with nothing deleted, the audit file for НАП, and the producer's

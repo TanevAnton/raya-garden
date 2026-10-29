@@ -20,6 +20,7 @@ require dirname(__DIR__) . '/_lib/auth.php';
 require dirname(__DIR__) . '/_lib/history.php';
 require dirname(__DIR__) . '/_lib/pay.php';
 require dirname(__DIR__) . '/_lib/nap.php';
+require dirname(__DIR__) . '/_lib/integrity.php';
 
 const QR_NAP_SCREEN_ROWS = 500;
 
@@ -44,6 +45,7 @@ if (($fu !== '' && !preg_match('/^[A-Za-z0-9]{8}$/', $fu)) || ($operator !== '' 
 }
 
 $pdo = qr_db();
+qr_integrity_tick(qr_now()); // the menu's items up to date before they're listed
 $pdo->exec('BEGIN');
 try {
     $data = qr_nap_table($pdo, $table, $from, $to, $fu, $operator);

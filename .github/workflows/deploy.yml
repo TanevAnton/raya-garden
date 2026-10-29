@@ -157,6 +157,8 @@ jobs:
           QR_CLOCK_COMPANY_ID: ${{ secrets.QR_CLOCK_COMPANY_ID }}
           QR_CLOCK_CURRENCY: ${{ secrets.QR_CLOCK_CURRENCY }}
           QR_TIPS: ${{ secrets.QR_TIPS }}
+          QR_STAFF_ORDERS: ${{ secrets.QR_STAFF_ORDERS }}
+          QR_SUPTO: ${{ secrets.QR_SUPTO }}
           QR_FISCAL_MODE: ${{ secrets.QR_FISCAL_MODE }}
           QR_FISCAL_BRIDGE_TOKEN: ${{ secrets.QR_FISCAL_BRIDGE_TOKEN }}
         run: |

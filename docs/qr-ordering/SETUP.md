@@ -114,6 +114,8 @@ GitHub → the repository → Settings → Secrets and variables → Actions:
 | `QR_STRIPE_WEBHOOK_SECRET` | the signing secret of the Stripe webhook, `whsec_…` |
 | `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "Phone payments into Clock PMS+") |
 | `QR_FISCAL_*` | the fiscal printer for phone payments: mode and the bridge's key (see "Fiscal receipts on the restaurant's own printer") |
+| `QR_STAFF_ORDERS` | `on` brings back orders paid to staff; unset (the default): on a pay-staff evening the QR code is the menu only |
+| `QR_SUPTO` | `on` for the version registered with НАП: no test keys, no test printing (see "The registered version") |
 
 After the site is live, every deploy runs the step *QR ordering settings (staff
 password, Stripe keys)*. It rewrites `raya-qr-config.php` only when a secret
@@ -461,6 +463,27 @@ webhook, the bridge and the clean-ups. Sign-ins (and failed ones),
 sign-outs, settings, sold-out items and staff-account changes are in it
 too. „История“ downloads it for an evening or a month ("журнал на
 операциите"), with the operator columns.
+
+### The registered version (Annex 29 т. 4, 20)
+
+- **Version:** `QR_VERSION` in `_lib/core.php`. Raise it with every change
+  to the sales part or the database; each needs a new declaration to НАП
+  within 7 days.
+- **Manifest and integrity:** `npm run build` writes
+  `dist/api/qr/_manifest.json` (version, commit, SHA-256 of every file).
+  The server checks the files against it every 5 minutes and whenever it
+  changes; anything changed, missing or added outside a deploy is logged
+  and shown in red on the staff screen and in „Система“. A development copy
+  without a manifest says so.
+- **No test mode:** `QR_SUPTO` = `on`. Stripe test keys then don't count,
+  receipts and Clock run only live, and the test hooks are off. Switch it
+  on when going live for real, with live Stripe keys and `QR_FISCAL_MODE` =
+  `live`.
+- **Menu changes** (the menu is `api/qr-menu.json`, changed by deploy) are
+  logged item by item, and `menu_items` keeps each item's dates for НАП's
+  nomenclature.
+- **„Система“** in /admin (manager, auditor): the version, the integrity,
+  every setting read-only.
 
 ### The log screen and НАП's tables (Annex 29 т. 16, 18)
 

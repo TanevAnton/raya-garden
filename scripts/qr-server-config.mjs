@@ -20,6 +20,8 @@
 //   QR_CLOCK_COMPANY_ID         → 'clock_company_id'    (the company with "Accept charge transfers")
 //   QR_CLOCK_CURRENCY           → 'clock_currency'      (only if not EUR, e.g. BGN in Clock's sandbox)
 //   QR_TIPS                     → 'tips'                (on; unset or off = no tips, the default)
+//   QR_STAFF_ORDERS             → 'staff_orders'        (on; unset or off = the QR code is the menu only on pay-staff evenings, the default)
+//   QR_SUPTO                    → 'supto'               (on = the version registered with НАП: no test keys, no test printing)
 //   QR_FISCAL_MODE              → 'fiscal_mode'         (off | test | live)
 //   QR_FISCAL_BRIDGE_TOKEN      → 'fiscal_bridge_token' (the fiscal bridge's key, 32+ characters)
 //
@@ -64,6 +66,10 @@ const STRIPE = [
   ["QR_CLOCK_CURRENCY", "clock_currency", /^[A-Z]{3}$/, "a currency code such as EUR or BGN"],
   // Tips on the phone: off unless "on" (public/api/qr/_lib/core.php, qr_tips_on).
   ["QR_TIPS", "tips", /^on$/, "on (or off)"],
+  // Orders paid to staff: off unless "on" (qr_staff_orders_on).
+  ["QR_STAFF_ORDERS", "staff_orders", /^on$/, "on (or off)"],
+  // The registered version: no test mode (qr_supto_on, Наредба Н-18 Annex 29 т. 20).
+  ["QR_SUPTO", "supto", /^on$/, "on (or off)"],
   // The fiscal printer for phone payments (public/api/qr/_lib/fiscal.php, tools/fiscal-bridge).
   ["QR_FISCAL_MODE", "fiscal_mode", /^(test|live)$/, "test or live (or off)"],
   ["QR_FISCAL_BRIDGE_TOKEN", "fiscal_bridge_token", /^[A-Za-z0-9_-]{32,128}$/, "a random key of 32+ letters, digits, - or _ (e.g. openssl rand -hex 32)"],

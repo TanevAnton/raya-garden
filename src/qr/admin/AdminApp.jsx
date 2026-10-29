@@ -227,6 +227,7 @@ function Dashboard({ operator, onSignedOut }) {
   // and the bridge itself: { mode, online, lastSeen, printerOk, printer, message } or null.
   const [fiscalDocs, setFiscalDocs] = useState(() => new Map());
   const [fiscalInfo, setFiscalInfo] = useState(null);
+  const [integrity, setIntegrity] = useState(null);
   const [state, setState] = useState(null);
   const [soldOut, setSoldOut] = useState([]);
   // Tonight's waiters, table → name. Like the settings, an answer older than
@@ -329,6 +330,7 @@ function Dashboard({ operator, onSignedOut }) {
         setClockInfo(res.clock || null);
         mergeFiscalDocs(res.fiscalDocs, res.full);
         setFiscalInfo(res.fiscal || null);
+        setIntegrity(res.integrity || null);
         seq.current = res.seq;
         applyState(res.state, res.seq);
         setSoldOut(res.soldOut);
@@ -589,7 +591,7 @@ function Dashboard({ operator, onSignedOut }) {
             ...(showTabs ? [["tabs", `Сметки${owedTabs ? ` (${owedTabs})` : ""}`]] : []),
             ...(showTill ? [["till", `За касата${tillCount ? ` (${tillCount})` : ""}`]] : []),
             ["history", "История"],
-            ...(manages ? [["staff", "Персонал"], ["log", "Журнал"], ["nap", "Справки НАП"]] : []),
+            ...(manages ? [["staff", "Персонал"], ["log", "Журнал"], ["nap", "Справки НАП"], ["system", "Система"]] : []),
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setTab(id)} data-flash={id === "till" && tillFlash ? "1" : undefined}
               className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-3 text-sm border-b-2 ${tab === id ? "border-gold-300 text-gold-100" : "border-transparent text-cream-100/60"} ${id === "till" && tillFlash ? "animate-pulse text-gold-100 bg-gold-300/15" : ""}`}>
@@ -605,6 +607,11 @@ function Dashboard({ operator, onSignedOut }) {
         </div>
       )}
 
+      {integrity?.status === "changed" && (
+        <div role="alert" className="bg-red-950/80 border-b border-red-400/40 text-cream-50 text-sm px-4 py-3 text-center" data-integrity="changed">
+          Програмата на сървъра е променена извън обновяване ({integrity.detail}). Кажете на управителя — записано е в журнала.
+        </div>
+      )}
       {state?.fiscal?.required && !state.fiscal.ready && (
         <div role="alert" className="bg-red-950/80 border-b border-red-400/40 text-cream-50 text-sm px-4 py-3 text-center" data-fiscal-block={state.fiscal.reason}>
           {state.payment === "online"
@@ -638,6 +645,7 @@ function Dashboard({ operator, onSignedOut }) {
         {tab === "staff" && <Staff operator={operator} say={say} onSignedOut={onSignedOut} />}
         {tab === "log" && <AuditLog say={say} onSignedOut={onSignedOut} />}
         {tab === "nap" && <NapReports say={say} onSignedOut={onSignedOut} />}
+        {tab === "system" && <SystemInfo say={say} onSignedOut={onSignedOut} />}
       </main>
 
       {toast && (
@@ -1146,7 +1154,9 @@ function Service({ state, onSaved, say, onSignedOut }) {
         <div className="text-xs tracking-[0.2em] uppercase text-gold-300/80">Плащане</div>
         <div className="grid sm:grid-cols-2 gap-2 mt-2">
           {[
-            ["on_site", "При сервитьора", "Поръчката идва веднага; плаща се на място."],
+            state?.staffOrders
+              ? ["on_site", "При сервитьора", "Поръчката идва веднага; плаща се на място."]
+              : ["on_site", "Само меню", "QR кодът показва менюто; поръчката се взима от сервитьора в Clock."],
             ["online", "С карта в телефона", "Поръчката идва, щом гостът плати. Отказ = автоматично връщане на парите."],
             ["tab", "Сметка накрая", "Поръчките идват веднага и се трупат по масата. Накрая всеки плаща от телефона — цялата сметка или своето."],
           ].map(([id, label, hint]) => {
@@ -2444,6 +2454,72 @@ function NapReports({ say, onSignedOut }) {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+const ON_OFF = (v) => (v === true ? "вкл." : v === false ? "изкл." : { off: "изкл.", test: "тестов", live: "реален" }[v] || String(v));
+const INTEGRITY = { ok: "Потвърдена", changed: "НАРУШЕНА", no_manifest: "Няма манифест (версия за разработка)" };
+
+/**
+ * „Система“: the version, the code's integrity against its manifest, and
+ * every setting, read only (Наредба Н-18, Annex 29 т. 4 and 19). Secrets show
+ * only as set or not. For a manager or the auditor.
+ */
+function SystemInfo({ say, onSignedOut }) {
+  const [data, setData] = useState(null);
+  async function load(check = false) {
+    try {
+      const res = await adminApi(`system.php${check ? "?check=1" : ""}`);
+      if (res.status === 401) return onSignedOut();
+      if (res.ok) setData(res);
+    } catch {
+      say("Няма връзка — опитайте отново.");
+    }
+  }
+  useEffect(() => {
+    load();
+  }, []);
+  if (!data) return <p className="text-cream-100/60">Зареждане…</p>;
+  const f = data.features;
+  const ev = data.evening;
+  const fs = data.fiscalSettings;
+  const rows = [
+    ["Софтуер", data.software.name],
+    ["Версия", `${data.software.version}${data.integrity.commit ? ` (${data.integrity.commit})` : ""}`],
+    ["Структура на базата данни", `v${data.software.schema} · SQLite ${data.software.sqlite} · PHP ${data.software.php}`],
+    ["Цялост на програмата", `${INTEGRITY[data.integrity.status] || data.integrity.status}${data.integrity.detail ? ` — ${data.integrity.detail}` : ""}`, "integrity"],
+    ["Проверена", data.integrity.checkedAt ? stamp(data.integrity.checkedAt) : "—"],
+    ["Регистрирана версия (без тестов режим)", ON_OFF(f.registered)],
+    ["Плащане в телефона (Stripe)", ON_OFF(f.stripe)],
+    ["Касови бележки (фискален принтер)", ON_OFF(f.fiscal)],
+    ["Ключ на моста към принтера", f.fiscalBridgeKeySet ? "зададен" : "няма"],
+    ["Поръчки с плащане при персонала", ON_OFF(f.staffOrders)],
+    ["Бакшиш", ON_OFF(f.tips)],
+    ["Clock PMS+", ON_OFF(f.clock)],
+    ["Обща парола (до първия управител)", f.sharedPasswordSet ? "зададена" : "няма"],
+    ["Вечерта", ev.serviceDate ? `${ev.serviceDate}, ${ev.opens}–${ev.closes}${ev.paused ? ", на пауза" : ""}` : "не е настроена"],
+    ["Начин на плащане тази вечер", { online: "в телефона", tab: "сметка накрая", on_site: f.staffOrders ? "при сервитьора" : "само меню" }[ev.payment]],
+    ["Маси", `${ev.tables}${ev.disabledTables?.length ? ` (изключени: ${ev.disabledTables.join(", ")})` : ""}`],
+    ["Търговски обект", `${fs.site_code} · ${fs.site_name}${fs.site_address ? ` · ${fs.site_address}` : ""}`],
+    ["Работно място", `${fs.workplace_code} · ${fs.workplace_name}`],
+    ["Данъчни групи", Object.entries(fs.tax_groups || {}).map(([k, v]) => `${k}: ${"АБВГДЕЖЗ"[v - 1] || v}`).join(", ")],
+    ["ДДС ставки по група", Object.entries(fs.vat_rates || {}).map(([k, v]) => `${"АБВГДЕЖЗ"[k - 1] || k}: ${v}%`).join(", ")],
+    ["Коментар на касовата бележка", fs.header_comment || "—"],
+  ];
+  return (
+    <div className="max-w-3xl" data-system>
+      <dl className="divide-y divide-gold-300/10">
+        {rows.map(([label, value, key]) => (
+          <div key={label} className="py-2 grid sm:grid-cols-[18rem_1fr] gap-x-4" {...(key ? { [`data-${key}-status`]: data.integrity.status } : {})}>
+            <dt className="text-sm text-cream-100/60">{label}</dt>
+            <dd className={`text-sm ${key === "integrity" && data.integrity.status === "changed" ? "text-red-300" : "text-cream-50"}`}>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <button type="button" onClick={() => load(true)} className="mt-4 h-10 px-4 rounded-sm border border-gold-300/25 text-sm text-cream-100/80">
+        Провери целостта сега
+      </button>
     </div>
   );
 }

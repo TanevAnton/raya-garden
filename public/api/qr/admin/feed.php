@@ -32,12 +32,15 @@ require dirname(__DIR__) . '/_lib/pay.php';
 require dirname(__DIR__) . '/_lib/bill.php';
 require dirname(__DIR__) . '/_lib/history.php';
 require dirname(__DIR__) . '/_lib/report.php';
+require dirname(__DIR__) . '/_lib/integrity.php';
 
 qr_require_method('GET');
 qr_require_admin(false);
 $since = isset($_GET['since']) ? max(0, (int) $_GET['since']) : 0;
 $now = qr_now();
 $pdo = qr_db();
+// The code against its manifest, the menu against what it was (_lib/integrity.php).
+$integrity = qr_integrity_json(qr_integrity_tick($now));
 $pdo->exec('BEGIN');
 try {
     $settings = qr_settings();
@@ -125,5 +128,6 @@ qr_json(200, [
     'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode()] : null,
     'fiscalDocs' => $fiscalDocs,
     'fiscal' => $fiscalBridge !== null ? ['mode' => qr_fiscal_mode(), 'commands' => $fiscalCommands] + $fiscalBridge : null,
+    'integrity' => $integrity,
     'now' => $now,
 ]);

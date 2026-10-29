@@ -572,6 +572,7 @@ function StatusBanner({ t, lang, state, failed, reload }) {
   let message = t.closed;
   if (state.reason === "paused") message = t.paused;
   else if (state.reason === "printer") message = t.printerNotReady;
+  else if (state.reason === "menu_only") message = t.menuOnly;
   else if (state.reason === "not_yet_open") {
     const today = sofiaDate(state.now) === sofiaDate(state.opensAt);
     message = today

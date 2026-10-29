@@ -63,7 +63,7 @@ function qr_stripe(string $method, string $path, array $params = [], string $ide
     $base = 'https://api.stripe.com';
     // Tests point this at a fake Stripe; production never sets RAYA_QR_TEST.
     $override = getenv('RAYA_QR_STRIPE_API');
-    if (getenv('RAYA_QR_TEST') === '1' && is_string($override) && $override !== '') {
+    if (qr_test_hooks() && is_string($override) && $override !== '') {
         $base = rtrim($override, '/');
     }
     $headers = [

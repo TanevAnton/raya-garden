@@ -63,6 +63,13 @@ const QR_AUDIT_KINDS = [
     'staff_change' => ['Промяна на оператор', '2026-10-29'],
     'role_new' => ['Нова роля на оператор', '2026-10-29'],
     'role_change' => ['Промяна на роля на оператор', '2026-10-29'],
+    'menu_loaded' => ['Първоначално зареждане на номенклатурата стоки', '2026-10-29'],
+    'menu_item_new' => ['Нова стока / услуга', '2026-10-29'],
+    'menu_item_change' => ['Промяна на стока / услуга (име, цена)', '2026-10-29'],
+    'menu_item_removed' => ['Деактивирана стока / услуга', '2026-10-29'],
+    'version_start' => ['Стартиране на версия на софтуера', '2026-10-29'],
+    'integrity_failed' => ['Нарушена цялост на софтуера', '2026-10-29'],
+    'integrity_ok' => ['Цялостта на софтуера е потвърдена', '2026-10-29'],
 ];
 
 const QR_ROLE_NAMES = ['waiter' => 'Сервитьор', 'manager' => 'Управител', 'auditor' => 'Проверяващ'];
@@ -409,15 +416,11 @@ function qr_nap_nomenclature(PDO $pdo, string $table): array
 {
     $settings = qr_fiscal_settings();
     if ($table === 'nom_items') {
-        // Menu changes reach the site by deploy; their dates are not yet
-        // recorded (SUPTO-ANNEX29.md, т. 15): the columns are there, empty.
+        // menu_items: every item the menu has had, with its dates (_lib/integrity.php).
         $rows = [];
-        foreach (qr_menu_index() as $item) {
-            foreach ($item['variants'] ?? [] as $v) {
-                $rows[] = [(string) $item['id'] . (($v['id'] ?? 'std') !== 'std' ? '/' . $v['id'] : ''),
-                    trim((string) $item['bg'] . (isset($v['bg']) && $v['bg'] !== '' ? ' · ' . $v['bg'] : '')),
-                    qr_nap_money((int) ($v['price'] ?? 0)), (string) $item['category'], '', '', ''];
-            }
+        foreach ($pdo->query('SELECT * FROM menu_items ORDER BY first_at, code')->fetchAll() as $m) {
+            $rows[] = [(string) $m['code'], (string) $m['name'], qr_nap_money((int) $m['price_cents']), (string) $m['category'],
+                qr_nap_when((int) $m['first_at'])[0], qr_nap_when((int) $m['changed_at'])[0], qr_nap_when((int) $m['removed_at'])[0]];
         }
         return ['columns' => ['Код', 'Наименование', 'Цена с ДДС (EUR)', 'Категория', 'Дата на първоначално конфигуриране', 'Дата на последна промяна',
             'Дата на деактивиране'], 'rows' => $rows];

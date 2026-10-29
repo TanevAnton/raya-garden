@@ -42,6 +42,8 @@ if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
         'qr/_lib/ereceipt.php', 'qr/_lib/qrcode.php', 'qr/_lib/ereceipt-settings.php',
         'qr/_lib/clock.php', 'qr/_lib/clock-settings.php', 'qr/admin/clock.php',
         'qr/_lib/fiscal.php', 'qr/_lib/fiscal-settings.php', 'qr/fiscal/claim.php', 'qr/fiscal/report.php', 'qr/admin/fiscal.php',
+        'qr/_lib/staff.php', 'qr/_lib/nap.php', 'qr/_lib/integrity.php', 'qr/admin/staff.php', 'qr/admin/audit.php',
+        'qr/admin/nap.php', 'qr/admin/system.php',
         'qr/order.php', 'qr/stripe-webhook.php', 'qr/receipt.php',
     );
     foreach ($files as $rel) {

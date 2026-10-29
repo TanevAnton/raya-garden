@@ -887,6 +887,26 @@ started. Phase 1:
 - **The nomenclatures are separate tables** (Annex 29 allows alternative
   nomenclature tables of the same scope).
 
+## Card only, and the registered version, 29.10.2026 (СУПТО phase 4)
+
+- **No QR orders paid to staff** (the user's decision): our СУПТО covers
+  only card payments on the phone. On a pay-staff evening the QR code is the
+  menu; the waiter takes the order in Clock. A setting (`staff_orders`),
+  not removed code, so the tests of that flow stay; never with `supto`.
+- **Clock takes our sales at end of day** without fiscalising them: phase
+  5 can be built once they give the API access.
+- **No test mode by a switch** (`supto`), not by stripping code at build
+  time: one code base, tested; the registered server simply refuses test
+  keys and test printing, and ignores the test hooks. To confirm with the
+  accountant.
+- **Integrity by manifest**, checked on the staff poll and the guest's
+  state (no cron on the host). A failure warns and logs; it doesn't stop
+  service: a hosting hiccup shouldn't close the kitchen, and the log keeps
+  the proof either way.
+- **Menu changes logged by the same check**: the menu file changes only by
+  deploy, so comparing it to `menu_items` on each new file catches every
+  change with its time; the operator is "Система" (the deploy).
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

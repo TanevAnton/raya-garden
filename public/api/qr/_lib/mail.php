@@ -63,7 +63,7 @@ function qr_mail(string $to, string $subject, string $text, string $html, array 
     ]);
 
     $dir = getenv('RAYA_QR_MAIL_DIR');
-    if (getenv('RAYA_QR_TEST') === '1' && is_string($dir) && $dir !== '') {
+    if (qr_test_hooks() && is_string($dir) && $dir !== '') {
         @mkdir($dir, 0700, true);
         if (file_exists($dir . '/FAIL')) {
             return [false, 'test: the mail server refused'];
@@ -114,7 +114,7 @@ function qr_mailer_config(): array
     }
     $docRoot = isset($_SERVER['DOCUMENT_ROOT']) ? rtrim((string) $_SERVER['DOCUMENT_ROOT'], '/') : '';
     $path = ($docRoot !== '' ? dirname($docRoot) : dirname(__DIR__, 4)) . '/raya-mailer-config.php';
-    if (getenv('RAYA_QR_TEST') !== '1' && is_readable($path)) {
+    if (!qr_test_hooks() && is_readable($path)) {
         $loaded = require $path;
         if (is_array($loaded)) {
             foreach ($cfg as $key => $value) {

@@ -107,7 +107,7 @@ function qr_clock_configured(): bool
 function qr_clock_mode(): string
 {
     $mode = (string) (qr_config()['clock_mode'] ?? 'off');
-    if (($mode !== 'test' && $mode !== 'live') || !qr_clock_configured()) {
+    if (($mode !== 'test' && $mode !== 'live') || !qr_clock_configured() || ($mode === 'test' && qr_supto_on())) {
         return '';
     }
     $test = qr_stripe_test_mode();
@@ -539,7 +539,7 @@ function qr_clock_call(string $method, string $path, $body = null): array
     $base = rtrim((string) ($config['clock_base_url'] ?? ''), '/');
     // Tests point this at a fake Clock; production never sets RAYA_QR_TEST.
     $override = getenv('RAYA_QR_CLOCK_API');
-    if (getenv('RAYA_QR_TEST') === '1' && is_string($override) && $override !== '') {
+    if (qr_test_hooks() && is_string($override) && $override !== '') {
         $base = rtrim($override, '/');
     }
     $wait = (int) (QR_CLOCK_GAP_US - (microtime(true) - $last) * 1000000);

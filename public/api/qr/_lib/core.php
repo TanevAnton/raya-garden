@@ -89,10 +89,42 @@ function qr_body(): array
  */
 function qr_now(): int
 {
-    if (getenv('RAYA_QR_TEST') === '1' && isset($_SERVER['HTTP_X_TEST_NOW'])) {
+    if (qr_test_hooks() && isset($_SERVER['HTTP_X_TEST_NOW'])) {
         return (int) $_SERVER['HTTP_X_TEST_NOW'];
     }
     return time();
+}
+
+/**
+ * The test harness's hooks (a clock set per request, a fake Stripe, Clock or
+ * mail): only on a server started with RAYA_QR_TEST=1, which production never
+ * is — and never in the registered version (qr_supto_on).
+ */
+function qr_test_hooks(): bool
+{
+    return getenv('RAYA_QR_TEST') === '1' && !qr_supto_on();
+}
+
+/**
+ * The registered version (Наредба Н-18, Annex 29 т. 20: no test or training
+ * mode): 'supto' => 'on' in raya-qr-config.php, from the QR_SUPTO secret.
+ * Then Stripe's test keys don't count as configured, receipts and Clock only
+ * run 'live', and the test hooks are gone.
+ */
+function qr_supto_on(): bool
+{
+    return (string) (qr_config()['supto'] ?? '') === 'on';
+}
+
+/**
+ * Orders paid to staff: off (29.10.2026) — QR orders are paid on the phone,
+ * by card, or not taken; on a pay-staff evening the QR code is the menu only
+ * and the waiter takes the order in Clock. 'staff_orders' => 'on' brings
+ * them back (never with 'supto').
+ */
+function qr_staff_orders_on(): bool
+{
+    return (string) (qr_config()['staff_orders'] ?? '') === 'on' && !qr_supto_on();
 }
 
 // ── configuration ────────────────────────────────────────────────────
@@ -154,6 +186,11 @@ function qr_data_dir(): string
 // asks for "everything after seq N", so it can never skip a change.
 
 const QR_SCHEMA_VERSION = 15;
+
+// The version of the sales software, as declared to НАП (Annex 31): raise
+// it with every change to the sales part or the database (_manifest.json
+// carries it; _lib/integrity.php logs each version as it starts).
+const QR_VERSION = '1.0.0';
 
 function qr_db(): PDO
 {
@@ -734,6 +771,11 @@ function qr_migrate(PDO $pdo)
             // seconds off its own (NULL: unknown), when it last set it, why it
             // couldn't; and how far the bridge's clock is from this server's.
             //
+            // menu_items: every item and variant the menu has had, with when it
+            // first appeared, last changed and was removed (Annex 29 т. 15,
+            // 18.9); integrity: the last check of the code against its
+            // manifest (т. 4). Both kept by _lib/integrity.php.
+            //
             // УНП (Annex 29 т. 9): orders.usn for a sale paid on the phone,
             // tabs.usn for a table's bill — given when the order is placed or
             // the bill opened, from usn_counters, one sequence per printer.
@@ -773,6 +815,26 @@ function qr_migrate(PDO $pdo)
                 );
                 ALTER TABLE orders ADD COLUMN usn TEXT NOT NULL DEFAULT '';
                 ALTER TABLE tabs ADD COLUMN usn TEXT NOT NULL DEFAULT '';
+                CREATE TABLE IF NOT EXISTS menu_items (
+                    code TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    price_cents INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    first_at INTEGER NOT NULL,
+                    changed_at INTEGER NOT NULL,
+                    removed_at INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS integrity (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    checked_at INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT '',
+                    detail TEXT NOT NULL DEFAULT '',
+                    version TEXT NOT NULL DEFAULT '',
+                    commit_id TEXT NOT NULL DEFAULT '',
+                    manifest_stamp TEXT NOT NULL DEFAULT '',
+                    menu_stamp TEXT NOT NULL DEFAULT ''
+                );
+                INSERT OR IGNORE INTO integrity (id) VALUES (1);
                 ALTER TABLE fiscal_bridge ADD COLUMN clock_drift INTEGER;
                 ALTER TABLE fiscal_bridge ADD COLUMN clock_synced_at INTEGER NOT NULL DEFAULT 0;
                 ALTER TABLE fiscal_bridge ADD COLUMN clock_error TEXT NOT NULL DEFAULT '';
@@ -1069,6 +1131,10 @@ function qr_state(array $settings, int $now): array
     if ($reason === null && $payment === 'online' && !$fiscal['ready']) {
         $reason = 'printer';
     }
+    // Paying staff: the QR code is the menu only, the waiter takes the order.
+    if ($reason === null && $payment === 'on_site' && !qr_staff_orders_on()) {
+        $reason = 'menu_only';
+    }
     $stations = [];
     foreach (QR_STATIONS as $station) {
         $at = (int) ($settings[$station . '_closes_at'] ?? 0);
@@ -1102,6 +1168,8 @@ function qr_state(array $settings, int $now): array
         'paymentMode' => (string) ($settings['payment_mode'] ?? 'on_site'),
         'paymentsConfigured' => qr_stripe_configured(),
         'paymentsTest' => qr_stripe_test_mode(),
+        'staffOrders' => qr_staff_orders_on(),
+        'supto' => qr_supto_on(),
         'tips' => qr_tips_on(),
         'now' => $now,
     ];
@@ -1126,7 +1194,7 @@ function qr_fiscal_configured(): bool
 function qr_fiscal_mode(): string
 {
     $mode = (string) (qr_config()['fiscal_mode'] ?? 'off');
-    if (($mode !== 'test' && $mode !== 'live') || !qr_fiscal_configured()) {
+    if (($mode !== 'test' && $mode !== 'live') || !qr_fiscal_configured() || ($mode === 'test' && qr_supto_on())) {
         return '';
     }
     return ($mode === 'test') === qr_stripe_test_mode() ? $mode : '';
@@ -1175,7 +1243,8 @@ function qr_tips_on(): bool
 function qr_stripe_configured(): bool
 {
     $config = qr_config();
-    return !empty($config['stripe_secret_key']) && !empty($config['stripe_webhook_secret']);
+    return !empty($config['stripe_secret_key']) && !empty($config['stripe_webhook_secret'])
+        && !(qr_supto_on() && qr_stripe_test_mode()); // the registered version takes no test payments
 }
 
 /** A test-mode key (sk_test_ / rk_test_): no real money moves. */

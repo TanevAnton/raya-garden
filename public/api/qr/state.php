@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 define('RAYA_QR', true);
 require __DIR__ . '/_lib/core.php';
+require __DIR__ . '/_lib/integrity.php';
 
 qr_require_method('GET');
+qr_integrity_tick(qr_now()); // the code and the menu, checked every few minutes
 $state = qr_state(qr_settings(), qr_now());
 $state['soldOut'] = qr_sold_out();
 $state['menuVersion'] = (string) (qr_menu()['version'] ?? '');

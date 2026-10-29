@@ -296,6 +296,9 @@ export default function MenuApp() {
       } else if (res.error === "closed") {
         setProblem({ kind: "closed" });
         reload();
+      } else if (res.error === "printer_not_ready") {
+        setProblem({ kind: "printer" });
+        reload();
       } else if (res.error === "table_invalid") {
         setProblem({ kind: "table", n: table });
         setTable(null);
@@ -568,6 +571,7 @@ function StatusBanner({ t, lang, state, failed, reload }) {
   }
   let message = t.closed;
   if (state.reason === "paused") message = t.paused;
+  else if (state.reason === "printer") message = t.printerNotReady;
   else if (state.reason === "not_yet_open") {
     const today = sofiaDate(state.now) === sofiaDate(state.opensAt);
     message = today
@@ -853,6 +857,7 @@ function Review({ t, lang, cart, total, tip, table, open, confirmed, setConfirme
 function Problem({ t, problem }) {
   const text = {
     closed: t.closed,
+    printer: t.printerNotReady,
     rate: t.rateLimited,
     network: t.network,
     error: t.error,

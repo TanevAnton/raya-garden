@@ -182,6 +182,11 @@ function qr_place_order(array $body, string $idemKey, int $now): array
         } elseif ($tip > $total) {
             return [400, ['ok' => false, 'error' => 'invalid', 'field' => 'tip']];
         }
+        if ($state['payment'] === 'tab' && !$state['fiscal']['ready']
+            && qr_open_tab($pdo, $table, (string) $settings['service_date'], false, $now) === null) {
+            // A new bill is a new sale: not while the fiscal printer isn't ready.
+            return [409, ['ok' => false, 'error' => 'printer_not_ready', 'state' => $state]];
+        }
         $tab = $state['payment'] === 'tab' ? qr_open_tab($pdo, $table, (string) $settings['service_date'], true, $now) : null;
         $stations = array_fill_keys(QR_STATIONS, '');
         foreach ($resolved as $r) {

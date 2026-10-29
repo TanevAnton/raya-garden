@@ -54,9 +54,16 @@ async function setUp(paymentMode = "online") {
   assert.equal((await admin.login()).status, 200);
   const res = await admin.admin("/api/qr/admin/settings.php", { ...EVENING, tables: 12, disabledTables: [], paused: false, paymentMode });
   assert.equal(res.status, 200, res.text);
+  await bridge().check(); // the printer is there and ready: phone payments may start
   return admin;
 }
 const guest = () => client(srv.base, { now: AT_20H });
+/** Signed in again, without starting over. */
+async function setUpAdmin() {
+  const admin = client(srv.base, { now: AT_20H });
+  assert.equal((await admin.login()).status, 200);
+  return admin;
+}
 async function paid(table, lines, extra = {}) {
   const res = await guest().post("/api/qr/order.php", orderBody(menu, table, lines, extra), { headers: { "Idempotency-Key": newKey() } });
   assert.equal(res.status, 201, res.text);
@@ -83,14 +90,101 @@ async function drain(b = bridge(), rounds = 10) {
   }
 }
 
+describe("fiscal receipts: no sale or payment the printer can't take (Annex 29 т. 8)", () => {
+  const order = (table, lines = [["tiramisu"]]) => guest().post("/api/qr/order.php", orderBody(menu, table, lines), { headers: { "Idempotency-Key": newKey() } });
+  const state = async () => (await guest().get("/api/qr/state.php")).body;
+
+  it("paying on the phone: ordering stops while the bridge is unheard or the printer not ready, and starts again", async () => {
+    await setUp();
+    assert.deepEqual([(await state()).open, (await state()).fiscal], [true, { required: true, ready: true, reason: "" }]);
+
+    printer.setStatusOk(false);
+    await bridge().check();
+    let s = await state();
+    assert.deepEqual([s.open, s.reason, s.fiscal.reason], [false, "printer", "printer"]);
+    const refused = await order(4);
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.error, "closed");
+    assert.equal(stripe.sessions.size, 0, "no payment started");
+
+    printer.setStatusOk(true);
+    await bridge().check();
+    assert.equal((await state()).open, true);
+    assert.equal((await order(4)).status, 201);
+
+    // The bridge stops asking: 90 seconds later it counts as gone.
+    const later = await client(srv.base, { now: now() + 120 }).get("/api/qr/state.php");
+    assert.deepEqual([later.body.open, later.body.fiscal.reason], [false, "offline"]);
+  });
+
+  it("without receipts switched on, or on evenings paid to staff, nothing waits for the printer", async () => {
+    srv.config({ fiscal_mode: null });
+    await setUp();
+    printer.setStatusOk(false);
+    assert.deepEqual((await state()).fiscal, { required: false, ready: true, reason: "" });
+    srv.config(FISCAL);
+    await setUp("on_site");
+    printer.setStatusOk(false);
+    await bridge().check();
+    assert.equal((await state()).open, true);
+  });
+
+  it("a bill: orders onto an open bill go on; a new bill and paying wait", async () => {
+    await setUp("tab");
+    const first = await order(5);
+    assert.equal(first.status, 201);
+    printer.setStatusOk(false);
+    await bridge().check();
+    assert.equal((await state()).open, true, "the menu stays open on a bill evening");
+    assert.equal((await order(5)).status, 201, "onto the open bill");
+    const fresh = await order(6);
+    assert.deepEqual([fresh.status, fresh.body.error], [409, "printer_not_ready"]);
+    const pay = await guest().post("/api/qr/bill-pay.php", { table: 5, lang: "bg", items: [{ code: first.body.order.code, line: 0 }], expectedAmount: price("tiramisu") }, { headers: { "Idempotency-Key": newKey() } });
+    assert.deepEqual([pay.status, pay.body.error], [409, "printer_not_ready"]);
+  });
+});
+
+describe("fiscal receipts: the printer's clock (Annex 29 т. 5)", () => {
+  it("the bridge sets it when it starts, then only when it drifts or a day has passed", async () => {
+    await setUp();
+    assert.equal(printer.clockSets.length, 1, "set when the bridge started");
+    const b = bridge();
+    await b.step();
+    await b.step();
+    assert.equal(printer.clockSets.length, 2, "a new bridge sets it once; the next rounds leave it");
+    printer.setClock(45);
+    await b.step();
+    assert.equal(printer.clockSets.length, 3, "45 seconds off: set again");
+    const feed = (await (await setUpAdmin()).get("/api/qr/admin/feed.php?since=0")).body;
+    assert.equal(feed.fiscal.clockDrift, 0);
+    assert.ok(feed.fiscal.clockSyncedAt > 0);
+  });
+
+  it("a printer that won't take the time and is over 5 minutes off stops phone payments, and says why", async () => {
+    await setUp();
+    printer.refuseClock(true);
+    printer.setClock(-400);
+    await bridge().check();
+    const s = (await guest().get("/api/qr/state.php")).body;
+    assert.deepEqual([s.open, s.fiscal.reason], [false, "clock"]);
+    const feed = (await (await setUpAdmin()).get("/api/qr/admin/feed.php?since=0")).body;
+    assert.ok(Math.abs(feed.fiscal.clockDrift + 400) <= 2, String(feed.fiscal.clockDrift));
+    assert.match(feed.fiscal.clockError, /Z report/);
+
+    printer.refuseClock(false);
+    await bridge().check();
+    assert.equal((await guest().get("/api/qr/state.php")).body.open, true);
+  });
+});
+
 describe("fiscal receipts: printing", () => {
   it("a paid order comes out of the printer once: its lines under their tax groups, the tip, paid by card, with an УНП", async () => {
     const admin = await setUp();
     const C = price("caesar", "chicken");
     const S = price("coca-cola-products");
     const placed = await paid(4, [["caesar", "chicken", 2], ["coca-cola-products", "std", 3, "sprite"]], { tip: 150 });
-    // No printer seen yet when it was placed: the УНП is given when the bridge claims it.
-    assert.deepEqual(docs().map((d) => [d.kind, d.status, d.usn]), [["sale", "pending", ""]]);
+    // The printer was seen when it was placed: the УНП is the order's.
+    assert.deepEqual(docs().map((d) => [d.kind, d.status, d.usn]), [["sale", "pending", `${PRINTER.serialNumber}-9001-0000001`]]);
 
     await drain();
     assert.equal(printer.paper.length, 1);
@@ -141,11 +235,14 @@ describe("fiscal receipts: printing", () => {
     assert.match(log[0].detail, /usn=DT279013-9001-0000001/);
   });
 
-  it("a printer not seen for 2 hours gives no УНП at ordering; the claim gives one", async () => {
+  it("a sale entered before receipts were switched on gets its УНП when the bridge claims it", async () => {
+    srv.config({ fiscal_mode: null });
     await setUp();
-    await bridge({ later: AT_20H - 3 * 3600 - now() }).check();
-    const placed = await paid(4, [["tiramisu"]]);
-    assert.equal(placed.order.usn, "");
+    const res = await guest().post("/api/qr/order.php", orderBody(menu, 4, [["tiramisu"]]), { headers: { "Idempotency-Key": newKey() } });
+    assert.equal(res.body.order.usn, "");
+    srv.config(FISCAL);
+    await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+    assert.deepEqual(docs().map((d) => d.usn), [""]);
     await drain();
     assert.deepEqual(printer.paper.map((p) => p.body.uniqueSaleNumber), ["DT279013-9001-0000001"]);
   });
@@ -401,8 +498,9 @@ describe("fiscal printer: reports and the duplicate", () => {
     await setUp();
     await paid(4, [["tiramisu"]]);
     const lines = await bridge().check();
-    assert.deepEqual(lines.map((l) => l[0]), ["✓", "✓", "✓"], lines.join("\n"));
-    assert.match(lines[2], /receipts are on \(test\)/);
+    assert.deepEqual(lines.map((l) => l[0]), ["✓", "✓", "✓", "✓"], lines.join("\n"));
+    assert.match(lines[2], /clock is set/);
+    assert.match(lines[3], /receipts are on \(test\)/);
     assert.equal(docs()[0].status, "pending", "nothing claimed");
     assert.equal(printer.paper.length, 0);
   });

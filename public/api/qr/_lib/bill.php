@@ -283,6 +283,11 @@ function qr_bill_pay(array $body, string $idemKey, int $now): array
         if (!qr_stripe_configured()) {
             return [409, ['ok' => false, 'error' => 'payments_not_configured']];
         }
+        // No payment the fiscal printer can't print a receipt for (Annex 29 т. 8).
+        $fiscal = qr_fiscal_ready('tab', $now);
+        if (!$fiscal['ready']) {
+            return [409, ['ok' => false, 'error' => 'printer_not_ready', 'reason' => $fiscal['reason']]];
+        }
         $tab = qr_open_tab($pdo, $table, (string) $settings['service_date'], false, $now);
         if ($tab === null) {
             return [409, ['ok' => false, 'error' => 'no_bill']];

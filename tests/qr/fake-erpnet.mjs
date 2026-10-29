@@ -5,6 +5,7 @@
 // the real one does. The "paper" is every receipt actually printed.
 import http from "node:http";
 import net from "node:net";
+import { sofiaLocal, parseSofia } from "../../tools/fiscal-bridge/bridge.mjs";
 
 const freePort = () =>
   new Promise((resolve) => {
@@ -38,6 +39,9 @@ export async function startFakeErpNet() {
   let hold = false; // tasks stay queued until release()
   const held = [];
   let statusOk = true;
+  let clockOffset = 0; // ms the printer's clock is ahead
+  let clockRefuses = false; // setting the time is refused (as some printers do before the Z report)
+  const clockSets = []; // every time the bridge set the clock
 
   const json = (res, status, body) => {
     res.writeHead(status, { "Content-Type": "application/json" });
@@ -86,8 +90,15 @@ export async function startFakeErpNet() {
     if (req.method === "GET" && url.pathname === `/printers/${PRINTER.id}`) return json(res, 200, PRINTER);
     if (req.method === "GET" && url.pathname === `/printers/${PRINTER.id}/status`) {
       return json(res, 200, statusOk
-        ? { ok: "true", deviceDateTime: new Date().toISOString().slice(0, 19), messages: [] }
+        ? { ok: "true", deviceDateTime: sofiaLocal(Date.now() + clockOffset), messages: [] }
         : { ok: "false", messages: [{ type: "error", code: "E302", text: "The paper cover is open" }] });
+    }
+    if (req.method === "POST" && url.pathname === `/printers/${PRINTER.id}/datetime`) {
+      const { deviceDateTime } = JSON.parse(raw);
+      if (clockRefuses) return json(res, 200, { ok: "false", messages: [{ type: "error", code: "E405", text: "Date and time can be set only after a Z report" }] });
+      clockSets.push(deviceDateTime);
+      clockOffset = parseSofia(deviceDateTime) - Date.now();
+      return json(res, 200, { ok: "true", messages: [] });
     }
     const report = url.pathname.match(new RegExp(`^/printers/${PRINTER.id}/(zreport|xreport|duplicate)$`));
     if (req.method === "POST" && report) {
@@ -133,6 +144,10 @@ export async function startFakeErpNet() {
     /** ErpNet.FP restarted: every task's information is gone (what printed stays printed). */
     restart: () => tasks.clear(),
     setStatusOk: (ok) => (statusOk = ok),
+    clockSets,
+    /** The printer's clock runs this many seconds ahead (negative: behind). */
+    setClock: (seconds) => (clockOffset = seconds * 1000),
+    refuseClock: (refuse) => (clockRefuses = refuse),
     reset: () => {
       paper.length = 0;
       posts.length = 0;
@@ -143,6 +158,9 @@ export async function startFakeErpNet() {
       failNext = null;
       hold = false;
       statusOk = true;
+      clockOffset = 0;
+      clockRefuses = false;
+      clockSets.length = 0;
     },
     stop: () => new Promise((r) => server.close(r)),
   };

@@ -462,6 +462,28 @@ sign-outs, settings, sold-out items and staff-account changes are in it
 too. „История“ downloads it for an evening or a month ("журнал на
 операциите"), with the operator columns.
 
+### No sale the printer can't take (Annex 29 т. 5 and 8)
+
+With the fiscal mode on and guests paying on the phone, a sale is opened
+and paid only while the printer is ready: the bridge heard from within 90
+seconds, the printer reporting no error, and its clock within 5 minutes of
+the right time.
+- **Pay on the phone:** ordering stops (the menu says "the receipt printer
+  isn't ready, please ask a waiter"; `state.php` `reason: "printer"`), and
+  starts again by itself.
+- **Pay at the end:** orders onto a bill already open go on; a new bill
+  and paying from the phone wait (`409 printer_not_ready`).
+- The staff screen shows a red line across the top while this lasts.
+- Pay-staff evenings, and the fiscal mode off: nothing waits.
+
+**The printer's clock** follows the bridge computer's (kept right by its
+operating system): the bridge sets it when it starts, at least once a day,
+and whenever it's over 30 seconds off (ErpNet.FP `POST /printers/{id}/datetime`).
+If the printer refuses (some only take a new time after the Z report),
+„За касата“ says how far off it is; past 5 minutes, phone payments stop.
+„За касата“ also warns when the bridge computer's clock is over a minute
+from the website's.
+
 ### The УНП (unique sale number)
 
 `<printer serial>-<operator code>-<7 digits>`, given **when the sale is
@@ -470,8 +492,9 @@ evening, when the table's bill opens on a "pay at the end" evening (every
 payment from that bill carries the bill's УНП). One sequence per printer
 (`usn_counters`). The operator code is `9001`: guests enter the sales. It is
 given only when the fiscal mode is on and the bridge has reported its
-printer within the last 2 hours; otherwise the receipt gets it when the
-bridge claims it. It's shown on the order card and the bill in /admin.
+printer within the last 2 hours (with the readiness check above, it always
+has); a sale entered before the fiscal mode was switched on gets it when
+the bridge claims it. It's shown on the order card and the bill in /admin.
 "Pay staff" evenings get none (the sale is Clock's). ⚠ To check on the real
 printer: that it takes the same УНП on several receipts of one bill.
 

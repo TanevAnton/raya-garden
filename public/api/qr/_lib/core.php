@@ -730,6 +730,10 @@ function qr_migrate(PDO $pdo)
             // operator on every row of audit_log; the triggers are made again
             // below with the operator's code and name.
             //
+            // The printer's clock (Annex 29 т. 5), as the bridge reports it:
+            // seconds off its own (NULL: unknown), when it last set it, why it
+            // couldn't; and how far the bridge's clock is from this server's.
+            //
             // УНП (Annex 29 т. 9): orders.usn for a sale paid on the phone,
             // tabs.usn for a table's bill — given when the order is placed or
             // the bill opened, from usn_counters, one sequence per printer.
@@ -769,6 +773,10 @@ function qr_migrate(PDO $pdo)
                 );
                 ALTER TABLE orders ADD COLUMN usn TEXT NOT NULL DEFAULT '';
                 ALTER TABLE tabs ADD COLUMN usn TEXT NOT NULL DEFAULT '';
+                ALTER TABLE fiscal_bridge ADD COLUMN clock_drift INTEGER;
+                ALTER TABLE fiscal_bridge ADD COLUMN clock_synced_at INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE fiscal_bridge ADD COLUMN clock_error TEXT NOT NULL DEFAULT '';
+                ALTER TABLE fiscal_bridge ADD COLUMN bridge_drift INTEGER NOT NULL DEFAULT 0;
                 ALTER TABLE audit_log ADD COLUMN operator TEXT NOT NULL DEFAULT '';
                 ALTER TABLE audit_log ADD COLUMN operator_name TEXT NOT NULL DEFAULT '';
                 CREATE INDEX IF NOT EXISTS audit_log_operator ON audit_log (operator, at);
@@ -1052,6 +1060,15 @@ function qr_state(array $settings, int $now): array
     } elseif ($now >= $closesAt) {
         $reason = 'closed';
     }
+    $payment = in_array($settings['payment_mode'] ?? '', ['online', 'tab'], true) && qr_stripe_configured()
+        ? (string) $settings['payment_mode'] : 'on_site';
+    // Paying on the phone, every order is a sale opened and paid at once:
+    // none while the fiscal printer isn't ready. On a bill, orders onto a
+    // bill already open go on; a new bill, and paying, wait (bill.php).
+    $fiscal = qr_fiscal_ready($payment, $now);
+    if ($reason === null && $payment === 'online' && !$fiscal['ready']) {
+        $reason = 'printer';
+    }
     $stations = [];
     foreach (QR_STATIONS as $station) {
         $at = (int) ($settings[$station . '_closes_at'] ?? 0);
@@ -1079,14 +1096,67 @@ function qr_state(array $settings, int $now): array
         // bill; anyone at the table pays chosen items on the phone at the
         // end). The last two only while Stripe is configured: with the keys
         // gone, ordering falls back to paying staff.
-        'payment' => in_array($settings['payment_mode'] ?? '', ['online', 'tab'], true) && qr_stripe_configured()
-            ? (string) $settings['payment_mode'] : 'on_site',
+        'payment' => $payment,
+        // The fiscal printer, when payments need it: ready, or why not.
+        'fiscal' => $fiscal,
         'paymentMode' => (string) ($settings['payment_mode'] ?? 'on_site'),
         'paymentsConfigured' => qr_stripe_configured(),
         'paymentsTest' => qr_stripe_test_mode(),
         'tips' => qr_tips_on(),
         'now' => $now,
     ];
+}
+
+// ── the fiscal printer for phone payments (the queue: _lib/fiscal.php) ──
+
+const QR_FISCAL_BRIDGE_LOST = 90;   // the bridge counts as offline after this long unheard
+const QR_FISCAL_CLOCK_STOP = 300;   // a printer clock this many seconds off stops phone payments
+
+/** The bridge has a key: receipts can be printed. */
+function qr_fiscal_configured(): bool
+{
+    return strlen((string) (qr_config()['fiscal_bridge_token'] ?? '')) >= 32;
+}
+
+/**
+ * Which payments are printed now: 'test' (made with Stripe's test keys),
+ * 'live' (real ones), or '' — none. A mode that does not match the Stripe
+ * keys prints nothing.
+ */
+function qr_fiscal_mode(): string
+{
+    $mode = (string) (qr_config()['fiscal_mode'] ?? 'off');
+    if (($mode !== 'test' && $mode !== 'live') || !qr_fiscal_configured()) {
+        return '';
+    }
+    return ($mode === 'test') === qr_stripe_test_mode() ? $mode : '';
+}
+
+/**
+ * Can a sale be opened, or a payment taken, now (Annex 29 т. 8)? Only when
+ * the fiscal mode is on and payments go through the phone: then the bridge
+ * must have been heard within QR_FISCAL_BRIDGE_LOST and its printer be
+ * ready, its clock within QR_FISCAL_CLOCK_STOP of the right time (Annex 29
+ * т. 5). ['required' => bool, 'ready' => bool, 'reason' => '' | 'offline' | 'printer' | 'clock'].
+ */
+function qr_fiscal_ready(string $payment, int $now): array
+{
+    if (qr_fiscal_mode() === '' || ($payment !== 'online' && $payment !== 'tab')) {
+        return ['required' => false, 'ready' => true, 'reason' => ''];
+    }
+    $find = qr_db()->query('SELECT last_seen, printer_ok, clock_drift FROM fiscal_bridge WHERE id = 1');
+    $row = $find->fetch();
+    $find->closeCursor();
+    if (!is_array($row) || (int) $row['last_seen'] < $now - QR_FISCAL_BRIDGE_LOST) {
+        return ['required' => true, 'ready' => false, 'reason' => 'offline'];
+    }
+    if ((int) $row['printer_ok'] !== 1) {
+        return ['required' => true, 'ready' => false, 'reason' => 'printer'];
+    }
+    if ($row['clock_drift'] === null || abs((int) $row['clock_drift']) > QR_FISCAL_CLOCK_STOP) {
+        return ['required' => true, 'ready' => false, 'reason' => 'clock'];
+    }
+    return ['required' => true, 'ready' => true, 'reason' => ''];
 }
 
 // ── payments configured? (the calls themselves are in _lib/pay.php) ──

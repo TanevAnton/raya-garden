@@ -855,6 +855,20 @@ started. Phase 1:
   printing never waits on it. Phase 2 will block ordering instead.
 - **Pausing stays with everyone**; the rest of „Вечерта“ is a manager's.
 
+## Printer readiness and its clock, 29.10.2026 (СУПТО phase 2)
+
+- **Ready** = the bridge heard within 90 s (its poll is every 3 s), the
+  printer without errors, its clock within 5 minutes. Not the 2 hours
+  Annex 29 allows for the УНП: that's how old the printer serial may be,
+  not whether a receipt can print now.
+- **On a bill evening only new bills and payments wait**; orders onto an
+  open bill are part of a sale already opened, and stopping the kitchen
+  over a printer would be worse for guests than the law asks.
+- **The clock follows the bridge computer**, not the server: the computer
+  is beside the printer and on NTP; the server's clock is compared and only
+  warned about. The 30 s / 5 min thresholds are ours; a printer that refuses
+  a new time before its Z report is reported, not forced.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

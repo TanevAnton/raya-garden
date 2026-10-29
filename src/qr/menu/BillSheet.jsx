@@ -108,6 +108,7 @@ export default function BillSheet({ t, lang, table, tips, myCodes, returned, onC
         setProblem(t.billChanged);
       } else if (res.error === "payment_unavailable") setProblem(t.paymentUnavailable);
       else if (res.error === "rate_limited") setProblem(t.rateLimited);
+      else if (res.error === "printer_not_ready") setProblem(t.printerNotReady);
       else {
         attempt.current = { key: null, sig: null };
         setProblem(t.error);

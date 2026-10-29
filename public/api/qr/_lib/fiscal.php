@@ -63,7 +63,6 @@ require_once __DIR__ . '/clock.php';
 
 const QR_FISCAL_TRIES = 6;          // tries per receipt before it stops at 'failed'
 const QR_FISCAL_LEASE = 120;        // a claim not reported by then goes back to the queue
-const QR_FISCAL_BRIDGE_LOST = 90;   // the bridge counts as offline after this long unheard
 const QR_FISCAL_BACKOFF = [30, 120, 600, 1800, 3600];
 
 const QR_USN_PRINTER_AGE = 7200;    // an УНП may name a printer seen within the last 2 hours (Annex 29 т. 8)
@@ -132,25 +131,7 @@ function qr_fiscal_settings(): array
     return $settings;
 }
 
-/** The bridge has a key: receipts can be printed. */
-function qr_fiscal_configured(): bool
-{
-    return strlen((string) (qr_config()['fiscal_bridge_token'] ?? '')) >= 32;
-}
-
-/**
- * Which payments are printed now: 'test' (made with Stripe's test keys),
- * 'live' (real ones), or '' — none. A mode that does not match the Stripe
- * keys prints nothing.
- */
-function qr_fiscal_mode(): string
-{
-    $mode = (string) (qr_config()['fiscal_mode'] ?? 'off');
-    if (($mode !== 'test' && $mode !== 'live') || !qr_fiscal_configured()) {
-        return '';
-    }
-    return ($mode === 'test') === qr_stripe_test_mode() ? $mode : '';
-}
+// (qr_fiscal_mode(), qr_fiscal_ready(): core.php — the guest's state needs them.)
 
 // ── queueing (inside the payment's or refund's write transaction) ────
 
@@ -288,6 +269,14 @@ function qr_fiscal_claim(array $bridge, int $now)
 {
     return qr_write(function (PDO $pdo) use ($bridge, $now) {
         $printer = is_array($bridge['printer'] ?? null) ? $bridge['printer'] : [];
+        $clock = is_array($printer['clock'] ?? null) ? $printer['clock'] : [];
+        $drift = isset($clock['drift']) && is_numeric($clock['drift']) ? (int) $clock['drift'] : null;
+        $pdo->prepare('UPDATE fiscal_bridge SET clock_drift = ?, clock_synced_at = ?, clock_error = ?, bridge_drift = ? WHERE id = 1')
+            ->execute([
+                $drift, isset($clock['syncedAt']) ? (int) floor((float) $clock['syncedAt'] / 1000) : 0,
+                mb_substr((string) ($clock['error'] ?? ''), 0, 300),
+                isset($clock['now']) && is_numeric($clock['now']) ? (int) $clock['now'] - $now : 0,
+            ]);
         $pdo->prepare('UPDATE fiscal_bridge SET last_seen = ?, version = ?, printer_id = ?, printer_serial = ?, printer_ok = ?, message = ?, seq = ? WHERE id = 1')
             ->execute([
                 $now, mb_substr((string) ($bridge['version'] ?? ''), 0, 40),
@@ -730,5 +719,11 @@ function qr_fiscal_bridge_json(PDO $pdo, int $now): array
         'printerOk' => is_array($row) && (int) $row['printer_ok'] === 1,
         'printer' => is_array($row) ? (string) $row['printer_serial'] : '',
         'message' => is_array($row) ? (string) $row['message'] : '',
+        // The printer's clock: seconds off (null: unknown), last set, why not.
+        'clockDrift' => is_array($row) && $row['clock_drift'] !== null ? (int) $row['clock_drift'] : null,
+        'clockSyncedAt' => is_array($row) ? (int) $row['clock_synced_at'] : 0,
+        'clockError' => is_array($row) ? (string) $row['clock_error'] : '',
+        // This server's clock against the bridge's: worth a look past a minute.
+        'bridgeDrift' => is_array($row) ? (int) $row['bridge_drift'] : 0,
     ];
 }

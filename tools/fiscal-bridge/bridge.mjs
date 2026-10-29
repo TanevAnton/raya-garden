@@ -43,6 +43,24 @@ import path from "node:path";
 export const VERSION = "1.0.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const CLOCK_EVERY_MS = 24 * 3600 * 1000; // the printer's clock is set at least daily (Наредба Н-18, Annex 29 т. 5) …
+const CLOCK_DRIFT_S = 30; // … and whenever it is this far off
+
+/** A time as the printer keeps it: Sofia wall-clock, "2026-10-29T20:15:00". */
+export function sofiaLocal(ms) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Sofia", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(new Date(ms)).replace(" ", "T");
+}
+
+/** The other way round: a Sofia wall-clock time to milliseconds. */
+export function parseSofia(text) {
+  const guess = Date.parse(`${text.slice(0, 19)}Z`);
+  if (Number.isNaN(guess)) return NaN;
+  const offset = Date.parse(`${sofiaLocal(guess)}Z`) - guess;
+  return guess - offset;
+}
 
 /** The settings: environment first, then config.json. */
 export function loadConfig(env = process.env) {
@@ -85,6 +103,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   const journal = new Journal(config.journal);
   const waitMs = config.waitMs ?? 90000;
   let printer = null; // ErpNet.FP's device info
+  let clock = { syncedAt: 0, drift: null, error: "" }; // the printer's clock: last set, seconds off, why it couldn't be set
 
   async function server(pathname, body) {
     const res = await fetch(`${config.server}${pathname}`, {
@@ -120,10 +139,37 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
       }
       const status = await erpnet(`/printers/${printer.id}/status`);
       const problems = (status.messages || []).filter((m) => m.type === "error").map((m) => `${m.code || ""} ${m.text}`.trim());
-      return { id: printer.id, serialNumber: printer.serialNumber, ok: truthy(status.ok) && !problems.length, message: problems.join("; ") };
+      const ok = truthy(status.ok) && !problems.length;
+      if (ok) await keepTime(status);
+      return {
+        id: printer.id, serialNumber: printer.serialNumber, ok, message: problems.join("; "),
+        clock: { ...clock, now: Math.floor(Date.now() / 1000) },
+      };
     } catch (e) {
       printer = null;
       return { ok: false, message: `ErpNet.FP: ${e.message}` };
+    }
+  }
+
+  /**
+   * The printer's clock follows this computer's (kept right by the operating
+   * system): set when the bridge starts, at least daily, and whenever it is
+   * more than CLOCK_DRIFT_S off. A printer that refuses (some only take a
+   * new time after the day's Z report) is reported, with how far off it is.
+   */
+  async function keepTime(status) {
+    const at = parseSofia(String(status.deviceDateTime || ""));
+    clock.drift = Number.isNaN(at) ? null : Math.round((at - Date.now()) / 1000);
+    const due = !clock.syncedAt || Date.now() - clock.syncedAt >= CLOCK_EVERY_MS || clock.drift === null || Math.abs(clock.drift) > CLOCK_DRIFT_S;
+    if (!due) return;
+    try {
+      const result = await erpnet(`/printers/${printer.id}/datetime`, { method: "POST", body: { deviceDateTime: sofiaLocal(Date.now()) } });
+      if (result && result.ok !== undefined && !truthy(result.ok)) throw new Error(errorsOf(result));
+      clock = { syncedAt: Date.now(), drift: 0, error: "" };
+      log(`the printer's clock is set to ${sofiaLocal(Date.now())}`);
+    } catch (e) {
+      clock.error = e.message;
+      log(`the printer's clock could not be set: ${e.message}`);
     }
   }
 
@@ -295,6 +341,11 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     out.push(printer ? `✓ ErpNet.FP ${config.erpnet}: printer ${printer.id} (${printer.manufacturer || ""} ${printer.model || ""}, ${printer.serialNumber})`
       : `✗ ErpNet.FP ${config.erpnet}: ${state.message}`);
     if (printer) out.push(state.ok ? "✓ the printer is ready" : `✗ the printer is not ready: ${state.message}`);
+    if (state.ok) {
+      out.push(state.clock.error
+        ? `✗ the printer's clock could not be set (${state.clock.error}); it is ${state.clock.drift ?? "?"} s off`
+        : `✓ the printer's clock is set (${sofiaLocal(Date.now())})`);
+    }
     try {
       const res = await server("/api/qr/fiscal/claim.php", { version: VERSION, printer: state, check: true });
       out.push(res.status === 200

@@ -288,7 +288,7 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
 });
 
 describe("paying on the phone, with the fiscal printer", () => {
-  it("„За касата“ shows a receipt that did not print, prints it again, then shows its number; and warns when the bridge is quiet", async () => {
+  it("„За касата“ shows a receipt that did not print, prints it again, then shows its number; and warns when the printer isn't ready", async () => {
     const printer = await startFakeErpNet();
     const KEY = "e2e-bridge-key-0123456789abcdef0123456789";
     srv.config({ fiscal_mode: "test", fiscal_bridge_token: KEY });
@@ -302,6 +302,7 @@ describe("paying on the phone, with the fiscal printer", () => {
     const staff = await phone();
     try {
       await openEvening();
+      await bridge.check(); // the printer is there: phone payments may start
       const menu = srv.menu();
       const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, [["tiramisu"]]), { headers: { "Idempotency-Key": newKey() } });
       assert.equal(res.status, 201, res.text);
@@ -314,15 +315,19 @@ describe("paying on the phone, with the fiscal printer", () => {
       await staff.click("button[type=submit]");
       await staff.waitForSelector(`[data-order="${code}"]`);
       await clickText(staff, "nav", /За касата \(1\)/);
-      // No bridge has called in yet.
-      await staff.waitForSelector(`[data-fiscal-bridge="offline"]`);
+      // The printer stops being ready: a warning here, and phone payments stop.
+      printer.setStatusOk(false);
+      await bridge.check();
+      await staff.waitForSelector(`[data-fiscal-bridge="printer"]`, { timeout: 10000 });
+      await staff.waitForSelector(`[data-fiscal-block="printer"]`, { timeout: 10000 });
+      printer.setStatusOk(true);
       assert.match(await staff.$eval("[data-fiscal-mode]", (e) => e.innerText), /печата само на касата/);
 
       printer.failNext("E201", "The fiscal memory is full");
       await drain();
       await staff.waitForSelector(`[data-till="${code}"] [data-fiscal-status="failed"]`);
       assert.match(await staff.$eval(`[data-till="${code}"]`, (e) => e.innerText), /Не се отпечата: E201 The fiscal memory is full/);
-      await staff.waitForFunction(() => !document.querySelector("[data-fiscal-bridge]"), { timeout: 10000 });
+      await staff.waitForFunction(() => !document.querySelector("[data-fiscal-bridge]") && !document.querySelector("[data-fiscal-block]"), { timeout: 10000 });
       await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-fiscal-failed.png") : undefined, fullPage: true });
 
       await clickText(staff, `[data-till="${code}"]`, /Опитай пак/);

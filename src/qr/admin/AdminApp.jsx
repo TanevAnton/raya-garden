@@ -605,6 +605,16 @@ function Dashboard({ operator, onSignedOut }) {
         </div>
       )}
 
+      {state?.fiscal?.required && !state.fiscal.ready && (
+        <div role="alert" className="bg-red-950/80 border-b border-red-400/40 text-cream-50 text-sm px-4 py-3 text-center" data-fiscal-block={state.fiscal.reason}>
+          {state.payment === "online"
+            ? "Поръчките с плащане в телефона са спрени: касата за онлайн плащания не е готова. Гостите ще видят „повикайте сервитьор“."
+            : "Плащанията в телефона и новите сметки са спрени: касата за онлайн плащания не е готова. Поръчките към отворени сметки продължават."}
+          {" "}
+          {{ offline: "Мостът не отговаря — проверете компютъра до принтера.", clock: "Часовникът на касата е разминат с над 5 минути — вижте „За касата“." }[state.fiscal.reason] || "Проверете принтера (хартия, капак)."}
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 pt-4">
         {tab === "orders" && (
           <Orders
@@ -1164,7 +1174,17 @@ function Service({ state, onSaved, say, onSignedOut }) {
 
 /** The bridge in the restaurant and its printer, when something is wrong with either. */
 function FiscalBridge({ info }) {
-  if (info.online && info.printerOk) return null;
+  const clockOff = info.clockDrift === null || Math.abs(info.clockDrift) > 30;
+  if (info.online && info.printerOk && !clockOff && Math.abs(info.bridgeDrift || 0) <= 60) return null;
+  if (info.online && info.printerOk) {
+    return (
+      <p className="mb-3 border border-gold-300/40 rounded-sm px-3 py-2 text-sm text-gold-100" data-fiscal-clock>
+        {clockOff
+          ? `Часовникът на касата за онлайн плащания ${info.clockDrift === null ? "не се чете" : `е разминат с ${Math.abs(info.clockDrift)} сек.`}${info.clockError ? ` и не може да се сверѝ: ${info.clockError}` : ""}. Над 5 минути плащанията в телефона спират.`
+          : `Часовникът на компютъра до касата е разминат със сайта с ${Math.abs(info.bridgeDrift)} сек. Проверете датата и часа на компютъра.`}
+      </p>
+    );
+  }
   const since = info.lastSeen ? clock(info.lastSeen) : null;
   return (
     <p className="mb-3 border border-red-400/40 rounded-sm px-3 py-2 text-sm text-red-200" data-fiscal-bridge={info.online ? "printer" : "offline"}>

@@ -127,11 +127,12 @@ export const TABLES = {
     issued_at: "Издадена", email: "Имейл (изтрива се след 3 дни)", mail_status: "Изпращане", mail_tries: "Опити", mail_at: "Изпратена",
     mail_error: "Грешка",
   }],
-  clock_docs: ["Прехвърляния към Clock PMS+ (изключени до фаза 5).", {
+  clock_docs: ["Прехвърляне на продажбите в Clock PMS+ в края на деня: едно фолио за сметка. Само вече платени и фискализирани продажби; нищо от тях не се фискализира повторно.", {
     id: "Системен номер", test: "Тестово", kind: "Вид", sale_id: "Продажба", source: "Източник", source_id: "Номер", code: "Поръчка",
-    payment_intent: "Плащане", evening: "Вечер", lines_json: "Редове", total_cents: "Сума", tip_cents: "Бакшиш", status: "Състояние",
-    step: "Стъпка", inflight: "В ход", folio_id: "Фолио в Clock", folio_number: "Номер на фолиото", tries: "Опити", next_at: "Следващ опит",
+    payment_intent: "Плащане", evening: "Вечер", lines_json: "Редове", total_cents: "Сума", tip_cents: "Бакшиш", status: "Състояние: pending (чака), sending, done, failed, check, netted (върнато изцяло или отразено в продажбата), manual (не се изпраща)",
+    step: "Стъпка: 1 фолио, 2 редове, 3 плащане, 4 затворено", inflight: "В ход", folio_id: "Фолио в Clock", folio_number: "Номер на фолиото", tries: "Опити", next_at: "Следващ опит",
     claimed_at: "Взето", error: "Грешка", created_at: "Създадено", done_at: "Готово", seq: "Пореден номер на промяната",
+    due_at: "Кога тръгва: в края на работния ден", net_json: "Изпратените редове: продажбата без върнатото преди прехвърлянето",
   }],
   report_mails: ["Изпратени месечни отчети по имейл.", {
     id: "Системен номер", month: "Месец", recipient: "Получател", manual: "Ръчно", complete: "Пълен месец", status: "Състояние",

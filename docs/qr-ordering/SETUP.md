@@ -112,7 +112,7 @@ GitHub → the repository → Settings → Secrets and variables → Actions:
 | `QR_ADMIN_PASSWORD` | the shared password, at least 8 characters (set): only until the first manager account exists |
 | `QR_STRIPE_SECRET_KEY` | a **restricted** Stripe key, `rk_test_…` or `rk_live_…` (see below) |
 | `QR_STRIPE_WEBHOOK_SECRET` | the signing secret of the Stripe webhook, `whsec_…` |
-| `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "Phone payments into Clock PMS+") |
+| `QR_CLOCK_*` | Clock PMS+: mode, API user and key, ids (see "The end-of-day transfer to Clock") |
 | `QR_FISCAL_*` | the fiscal printer for phone payments: mode and the bridge's key (see "Fiscal receipts on the restaurant's own printer") |
 | `QR_STAFF_ORDERS` | `on` brings back orders paid to staff; unset (the default): on a pay-staff evening the QR code is the menu only |
 | `QR_SUPTO` | `on` for the version registered with НАП: no test keys, no test printing (see "The registered version") |
@@ -212,10 +212,10 @@ before index.html switches.
    shows "Потвърждаваме плащането…" until the server has Stripe's
    confirmation; the same holds for paying a table's bill.
 6. **"За касата"** lists every paid order still to be entered in the till
-   (Clock), and every refund to void there. With Clock connected (see "Phone
-   payments into Clock PMS+") the items go there by themselves, and staff
-   only add the card payment and close the folio, which prints the receipt.
-   Without it, one person enters them by hand and ticks each one off.
+   (Clock), and every refund to void there. With the fiscal printer on, only
+   what never printed stays here, to enter by hand; printed sales reach Clock
+   by themselves (see "The end-of-day transfer to Clock"). Without it, one
+   person enters them by hand and ticks each one off.
 
    ⚠ **Ask the accountant how the fiscal receipt works for payments taken this
    way**, before the first real evening.
@@ -302,11 +302,9 @@ keep it in step if this changes (`src/content/legal/privacy.jsx`).
    - *Public details*: the statement descriptor (e.g. `RAYA GARDEN`) and the
      contact shown at the foot of receipts.
    Stripe's receipt confirms the payment; it is not the fiscal receipt, which
-   comes from Clock when staff close the folio (see "Phone payments into
-   Clock PMS+"), or from „За касата“ entered by hand.
+   comes from our fiscal printer, or from „За касата“ entered by hand.
 6. The guest's e-receipt is off (see *The guest's e-receipt*). Fiscal
-   receipts for phone payments come from Clock, printed by staff (see
-   "Phone payments into Clock PMS+").
+   receipts for phone payments come from our fiscal printer.
 5. Which payment methods appear is set in Stripe → Settings → Payment methods;
    cards, Apple Pay and Google Pay are on by default. The code doesn't restrict
    it, and Stripe's own page needs no domain verification for Apple Pay.
@@ -549,8 +547,7 @@ printer: that it takes the same УНП on several receipts of one bill.
 `FISCAL-QUESTIONS-BG.md`, above all whether this makes our system "СУПТО"
 under Наредба Н-18 (Annex 29: УНП, audit log, НАП export, registration).
 The tax groups and the tip line are in `public/api/qr/_lib/fiscal-settings.php`
-and wait for them too. Don't run this and Clock's item transfer
-(`QR_CLOCK_MODE`) together: Clock has ruled that one out.
+and wait for them too.
 
 ### Settings
 
@@ -572,104 +569,60 @@ and wait for them too. Don't run this and Clock's item transfer
    a few seconds, and „За касата“ shows "бон № …".
 4. Take a line off with "Няма": a reversal receipt prints for it.
 
-## Phone payments into Clock PMS+
+## The end-of-day transfer to Clock
 
-Every payment Stripe confirms goes into Clock as a folio of its own, on one
-company, with its items (each under the charge template of its category)
-and the tip. This system sends nothing more: no payment, no closing.
+Our sales have to be in the restaurant's turnover in Clock (the condition for
+two СУПТО in one site). Each morning at 06:00 (`transfer_hour` in
+`public/api/qr/_lib/clock-settings.php`) the previous evening's card sales go
+to Clock, as its EOD Guide describes: one folio per bill on one company, its
+lines, the payment („Продажба чрез ФУ с ИН …“), closed without a document type.
+The bill and the УНП are in each charge's `print_text`.
 
-The waiter does the rest in Clock, as for any folio:
-1. open the folio;
-2. add the payment "карта" for its total (exactly what the guest paid);
-3. close it, and Clock prints the fiscal receipt.
+They go to a **separate POS account** with no fiscal policy and no devices, so
+nothing can print on the restaurant's printer. Staff do nothing in Clock.
 
-„За касата“ lists these folios under "Затвори в Clock", with the amount, and
-staff tick each one ("Затворих го ✓"). Collecting the money and the fiscal
-receipt stay with the restaurant, as Clock asked.
+- **The polls start it**, the bridge's above all, since it runs all night.
+- **Only printed sales go.** A receipt not out yet holds its sale back; one
+  entered by hand in Clock never goes.
+- **A refund before the transfer** is taken off: Clock gets the final result. A
+  bill refunded in full sends nothing.
+- **A refund after the transfer** is a folio of its own next morning, with
+  negative lines and a negative payment, on the refund's day. ⚠ Clock's reply
+  doesn't cover this case: confirm it with them at certification.
+- **A sale that could not get through** shows Clock's reason on „За касата“,
+  with *Опитай пак*.
+- Off unless receipts are on (`QR_FISCAL_MODE`): Clock only hears of fiscalised
+  sales.
 
-- **A refund before the folio is closed** puts the items that went back onto
-  it at a negative quantity, so it closes at what was actually paid.
-- **A refund after it was closed** is not sent: it waits under "Сторнирай в
-  Clock", to storno by hand.
-- **A payment that could not get through** shows Clock's reason, with
-  *Опитай пак* and the tick to enter it by hand.
+Before going live, on the live EOD POS account (ask Clock to activate it):
+1. a charge template for food and one for drinks, their ids in `clock-settings.php`;
+2. tax settings identical to the PMS account;
+3. Auto Revenue Date Offset 7, so the revenue date changes after the transfer;
+4. the integration on in AppConnector, which gives the API user and URL for
+   `QR_CLOCK_*`; a company for `QR_CLOCK_COMPANY_ID`.
 
-The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
+**Certification.** Clock tests only this transfer, with a few simulated bills
+in the sandbox (POS DEMO, 16516; `QR_CLOCK_CURRENCY` = `BGN`), once we say we're
+ready. It needs the API rights to create company folios, charges and payments and to
+close a folio.
 
-**Production access.** Clock gives access to the real account only after a
-certification meeting (see `CLOCK-CERTIFICATION-BG.md`). Until then it runs
-against Clock's sandbox only.
-
-### What Clock has to set up
-
-- **The restaurant's account, not the hotel's.** The folios belong in the
-  restaurant's Clock account, so the waiter closes them from the POS and the
-  receipt prints on the restaurant's printer. Companies are shared between
-  the hotel and the restaurant, folios are not. In the sandbox the restaurant
-  is POS DEMO (16516), and our API user has no access to it yet ("Access
-  denied to 'POS DEMO'"), so test folios still go to HOTEL DEMO (16515).
-  With access, only `QR_CLOCK_BASE_URL` changes (to `…/base_api/178954/16516`)
-  and the restaurant's own templates go into `clock-settings.php`.
-
-- **An API user** for the account, with these rights:
-  - companies: index;
-  - company folios: create;
-  - folios: show (to see whether staff closed one before a refund);
-  - charges: create and index (the index is how a lost answer is checked);
-  - charge templates: index.
-  Clock's support activates it (AppConnector); the account's own users can't
-  change its rights.
-- **A company for these folios** with *Accept charge transfers* ticked. You
-  can do this yourself: Companies → New Company, e.g. „QR меню – онлайн“;
-  the toggle is on the company's page after saving. Its id is the number at
-  the end of the page's address.
-- **Charge templates** for food and drinks (and, if wanted, the tip), with
-  every fixed attribute in them. Put their ids in
-  `public/api/qr/_lib/clock-settings.php`: `kitchen` and `bar` for
-  everything, and any category that needs its own. They're not secret, so
-  they live in the code; deploy after changing them. ⚠ The file holds the
-  sandbox's demo templates (Massage, Sauna) for now.
-
-### Settings: GitHub secrets
+### Settings
 
 | Secret | What |
 | --- | --- |
-| `QR_CLOCK_MODE` | `test` (only Stripe test payments are sent), `live` (only real ones), or `off` |
-| `QR_CLOCK_BASE_URL` | `https://sky-eu1.clock-software.com/base_api/<subscription>/<account>` |
-| `QR_CLOCK_API_USER` | the API user |
-| `QR_CLOCK_API_KEY` | its key |
-| `QR_CLOCK_COMPANY_ID` | the company with *Accept charge transfers* |
+| `QR_CLOCK_MODE` | `test` (only Stripe test payments go), `live` (only real ones), or `off` |
+| `QR_CLOCK_BASE_URL` | `https://<region>.clock-software.com/base_api/<subscription>/<the EOD POS account>` |
+| `QR_CLOCK_API_USER`, `QR_CLOCK_API_KEY` | that account's API user and key |
+| `QR_CLOCK_COMPANY_ID` | the company the folios are made on |
 | `QR_CLOCK_CURRENCY` | only if the account is not in EUR (Clock's sandbox is BGN only) |
 
-As for Stripe, a secret set to `off` removes its line, and nothing is ever
-printed. `php-check.php` shows:
-- `clock_mode` and `clock_configured`;
-- `clock_templates`, which templates are set;
-- `curl_reaches_clock`: `yes (HTTP 404)` (or 401). Any answer means the
-  server reaches Clock: the check sends no key and asks for no real page.
+`php-check.php` shows `clock_mode`, `clock_configured`, `clock_templates` and
+`curl_reaches_clock`.
 
-### Test against Clock's sandbox
+**To turn it off:** `QR_CLOCK_MODE` = `off`, and deploy. New sales are then not
+queued for Clock, so they'd have to reach its turnover another way.
 
-1. Set the secrets to the sandbox: mode `test`, its base URL, user and key,
-   the company, and `QR_CLOCK_CURRENCY` = `BGN`. Deploy.
-2. Pay a test order (Stripe's `4242 4242 4242 4242`). In Clock it is a new
-   folio on that company, with the items and the tip. On „За касата“ it is
-   under "Затвори в Clock", with the amount.
-3. In Clock: add the payment "карта" for that amount and close the folio.
-   Tick "Затворих го ✓".
-4. Take one line off with "Няма" before closing: it appears in the folio at
-   a negative quantity. After closing: it waits under "Сторнирай в Clock".
-
-### Going live
-
-After the certification: set the live account's base URL, user, key and
-company, put the live template ids in `clock-settings.php`, remove
-`QR_CLOCK_CURRENCY`, and set `QR_CLOCK_MODE` = `live` together with the live
-Stripe keys. Test payments never reach a live till, and live payments never
-reach the sandbox.
-
-**To turn it off:** `QR_CLOCK_MODE` = `off`, and deploy. Payments wait on
-„За касата“ to be entered by hand again; nothing is lost.
+The code is `public/api/qr/_lib/clock.php`; the reasons are in DECISIONS.md.
 
 ## Staff accounts
 

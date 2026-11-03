@@ -93,7 +93,7 @@ try {
     $waiters = qr_waiters($pdo, (string) $settings['service_date']);
     $reportDue = qr_report_auto_due($pdo, (string) ($settings['report_email'] ?? ''), $now) !== null;
     $receiptsDue = qr_ereceipt_mail_due($pdo, $now);
-    // Payments on their way to Clock: changed since, or (first load) recent and unsettled.
+    // Sales waiting for the transfer to Clock: changed since, or (first load) recent and unsettled.
     $clockDocs = qr_clock_feed($pdo, $since, $now);
     $clockDue = qr_clock_due($pdo, $now);
     // Fiscal receipts printed by the bridge in the restaurant, and the bridge itself.
@@ -125,7 +125,7 @@ qr_json(200, [
     'tabs' => $tabs,
     'billPayments' => $billPayments,
     'clockDocs' => $clockDocs,
-    'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode()] : null,
+    'clock' => qr_clock_mode() !== '' ? ['mode' => qr_clock_mode(), 'hour' => qr_clock_transfer_hour()] : null,
     'fiscalDocs' => $fiscalDocs,
     'fiscal' => $fiscalBridge !== null ? ['mode' => qr_fiscal_mode(), 'commands' => $fiscalCommands] + $fiscalBridge : null,
     'integrity' => $integrity,

@@ -241,7 +241,7 @@ describe("history of past evenings", () => {
     assert.equal(res.status, 200, res.text);
     const got = JSON.parse(srv.sqlite(`SELECT id, evening FROM orders ORDER BY id`));
     assert.deepEqual(got.map((r) => [r.id, r.evening]), [[early.id, "2026-10-03"], [late.id, "2026-10-03"]]);
-    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 15);
+    assert.equal(JSON.parse(srv.sqlite("PRAGMA user_version"))[0].user_version, 16);
   });
 });
 

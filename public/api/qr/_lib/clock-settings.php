@@ -1,6 +1,6 @@
 <?php
-// Which Clock PMS+ charge template each menu category is booked under, for
-// payments sent to Clock (_lib/clock.php). Nothing here is secret: the API
+// Which Clock PMS+ charge template each menu category is booked under in the
+// end-of-day transfer, and when it runs (_lib/clock.php). Nothing here is secret: the API
 // user, key and ids of the account live in raya-qr-config.php (see
 // docs/qr-ordering/SETUP.md, "Clock PMS+").
 //
@@ -8,7 +8,7 @@
 // codes), not one per dish: each charge carries the dish's own name. A
 // category without a template of its own takes its station's default. A
 // payment with a line that has no template at all is not sent, and waits on
-// „За касата“ with the reason.
+// „За касата“ with the reason. The templates belong to the EOD POS account.
 //
 // The ids are Clock's charge_template ids (Settings → Charge Templates, or
 // GET /charge_templates). 0 means none.
@@ -23,17 +23,23 @@ if (!defined('RAYA_QR')) {
 return [
     'templates' => [
         // Defaults per station: everything made in the kitchen, at the bar.
-        // ⚠ SANDBOX ONLY (14.10.2026): Clock's sandbox has demo spa services
-        // alone, so "Massage" and "Sauna" stand in for food and drinks. Put
-        // the live account's template ids here before QR_CLOCK_MODE = live.
-        'kitchen' => 1508201,
-        'bar' => 1508202,
+        // ⚠ SANDBOX ONLY (POS DEMO, 16516): "Beef Stroganoff" and "Amstel" stand
+        // in for food and drinks (each charge carries the dish's own name). Put
+        // the live EOD account's template ids here before QR_CLOCK_MODE = live.
+        'kitchen' => 1508218,
+        'bar' => 1508229,
         // Per category, overriding its station's default, e.g. 'wines' => 0.
         // The tip: 0 sends it as a plain surcharge with no VAT.
         'tip' => 0,
     ],
     // VAT sent with each line, e.g. 0.2; null leaves it to the template.
     'tax_rate' => null,
+    // The hour (Sofia) the morning after a day that its sales go to Clock. Set
+    // Clock's Auto Revenue Date Offset to change the revenue date after it.
+    'transfer_hour' => 6,
+    // How the payment is booked. Clock asked for no special type (3.11.2026).
+    'payment_type' => 'card',
+    'payment_sub_type' => '',
     // The currency of the Clock account (the sandbox runs in BGN only).
     'currency' => 'EUR',
 ];

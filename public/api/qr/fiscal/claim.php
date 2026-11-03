@@ -22,6 +22,11 @@ require dirname(__DIR__) . '/_lib/pay.php';
 qr_require_method('POST');
 qr_fiscal_require_bridge();
 $body = qr_body();
-$job = qr_fiscal_claim($body, qr_now());
+$now = qr_now();
+$job = qr_fiscal_claim($body, $now);
+// The restaurant's own computer asks all night: the morning's transfer to Clock starts here.
+if ($job === null && qr_clock_mode() !== '' && qr_clock_due(qr_db(), $now)) {
+    qr_clock_send_later($now);
+}
 // Nothing waiting: ask again a little later. Something printed: right away.
 qr_json(200, ['ok' => true, 'job' => $job, 'pollMs' => $job === null ? 3000 : 0, 'mode' => qr_fiscal_mode()]);

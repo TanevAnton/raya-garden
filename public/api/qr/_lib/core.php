@@ -185,7 +185,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 15;
+const QR_SCHEMA_VERSION = 16;
 
 // The version of the sales software, as declared to НАП (Annex 31): raise
 // it with every change to the sales part or the database (_manifest.json
@@ -940,6 +940,16 @@ function qr_migrate(PDO $pdo)
                     BEGIN SELECT RAISE(ABORT, 'staff accounts are never deleted'); END;
                 CREATE TRIGGER staff_roles_no_delete BEFORE DELETE ON staff_roles
                     BEGIN SELECT RAISE(ABORT, 'staff roles are never deleted'); END;
+            ");
+        }
+        if ($version < 16) {
+            // The end-of-day transfer to Clock (_lib/clock.php): due_at, when a row
+            // goes; net_json, the lines that went, less what was refunded before.
+            // Anything from the old per-payment flow is never sent.
+            $pdo->exec("
+                ALTER TABLE clock_docs ADD COLUMN due_at INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE clock_docs ADD COLUMN net_json TEXT NOT NULL DEFAULT '';
+                UPDATE clock_docs SET status = 'manual' WHERE status <> 'manual';
             ");
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);

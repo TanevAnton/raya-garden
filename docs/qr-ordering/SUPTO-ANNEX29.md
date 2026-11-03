@@ -62,7 +62,7 @@ producers (`kontrolen-list-supto.txt`).
 | 20 | No test or training mode | ✓ | Done 29.10 (phase 4): with `supto` on (secret `QR_SUPTO`), Stripe test keys don't count as configured, receipts and Clock only run live, and the test harness's hooks are off. The tests run on a separate server, never on the registered one. ⚠ To confirm with the accountant that a switch outside the code is acceptable, rather than a build without the test code. |
 | 21 | If part of an integrated system that can't meet 16–19, the integrated system meets them | — | Not integrated with another system. |
 | 22 | Automated import of sales follows Annexes 41/42 | — | We import nothing. If the QR orders ever had to be handed to Clock, that's Annex 41. |
-| 23 | Export to other software allowed | ✓ | CSV exports exist; describe them. |
+| 23 | Export to other software allowed | ✓ | CSV exports, and the end-of-day transfer to Clock (phase 5). |
 
 ## Progress
 
@@ -85,23 +85,27 @@ producers (`kontrolen-list-supto.txt`).
   undescribed), `nap/prilozhenie-31-info-bg.md` (Annex 31), `nap/rakovodstvo-bg.md`
   (the manual, screenshots still to take from the final version).
   Questions to Clock for phase 5: `CLOCK-EOD-QUESTIONS-BG.md`.
-- Next: (5) the transfer to Clock (they agreed 29.10; waiting on API access); (6) the manual and the Annex 31 information.
+- **Phase 5, 3.11.2026:** the end-of-day transfer to Clock (`_lib/clock.php`), built and tested against a fake Clock; the sandbox run waits for one API right.
+- Next: the sandbox run and Clock's certification; (6) screenshots for the manual, from the final version.
 
 ## The transfer to Clock (the condition)
 
 Each phone payment, once its receipt has printed on our printer, goes to Clock
 so Clock's reports hold the restaurant's whole turnover:
-- **Clock's way:** the end-of-day transfer from their POS Guide. A folio on a
-  company, the day's (or each bill's) items as charges, and the payment as
-  already settled, then closed. This is the first Clock build (folio,
-  `charges/bulk`, `credit_items`, `close`), parked in `_lib/clock.php`.
+- **Clock's way (their reply, 3.11.2026; built, phase 5):** a separate POS
+  account for EOD only, with no fiscal policy and no devices. Once a day, one
+  folio per bill: charges, payment, closed without `document_type_id`. No
+  special document or payment types. Final results after refunds. Their
+  certification covers only this transfer.
 - **НАП's way of booking it** (control sheet 3.2): an imported sale is closed
   "с начин на плащане, неизискващ издаване на ФБ", named after its source,
-  e.g. "Продажба чрез ФУ с ИН <our printer's number>", so Clock never prints
-  a second receipt for it. Exchange between two "СУПТО" follows Annex 41
-  (чл. 52з, ал. 9). That text isn't in `nap/` yet and is needed.
-- **Clock's side:** their certification, a live API user, and a payment type
-  that doesn't fiscalise. To be agreed with them.
+  e.g. "Продажба чрез ФУ с ИН <our printer's number>". Ours carries exactly that
+  text on the payment, and the УНП on the charges, but no special payment type.
+  ⚠ For Iva and Сашо to confirm, along with whether Annex 41 applies (чл. 52з,
+  ал. 9; its text isn't in `nap/` yet).
+- **Clock's side still open:** the sandbox API user can't create company folios
+  yet (`base_api_company_folios_create`), so the real run is still to do; a
+  refund after a day has gone; the live EOD account.
 
 ## Two questions that shape the build
 

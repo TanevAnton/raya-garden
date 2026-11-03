@@ -10,6 +10,7 @@
 //     balanced — what Clock described for a storno (15.10.2026);
 //   - a negative payment on an open folio needs its own right; on a closed
 //     one it is taken.
+// As in Clock's EOD Guide: closing takes an optional document_type_id.
 // And what a test needs: a failure on the next call to a path, or an answer
 // lost after the work was done (the connection dropped), and a count of
 // calls over Clock's 5 a second.
@@ -154,7 +155,7 @@ export async function startFakeClock({ user = "api_user_test", key = "api_key_te
         f.credits.push(item);
         return answer(200, item);
       }
-      if (req.method === "GET" && rest === "/credit_items") return answer(200, f.credits);
+      if (req.method === "GET" && rest === "/credit_items") return deny("base_api_credit_items_index") ? json(res, 403, deny("base_api_credit_items_index")) : answer(200, f.credits);
       if (req.method === "POST" && rest === "/close") {
         const no = deny("base_api_folios_close");
         if (no) return json(res, 403, no);

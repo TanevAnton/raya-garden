@@ -487,13 +487,13 @@ function Dashboard({ operator, onSignedOut }) {
     }
   }
 
-  // A payment that did not reach Clock: send it again; or a folio staff closed in Clock themselves.
+  // A sale that did not reach Clock: send it again.
   async function clockAction(doc, action) {
     try {
       const res = await adminApi("clock.php", { id: doc.id, action });
       if (res.status === 401) return onSignedOut();
       if (res.doc) mergeClockDocs([res.doc], false);
-      if (res.ok) say(action === "retry" ? "Изпращам отново към Clock…" : `${doc.folio} е отбелязано като затворено.`);
+      if (res.ok) say("Изпращам отново към Clock…");
       else say("Не успях да запиша. Опитайте отново.");
     } catch {
       say("Няма връзка — опитайте отново.");
@@ -1259,14 +1259,35 @@ function FiscalStatus({ doc, onFiscal }) {
 }
 
 /**
- * Where a payment (or a refund) is on its way to Clock, on its „За касата“ row:
- * nothing when Clock is not connected or it was entered by hand.
+ * The end-of-day transfer to Clock: when it runs, what waits, and what stopped,
+ * to send again.
  */
+function ClockTransfer({ info, docs, onClock }) {
+  if (!info) return null;
+  const all = [...(docs?.values() || [])];
+  const waiting = all.filter((d) => d.status === "pending" || d.status === "sending").length;
+  const stopped = all.filter((d) => d.status === "failed" || d.status === "check").sort((a, b) => a.id - b.id);
+  return (
+    <section className="mt-3" data-clock-mode={info.mode}>
+      <p className="text-sm text-cream-100/60">
+        Платеното онлайн влиза в Clock само, всяка сутрин в {String(info.hour).padStart(2, "0")}:00, без нова бележка.{waiting > 0 ? ` Чакат: ${waiting}.` : ""}
+        {info.mode === "test" && <span className="text-amber-300"> Тестов режим: изпращат се само тестови плащания.</span>}
+      </p>
+      {stopped.length > 0 && (
+        <ul className="space-y-2 mt-3">
+          {stopped.map((d) => (
+            <li key={d.id} className="border border-red-300/30 rounded-sm px-3 py-2" data-clock-stopped={d.code}>
+              <div className="text-cream-50 mb-1">{d.code}{d.kind === "storno" ? " · сторно" : ""} · {money(Math.abs(d.total))}</div>
+              <ClockStatus doc={d} onClock={onClock} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function ClockStatus({ doc, onClock }) {
-  if (!doc || doc.status === "manual" || doc.status === "done") return null;
-  if (doc.status === "pending" || doc.status === "sending") {
-    return <div className="w-full text-sm text-cream-100/60" data-clock-status={doc.status}>Изпраща се към Clock…</div>;
-  }
   const check = doc.status === "check";
   return (
     <div className="w-full flex flex-wrap items-center gap-3 text-sm" data-clock-status={doc.status}>
@@ -1344,13 +1365,6 @@ function tillList(orders, billPayments, clockDocs = new Map(), fiscalDocs = new 
  */
 function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFiscal, onCommand }) {
   const toEnter = entries.filter((e) => e.toEnter).sort((a, b) => a.at - b.at);
-  // Folios whose items are in Clock, for staff to add the card payment and close there. The
-  // amount is what the guest paid, less what was given back onto the same folio.
-  const docs = [...(clockDocs?.values() || [])];
-  const toClose = docs
-    .filter((d) => d.kind === "sale" && d.status === "done" && !d.closed)
-    .map((d) => ({ ...d, card: d.total - docs.filter((x) => x.saleId === d.id && x.status === "done").reduce((sum, x) => sum + x.total, 0) }))
-    .sort((a, b) => a.doneAt - b.doneAt);
   const toVoid = entries.filter((e) => e.toVoid).sort((a, b) => a.at - b.at);
   const done = entries.filter((e) => e.tillAt > 0 && !e.toVoid).sort((a, b) => b.tillAt - a.tillAt).slice(0, 30);
   // Card tips today — with orders paid on the phone and with bills — for
@@ -1401,43 +1415,16 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
           Платеното онлайн се печата само на касата за онлайн плащания — с касова бележка, без въвеждане в Clock. Тук остава само това, което не е излязло: въведете го ръчно и го отметнете.
           {fiscalInfo.mode === "test" && <span className="text-amber-300"> Тестов режим: печатат се само тестови плащания.</span>}
         </p>
-      ) : clockInfo ? (
-        <p className="text-sm text-cream-100/60" data-clock-mode={clockInfo.mode}>
-          Артикулите от платеното онлайн влизат в Clock сами. Остава да затворите фолиото там — с плащане „карта“ — и Clock ще отпечата бележката. Ако нещо не е влязло, въведете го ръчно и го отметнете.
-          {clockInfo.mode === "test" && <span className="text-amber-300"> Тестов режим: изпращат се само тестови плащания.</span>}
-        </p>
       ) : (
         <p className="text-sm text-cream-100/60">
           Платеното онлайн се въвежда в Clock ръчно, с плащане „карта“. Отметнете всяко, след като го въведете. Кодовете „P-…“ са плащания от сметка на маса.
         </p>
       )}
+      <ClockTransfer info={clockInfo} docs={clockDocs} onClock={onClock} />
       {tips > 0 && (
         <p className="mt-3 border border-sage-300/30 rounded-sm px-3 py-2 text-sm text-cream-50" data-tips-today>
           Бакшиши с карта днес: <span className="font-semibold text-sage-200">{money(tips)}</span> ({tipped.length} {tipped.length === 1 ? "плащане" : "плащания"}). Те не са част от сумата за въвеждане.
         </p>
-      )}
-      {toClose.length > 0 && (
-        <>
-          <h2 className="font-display text-2xl text-gold-100 mt-6">Затвори в Clock ({toClose.length})</h2>
-          <p className="text-sm text-cream-100/60 mt-1">Артикулите вече са във фолиото. В Clock: отворете го, добавете плащане „карта“ за сумата отдясно и го затворете — Clock ще отпечата бележката. После го отметнете тук.</p>
-          <ul className="space-y-3 mt-3">
-            {toClose.map((d) => (
-              <li key={d.id} className="border border-gold-300/20 bg-ink-900 rounded-sm p-4 flex flex-wrap items-center gap-4" data-close={d.folio}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-mono text-lg text-gold-100">{d.folio}</span>
-                    <span className="text-cream-100/70">{d.code}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-cream-50 text-lg" data-card={d.card}>{money(d.card)}</div>
-                  <div className="text-xs text-cream-100/60">„карта“{d.tip > 0 ? `, с бакшиш ${money(d.tip)}` : ""}</div>
-                </div>
-                <button type="button" onClick={() => onClock(d, "closed")} className="btn-gold h-12 px-4 rounded-sm text-sm">Затворих го ✓</button>
-              </li>
-            ))}
-          </ul>
-        </>
       )}
       {toVoid.length > 0 && (
         <>
@@ -1446,7 +1433,6 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
           <ul className="space-y-3 mt-3">
             {toVoid.map((e) => (
               <Row key={`${e.kind}${e.id}`} entry={e} amount={e.voidAmount}>
-                <ClockStatus doc={e.clock.storno} onClock={onClock} />
                 <FiscalStatus doc={e.fiscal.storno} onFiscal={onFiscal} />
                 <button type="button" disabled={e.clock.storno?.status === "sending" || ["claimed", "submitted"].includes(e.fiscal.storno?.status)} onClick={() => onTill(e, { voided: true })} className="h-12 px-4 rounded-sm bg-red-800 text-cream-50 text-sm disabled:opacity-40">Сторнирана ✓</button>
               </Row>
@@ -1461,7 +1447,6 @@ function Till({ entries, onTill, clockInfo, clockDocs, onClock, fiscalInfo, onFi
         <ul className="space-y-3 mt-3">
           {toEnter.map((e) => (
             <Row key={`${e.kind}${e.id}`} entry={e} amount={e.amount} tip={e.tip} list>
-              <ClockStatus doc={e.clock.sale} onClock={onClock} />
               <FiscalStatus doc={e.fiscal.sale} onFiscal={onFiscal} />
               <button type="button" disabled={e.clock.sale?.status === "sending" || ["claimed", "submitted"].includes(e.fiscal.sale?.status)} onClick={() => onTill(e, { entered: true })} className="btn-gold h-12 px-4 rounded-sm text-sm disabled:opacity-40">{fiscalInfo ? "Въведена ръчно ✓" : "Въведена в Clock ✓"}</button>
             </Row>

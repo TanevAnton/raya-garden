@@ -31,6 +31,7 @@ const QR_NAP_TABLES = ['18.1', '18.2', '18.3', '18.4', '18.5', 'nom_items', 'nom
 // Every kind of row in audit_log: its name, and when it first existed (for
 // the nomenclature of operations, т. 18.9).
 const QR_AUDIT_KINDS = [
+    'clock_transfer' => ['Прехвърляне на продажба в Clock PMS+ в края на деня', '2026-11-03'],
     'order' => ['Поръчка', '2026-10-20'],
     'order_change' => ['Промяна на поръчка (статус, плащане, връщане, каса)', '2026-10-20'],
     'line' => ['Ред от поръчка', '2026-10-20'],

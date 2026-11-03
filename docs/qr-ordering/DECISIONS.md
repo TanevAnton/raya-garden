@@ -814,8 +814,8 @@ receipt here, on a printer of their own.
   registration. It's the accountant's call, and it comes before live receipts.
 - The printer model, its registration, and a training mode to test in
   (questions for the service company).
-- The end-of-day transfer to Clock, after their certification. It reuses the
-  folio, charges, payment and close of the first Clock build.
+- The end-of-day transfer to Clock: built later, see "The end-of-day transfer
+  to Clock, 3.11.2026".
 
 ## No tips through the system, 19.10.2026
 
@@ -909,6 +909,28 @@ started. Phase 1:
 - **Menu changes logged by the same check**: the menu file changes only by
   deploy, so comparing it to `menu_items` on each new file catches every
   change with its time; the operator is "Система" (the deploy).
+
+## The end-of-day transfer to Clock, 3.11.2026
+
+Clock's reply, and their EOD Guide, replace the per-payment folios staff closed
+by hand.
+
+- **Queued with the payment, sent next morning.** The row is written in the
+  payment's transaction, so it can't be lost; `due_at` holds it until 06:00. No
+  cron on the host: the bridge's poll starts it, since it runs all night.
+- **Refunds netted when it goes**, not at the refund: a sale is worked out from
+  its stornos in the transaction that claims it. The stornos stay as rows
+  ('netted'), for what was refunded and because the refund logic counts them.
+- **A refund after the transfer gets its own folio.** The closed folio can't take
+  it, and Clock's reply leaves this open: negative lines and payment, dated the
+  refund's day, to confirm at certification.
+- **Only printed sales**, and off when receipts are off: without a receipt, a
+  closed folio with no fiscal event would be a sale nobody fiscalised.
+- **„Продажба чрез ФУ с ИН …“ as the payment's text.** Clock wants no special
+  payment type; this carries НАП's wording anyway, until Iva and Сашо answer.
+- **Old rows marked 'manual'** in the migration: the earlier flow's folios never
+  go again, and refunds of those sales don't either.
+- **The transfer logs as „Система“** (9000), whoever's poll started it.
 
 ## Left out on purpose
 

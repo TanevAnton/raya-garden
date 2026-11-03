@@ -233,56 +233,56 @@ describe("paying on the phone", () => {
 });
 
 describe("paying on the phone, with Clock PMS+ connected", () => {
-  it("„За касата“ shows what did not reach Clock and sends it again; folios to close in Clock are ticked off", async () => {
+  it("„За касата“ says when the transfer to Clock runs, shows what stopped, and sends it again", async () => {
     const fake = await startFakeClock();
+    const printer = await startFakeErpNet();
     const settingsFile = path.join(srv.root, "api", "qr", "_lib", "clock-settings.php");
     const settings = readFileSync(settingsFile, "utf8");
     writeFileSync(settingsFile, settings.replace(/'kitchen' => \d+/, "'kitchen' => 1001").replace(/'bar' => \d+/, "'bar' => 1002"));
-    srv.config({ clock_mode: "test", clock_base_url: fake.base, clock_api_user: fake.user, clock_api_key: fake.key, clock_company_id: 500 });
+    const KEY = "e2e-bridge-key-0123456789abcdef0123456789";
+    srv.config({ fiscal_mode: "test", fiscal_bridge_token: KEY, clock_mode: "test", clock_base_url: fake.base, clock_api_user: fake.user, clock_api_key: fake.key, clock_company_id: 500 });
+    const bridge = createBridge(
+      { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(mkdtempSync(path.join(tmpdir(), "raya-bridge-")), "journal.json"), waitMs: 1500 },
+      { log: () => {} },
+    );
     const staff = await phone();
     try {
       await openEvening();
+      await bridge.check();
       const menu = srv.menu();
-      const paid = async (lines) => {
-        const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, lines), { headers: { "Idempotency-Key": newKey() } });
-        assert.equal(res.status, 201, res.text);
-        await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
-        return res.body.order;
-      };
-      fake.failNext("POST", /^\/companies\/\d+\/folios$/, 503, { error: "Service Unavailable" });
-      const failed = await paid([["tiramisu"]]);
-      const sent = await paid([["caesar", "chicken", 1]]);
+      const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, 6, [["tiramisu"]]), { headers: { "Idempotency-Key": newKey() } });
+      assert.equal(res.status, 201, res.text);
+      await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+      for (let i = 0; i < 10; i++) if ((await bridge.step()) > 0) break;
+      const code = res.body.order.code;
 
       await staff.setViewport({ width: 1280, height: 900 });
       await staff.goto(`${srv.base}/admin/`, { waitUntil: "networkidle0" });
       await staff.type("input[type=password]", ADMIN_PASSWORD);
       await staff.click("button[type=submit]");
-      await staff.waitForSelector(`[data-order="${sent.code}"]`);
-      await clickText(staff, "nav", /За касата \(1\)/);
-      await staff.waitForSelector(`[data-till="${failed.code}"] [data-clock-status="failed"]`);
-      const row = await staff.$eval(`[data-till="${failed.code}"]`, (e) => e.innerText);
-      assert.match(row, /Не влезе в Clock: HTTP 503: Service Unavailable/);
-      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /влизат в Clock сами/);
-      assert.equal(await staff.$(`[data-close="FL-1"]`) !== null, true, "the one that went: its folio waits to be closed");
+      await staff.waitForSelector(`[data-order="${code}"]`);
+      await clickText(staff, "nav", /За касата/);
+      await staff.waitForSelector("[data-clock-mode]");
+      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /всяка сутрин в 06:00.*Чакат: 1/s);
+
+      // Its transfer comes, and Clock refuses it.
+      fake.failNext("POST", /^\/companies\/\d+\/folios$/, 503, { error: "Service Unavailable" });
+      srv.sqlite("UPDATE clock_docs SET due_at = 1");
+      await staff.waitForSelector(`[data-clock-stopped="${code}"] [data-clock-status="failed"]`);
+      assert.match(await staff.$eval(`[data-clock-stopped="${code}"]`, (e) => e.innerText), /Не влезе в Clock: HTTP 503: Service Unavailable/);
       await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-failed.png") : undefined, fullPage: true });
 
-      await clickText(staff, `[data-till="${failed.code}"]`, /Опитай пак/);
-      await staff.waitForSelector(`[data-close="FL-2"]`);
-      await staff.waitForFunction((code) => !document.querySelector(`[data-till="${code}"] [data-clock-status]`), {}, failed.code);
-      assert.match(await staff.$eval("nav", (e) => e.innerText), /За касата(?! \()/, "nothing left to enter by hand");
-      await staff.screenshot({ path: process.env.RAYA_QR_SHOTS ? path.join(process.env.RAYA_QR_SHOTS, "till-clock-to-close.png") : undefined, fullPage: true });
-
-      // The waiter's amount for the card payment in Clock: what the guest paid.
-      assert.equal(await staff.$eval(`[data-close="FL-2"] [data-card]`, (e) => e.dataset.card), String(failed.total));
-      await clickText(staff, `[data-close="FL-1"]`, /Затворих го/);
-      await staff.waitForFunction(() => !document.querySelector(`[data-close="FL-1"]`));
-      assert.equal(await staff.$(`[data-close="FL-2"]`) !== null, true);
+      await clickText(staff, `[data-clock-stopped="${code}"]`, /Опитай пак/);
+      await staff.waitForFunction((c) => !document.querySelector(`[data-clock-stopped="${c}"]`), {}, code);
+      const [folio] = [...fake.folios.values()];
+      assert.ok(folio.closedAt, "closed in Clock, nothing for staff to do");
       assert.deepEqual(staff.errors, []);
     } finally {
       await staff.close();
-      srv.config({ clock_mode: null, clock_base_url: null, clock_api_user: null, clock_api_key: null, clock_company_id: null });
+      srv.config({ fiscal_mode: null, fiscal_bridge_token: null, clock_mode: null, clock_base_url: null, clock_api_user: null, clock_api_key: null, clock_company_id: null });
       writeFileSync(settingsFile, settings);
       await fake.stop();
+      await printer.stop();
     }
   });
 });

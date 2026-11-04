@@ -85,8 +85,8 @@ producers (`kontrolen-list-supto.txt`).
   undescribed), `nap/prilozhenie-31-info-bg.md` (Annex 31), `nap/rakovodstvo-bg.md`
   (the manual, screenshots still to take from the final version).
   Questions to Clock for phase 5: `CLOCK-EOD-QUESTIONS-BG.md`.
-- **Phase 5, 3.11.2026:** the end-of-day transfer to Clock (`_lib/clock.php`), built and tested against a fake Clock; the sandbox run waits for one API right.
-- Next: the sandbox run and Clock's certification; (6) screenshots for the manual, from the final version.
+- **Phase 5, 3.11.2026:** the end-of-day transfer to Clock (`_lib/clock.php`), built, tested against a fake Clock, and run for real in the sandbox on 4.11.2026.
+- Next: Clock's certification; (6) screenshots for the manual, from the final version.
 
 ## The transfer to Clock (the condition)
 
@@ -101,11 +101,11 @@ so Clock's reports hold the restaurant's whole turnover:
   "с начин на плащане, неизискващ издаване на ФБ", named after its source,
   e.g. "Продажба чрез ФУ с ИН <our printer's number>". Ours carries exactly that
   text on the payment, and the УНП on the charges, but no special payment type.
-  ⚠ For Iva and Сашо to confirm, along with whether Annex 41 applies (чл. 52з,
-  ал. 9; its text isn't in `nap/` yet).
-- **Clock's side still open:** the sandbox API user can't create company folios
-  yet (`base_api_company_folios_create`), so the real run is still to do; a
-  refund after a day has gone; the live EOD account.
+  Clock allows a payment subtype if we want one (4.11.2026). ⚠ For Iva and Сашо
+  to say, along with whether Annex 41 applies (чл. 52з, ал. 9; its text isn't in
+  `nap/` yet).
+- **Clock's side still open:** certification, the live EOD account, and how a
+  sale gets the right revenue date if a transfer runs late.
 
 ## Two questions that shape the build
 

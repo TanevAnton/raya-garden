@@ -922,12 +922,16 @@ by hand.
   its stornos in the transaction that claims it. The stornos stay as rows
   ('netted'), for what was refunded and because the refund logic counts them.
 - **A refund after the transfer gets its own folio.** The closed folio can't take
-  it, and Clock's reply leaves this open: negative lines and payment, dated the
-  refund's day, to confirm at certification.
+  it: negative lines and payment, as Clock confirmed on 4.11.2026.
+- **The day comes from when it arrives.** Clock's sandbox ignored every date we
+  sent, so the right day rests on 06:00 falling before the account's Auto Revenue
+  Date Offset. We still send `service_date`, as the guide asks, and the log and
+  our tables keep the true day.
 - **Only printed sales**, and off when receipts are off: without a receipt, a
   closed folio with no fiscal event would be a sale nobody fiscalised.
 - **„Продажба чрез ФУ с ИН …“ as the payment's text.** Clock wants no special
-  payment type; this carries НАП's wording anyway, until Iva and Сашо answer.
+  payment type but allows a subtype (`payment_sub_type` in `clock-settings.php`);
+  the text carries НАП's wording until Iva and Сашо answer.
 - **Old rows marked 'manual'** in the migration: the earlier flow's folios never
   go again, and refunds of those sales don't either.
 - **The transfer logs as „Система“** (9000), whoever's poll started it.

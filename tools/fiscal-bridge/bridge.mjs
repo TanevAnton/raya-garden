@@ -154,8 +154,8 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   /**
    * The printer's clock follows this computer's (kept right by the operating
    * system): set when the bridge starts, at least daily, and whenever it is
-   * more than CLOCK_DRIFT_S off. A printer that refuses (some only take a
-   * new time after the day's Z report) is reported, with how far off it is.
+   * more than CLOCK_DRIFT_S off. A printer that refuses (a Datecs won't go
+   * behind the last record in its journal) is reported, with how far off it is.
    */
   async function keepTime(status) {
     const at = parseSofia(String(status.deviceDateTime || ""));

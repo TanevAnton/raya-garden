@@ -500,6 +500,15 @@ For a manager or the auditor, in /admin:
   types, site, workplace, operators, roles, rights). 18.6–18.8 (deliveries,
   stock) don't apply.
 
+**The printer: Datecs FP-700MX** (replaces the FP-700X, same protocol; Datecs,
+4.11.2026). ErpNet.FP's X driver accepts it; not yet tried on a real one. ⚠ Ask
+the service to set **currency parameter 3**, with the latest firmware: amounts
+then print in euro with no leva line, which Datecs says is the legal form after
+8.8.2026. Names print up to 72 characters on three lines of 24; longer ones are
+cut. The clock can't be set behind the last record in the printer's journal
+(КЛЕН): a printer running ahead keeps refusing until real time catches up, and
+past 5 minutes phone payments stop.
+
 A sale is what has a УНП: an order paid on the phone, or a bill. Prices
 include VAT; the tables split it by the tax group's rate (`vat_rates` in
 `fiscal-settings.php`). Amounts are in euro. ⚠ Before registering: fill in
@@ -587,8 +596,7 @@ nothing can print on the restaurant's printer. Staff do nothing in Clock.
 - **A refund before the transfer** is taken off: Clock gets the final result. A
   bill refunded in full sends nothing.
 - **A refund after the transfer** is a folio of its own next morning, with
-  negative lines and a negative payment, on the refund's day. ⚠ Clock's reply
-  doesn't cover this case: confirm it with them at certification.
+  negative lines and a negative payment (Clock confirmed this, 4.11.2026).
 - **A sale that could not get through** shows Clock's reason on „За касата“,
   with *Опитай пак*.
 - Off unless receipts are on (`QR_FISCAL_MODE`): Clock only hears of fiscalised
@@ -597,14 +605,18 @@ nothing can print on the restaurant's printer. Staff do nothing in Clock.
 Before going live, on the live EOD POS account (ask Clock to activate it):
 1. a charge template for food and one for drinks, their ids in `clock-settings.php`;
 2. tax settings identical to the PMS account;
-3. Auto Revenue Date Offset 7, so the revenue date changes after the transfer;
+3. Auto Revenue Date Offset 7, so the revenue date changes after the transfer.
+   ⚠ This is what puts a sale on the right day: Clock ignored `service_date`,
+   `revenue_date` and `preffered_revenue_date` in the sandbox (4.11.2026) and
+   booked the day it arrived, so a transfer after the offset hour lands a day late;
 4. the integration on in AppConnector, which gives the API user and URL for
    `QR_CLOCK_*`; a company for `QR_CLOCK_COMPANY_ID`.
 
 **Certification.** Clock tests only this transfer, with a few simulated bills
 in the sandbox (POS DEMO, 16516; `QR_CLOCK_CURRENCY` = `BGN`), once we say we're
-ready. It needs the API rights to create company folios, charges and payments and to
-close a folio.
+ready. A real run through this code passed on 4.11.2026: folios 24, 25 and 26,
+closed at balance 0, no document type, a refund netted and one as its own folio.
+In that run the charges showed 0 VAT at a 20% rate (net = gross): to raise with Clock.
 
 ### Settings
 

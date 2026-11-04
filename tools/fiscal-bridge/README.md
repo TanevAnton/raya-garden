@@ -11,8 +11,10 @@ rayagarden.bg  ⇄  мостът (този компютър)  →  ErpNet.FP  �
 
 ## Какво трябва
 
-- **Компютър**, който работи постоянно: Raspberry Pi 4/5, мини компютър или
-  стар лаптоп. Linux или Windows. Интернет и захранване.
+- **Компютър**, който работи постоянно: мини компютър с Intel или AMD (напр.
+  Intel N100 с Ubuntu) или стар лаптоп. Linux или Windows. Интернет по кабел и
+  захранване. Raspberry Pi не е добър избор: ErpNet.FP няма готова версия за
+  64-битов ARM.
 - **Фискален принтер, само за онлайн плащанията**, регистриран в НАП от
   сервизната фирма, вързан към компютъра (USB/COM или мрежа). Не този, с който
   работи Clock.
@@ -24,8 +26,8 @@ rayagarden.bg  ⇄  мостът (този компютър)  →  ErpNet.FP  �
 
 ## Настройка
 
-**На Raspberry Pi / Linux** – с една команда, след като ErpNet.FP вижда
-принтера (стъпка 1):
+**На Linux (напр. Ubuntu)** – с една команда, след като ErpNet.FP (файлът
+`linux-x64.zip` от страницата с версиите) вижда принтера (стъпка 1):
 
 ```bash
 sudo ./install-linux.sh
@@ -52,11 +54,11 @@ sudo ./install-linux.sh
    сайта – с ✓ или ✗ и причината – и не печата нищо. В „За касата“ на
    таблета предупреждението „Касата за онлайн плащания не отговаря“ изчезва.
 4. Да тръгва сам при включване:
-   - **Linux (Raspberry Pi):** systemd услуга, напр.
-     `/etc/systemd/system/raya-bridge.service` с
-     `ExecStart=/usr/bin/node /home/pi/fiscal-bridge/bridge.mjs`,
-     `Restart=always`, `WorkingDirectory=/home/pi/fiscal-bridge`; после
-     `sudo systemctl enable --now raya-bridge`.
+   - **Linux:** systemd услуга, напр.
+     `/etc/systemd/system/raya-fiscal-bridge.service` с
+     `ExecStart=/usr/bin/node /opt/fiscal-bridge/bridge.mjs`,
+     `Restart=always`, `WorkingDirectory=/opt/fiscal-bridge`; после
+     `sudo systemctl enable --now raya-fiscal-bridge`.
    - **Windows:** Task Scheduler → „At startup“ → `node bridge.mjs`, или NSSM
      като услуга.
 

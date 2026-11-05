@@ -103,13 +103,27 @@ so Clock's reports hold the restaurant's whole turnover:
   text on the payment, and the УНП on the charges, but no special payment type.
   Clock allows a payment subtype if we want one (4.11.2026). Iva will answer once
   she has seen how the data looks in Clock and a report from the printer.
-- ⚠ **Annex 41 is the open legal point.** The control sheet sends an exchange
-  between two СУПТО to Annex 41 (чл. 52з, ал. 9); section 3.2 is written for sales
-  from a ФУ or a non-СУПТО. Iva quoted its point 1: the УНП from СУПТО А is kept
-  on import into СУПТО Б, the sale is closed in Б, and a payment that needs a ФБ
-  prints that number on the receipt. Ours is closed in А, with А's printer, before
-  Б hears of it, so that point doesn't describe us as it stands. She sent the whole
-  annex on 5.11.2026; it still has to be read against our transfer.
+- ⚠ **Annex 41 is the open legal point** (`nap/prilozhenie-41.txt`, from Iva,
+  5.11.2026). The control sheet sends an exchange between two СУПТО to this annex
+  (чл. 52з, ал. 9). It gives three approaches, all with the sale closed in Б (here
+  Clock): keep А's УНП, generate a new УНП linked to it, or add to a sale already
+  open in Б. The printed-number rule applies only to "плащане, изискващо издаване
+  на ФБ", so closing in Б with no ФБ doesn't look excluded by itself (our reading,
+  not a ruling). The duties fall on **Б**: load all data in full and unchanged,
+  check the УНП's format, and store as structured data А's УНП, the full data of
+  Annex 29 tables 18.1–18.3, the source (А's name and the object), the way of
+  import and its time, all shown in Б's т. 18 tables. What we send doesn't reach
+  that today:
+  - the УНП and the printer's number are free text (`print_text`, the payment's
+    text), not structured fields;
+  - no opening and closing times, operator, workplace or object, item code;
+  - a refund before the transfer is netted, as Clock asked, so Clock never holds
+    the full sale, which sits badly with "в пълен обем и с непроменено съдържание".
+  Control sheet 3.2 (closed sales "от ФУ или от друг софтуер – не-СУПТО", booked
+  with a payment needing no ФБ) follows Annex 42, which we don't have. Whether a
+  sale from our printer can go that way, given that it also comes from a СУПТО, is
+  for Iva, Сашо or НАП. Asked Clock whether their import meets Annex 41. No code
+  changes until they answer.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 

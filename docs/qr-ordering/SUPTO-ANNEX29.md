@@ -101,11 +101,36 @@ so Clock's reports hold the restaurant's whole turnover:
   "с начин на плащане, неизискващ издаване на ФБ", named after its source,
   e.g. "Продажба чрез ФУ с ИН <our printer's number>". Ours carries exactly that
   text on the payment, and the УНП on the charges, but no special payment type.
-  Clock allows a payment subtype if we want one (4.11.2026). ⚠ For Iva and Сашо
-  to say, along with whether Annex 41 applies (чл. 52з, ал. 9; its text isn't in
-  `nap/` yet).
-- **Clock's side still open:** certification, the live EOD account, and how a
-  sale gets the right revenue date if a transfer runs late.
+  Clock allows a payment subtype if we want one (4.11.2026). Iva will answer once
+  she has seen how the data looks in Clock and a report from the printer.
+- ⚠ **Annex 41 is the open legal point.** The control sheet sends an exchange
+  between two СУПТО to Annex 41 (чл. 52з, ал. 9); section 3.2 is written for sales
+  from a ФУ or a non-СУПТО. Iva quoted its point 1: the УНП from СУПТО А is kept
+  on import into СУПТО Б, the sale is closed in Б, and a payment that needs a ФБ
+  prints that number on the receipt. Ours is closed in А, with А's printer, before
+  Б hears of it, so that point doesn't describe us as it stands. We have asked her
+  for the whole annex; its text isn't in `nap/` yet.
+- **Clock's side still open:** certification (they gave a booking link, 5.11.2026)
+  and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
+
+## What Iva and Сашо answered, 5.11.2026
+
+Settled:
+- УНП from our software at order creation, receipt only at payment (Сашо, "категорично").
+- Euro only (no leva anywhere; Annex 29's "лв." doesn't matter). Currency parameter 3.
+- The waiter bringing the receipt with the order is fine (Iva).
+- 10 years' retention; no required place, what matters is having the data.
+- Object: code 44 (restaurant), местност „Света гора“, Велико Търново, as registered with the municipality. Its НАП code comes after the printer is registered.
+- Firm: „Света гора-Велико Търново“ ООД, ЕИК 203389338, ДДС № BG203389338.
+- **Every change is declared** (both of them). Stricter than our reading (sales part and database only). Asked whether that reaches menu data and the rest of the site. Until answered, treat the declared version as frozen and bundle changes.
+
+Still open:
+- **Producer:** the company or Anton as a person. Сашо prefers the company; Iva can file for the company with her signature. A person also needs a contract with the company. Anton decides with his father.
+- **Annex 41**, above.
+- **Payment subtype:** Iva wants to see Clock's data and a printer report first.
+- **Refund after the transfer:** Iva wrote there should be none. A guest can still be owed money the next day, so the build keeps the storno and the negative folio; explained to her and asked.
+- **A separate test server, with no test code in the registered version:** neither knew. Iva thinks НАП may want a test environment to look at, and the control sheet does ask for screenshots from one. Ask НАП.
+- **The order of filing.** Iva: software, producer's declaration, connect to Datecs, user's declaration (Annex 32). Сашо's answer starts with a contract for Datecs to supply the software, which isn't our case: Datecs supply only the printer. Our order: test printer, screenshots, producer's declaration, swap the fiscal memory (€62 + VAT) and register, Annex 32, live.
 
 ## Two questions that shape the build
 

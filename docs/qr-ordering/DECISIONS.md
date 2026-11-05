@@ -927,6 +927,13 @@ by hand.
   sent, so the right day rests on 06:00 falling before the account's Auto Revenue
   Date Offset. We still send `service_date`, as the guide asks, and the log and
   our tables keep the true day.
+  Clock on 5.11.2026: a closed revenue date can't be changed, so anything later
+  takes the revenue date of the day it's made. A transfer that misses the offset
+  lands a day late, with no way to correct it in Clock; a late refund's folio
+  rightly carries its own day.
+- **VAT was a sandbox setting.** Tax mode "None" on new sandbox accounts; Clock
+  changed it, and the run on 5.11.2026 (folios 28–30) shows 20% VAT on each line,
+  negative on the refund.
 - **Only printed sales**, and off when receipts are off: without a receipt, a
   closed folio with no fiscal event would be a sale nobody fiscalised.
 - **„Продажба чрез ФУ с ИН …“ as the payment's text.** Clock wants no special

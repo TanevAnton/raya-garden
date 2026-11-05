@@ -108,8 +108,8 @@ so Clock's reports hold the restaurant's whole turnover:
   from a ФУ or a non-СУПТО. Iva quoted its point 1: the УНП from СУПТО А is kept
   on import into СУПТО Б, the sale is closed in Б, and a payment that needs a ФБ
   prints that number on the receipt. Ours is closed in А, with А's printer, before
-  Б hears of it, so that point doesn't describe us as it stands. We have asked her
-  for the whole annex; its text isn't in `nap/` yet.
+  Б hears of it, so that point doesn't describe us as it stands. She sent the whole
+  annex on 5.11.2026; it still has to be read against our transfer.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 
@@ -122,15 +122,16 @@ Settled:
 - 10 years' retention; no required place, what matters is having the data.
 - Object: code 44 (restaurant), местност „Света гора“, Велико Търново, as registered with the municipality. Its НАП code comes after the printer is registered.
 - Firm: „Света гора-Велико Търново“ ООД, ЕИК 203389338, ДДС № BG203389338.
-- **Every change is declared** (both of them). Stricter than our reading (sales part and database only). Asked whether that reaches menu data and the rest of the site. Until answered, treat the declared version as frozen and bundle changes.
+- **Every change to the program is declared** (both of them). Stricter than our reading (sales part and database only), so treat the declared version as frozen and bundle changes. Iva, later on 5.11: menu items, prices and events are data the company enters, not changes, and the site has nothing to do with the СУПТО.
+- **A refund after the transfer is acceptable** if a storno receipt comes from the printer (Iva, later on 5.11). She expects it to be rare for a restaurant, and wants to see in practice how refunds work.
+- **The order of filing:** Iva thinks ours is right: test printer, screenshots, producer's declaration, swap the fiscal memory (€62 + VAT) and register, Annex 32, live.
 
 Still open:
 - **Producer:** the company or Anton as a person. Сашо prefers the company; Iva can file for the company with her signature. A person also needs a contract with the company. Anton decides with his father.
 - **Annex 41**, above.
 - **Payment subtype:** Iva wants to see Clock's data and a printer report first.
-- **Refund after the transfer:** Iva wrote there should be none. A guest can still be owed money the next day, so the build keeps the storno and the negative folio; explained to her and asked.
 - **A separate test server, with no test code in the registered version:** neither knew. Iva thinks НАП may want a test environment to look at, and the control sheet does ask for screenshots from one. Ask НАП.
-- **The order of filing.** Iva: software, producer's declaration, connect to Datecs, user's declaration (Annex 32). Сашо's answer starts with a contract for Datecs to supply the software, which isn't our case: Datecs supply only the printer. Our order: test printer, screenshots, producer's declaration, swap the fiscal memory (€62 + VAT) and register, Annex 32, live.
+- **How the money goes back:** Iva asked, since the company can't pay by card number. It's a Stripe refund to the card that paid; explained to her, and she wants to see it on the test printer.
 
 ## Two questions that shape the build
 

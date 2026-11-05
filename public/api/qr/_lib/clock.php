@@ -128,7 +128,7 @@ function qr_clock_transfer_at(string $day): int
 
 function qr_clock_transfer_hour(): int
 {
-    return (int) (qr_clock_settings()['transfer_hour'] ?? 6);
+    return (int) (qr_clock_settings()['transfer_hour'] ?? 4);
 }
 
 function qr_clock_currency(): string

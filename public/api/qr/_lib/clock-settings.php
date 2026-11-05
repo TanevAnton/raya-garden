@@ -36,7 +36,7 @@ return [
     'tax_rate' => null,
     // The hour (Sofia) the morning after a day that its sales go to Clock. Set
     // Clock's Auto Revenue Date Offset to change the revenue date after it.
-    'transfer_hour' => 6,
+    'transfer_hour' => 4,
     // How the payment is booked. Clock asked for no special type (3.11.2026).
     'payment_type' => 'card',
     'payment_sub_type' => '',

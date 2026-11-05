@@ -916,7 +916,7 @@ Clock's reply, and their EOD Guide, replace the per-payment folios staff closed
 by hand.
 
 - **Queued with the payment, sent next morning.** The row is written in the
-  payment's transaction, so it can't be lost; `due_at` holds it until 06:00. No
+  payment's transaction, so it can't be lost; `due_at` holds it until 04:00. No
   cron on the host: the bridge's poll starts it, since it runs all night.
 - **Refunds netted when it goes**, not at the refund: a sale is worked out from
   its stornos in the transaction that claims it. The stornos stay as rows
@@ -924,9 +924,11 @@ by hand.
 - **A refund after the transfer gets its own folio.** The closed folio can't take
   it: negative lines and payment, as Clock confirmed on 4.11.2026.
 - **The day comes from when it arrives.** Clock's sandbox ignored every date we
-  sent, so the right day rests on 06:00 falling before the account's Auto Revenue
+  sent, so the right day rests on 04:00 falling before the account's Auto Revenue
   Date Offset. We still send `service_date`, as the guide asks, and the log and
   our tables keep the true day.
+  So the transfer moved from 06:00 to 04:00: three hours for a stopped bridge or
+  a failed send to recover before the 07:00 offset, not one.
   Clock on 5.11.2026: a closed revenue date can't be changed, so anything later
   takes the revenue date of the day it's made. A transfer that misses the offset
   lands a day late, with no way to correct it in Clock; a late refund's folio

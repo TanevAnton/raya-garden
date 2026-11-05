@@ -16,8 +16,8 @@ import { createBridge } from "../../tools/fiscal-bridge/bridge.mjs";
 
 const EVENING = { date: "2026-10-03", opens: "18:00", closes: "01:00" };
 const AT_20H = sofia("2026-10-03T20:00", 3);
-const BEFORE_MORNING = sofia("2026-10-04T05:59", 3);
-const MORNING = sofia("2026-10-04T06:00", 3);
+const BEFORE_MORNING = sofia("2026-10-04T03:59", 3);
+const MORNING = sofia("2026-10-04T04:00", 3);
 const WEBHOOK_SECRET = "whsec_test_clock";
 const KEY = "test-bridge-key-0123456789abcdef0123456789";
 const COMPANY = 500;
@@ -128,7 +128,7 @@ async function poll(at = MORNING) {
 }
 
 describe("Clock PMS+: the transfer", () => {
-  it("nothing goes during the evening; at 6 in the morning each bill is a closed folio, paid, with no document", async () => {
+  it("nothing goes during the evening; at 4 in the morning each bill is a closed folio, paid, with no document", async () => {
     await setUp();
     const { order: a } = await sold(4, [["caesar", "chicken", 1], ["tiramisu"]]);
     const { order: b } = await sold(5, [["tiramisu", "std", 2]]);
@@ -237,7 +237,7 @@ describe("Clock PMS+: refunds", () => {
     await poll(LATER);
     assert.equal(folios().length, 1, "waits for the next transfer");
 
-    await poll(sofia("2026-10-05T06:00", 3));
+    await poll(sofia("2026-10-05T04:00", 3));
     const [sale, back] = folios();
     assert.deepEqual(charges(sale), [[1, price("caesar", "chicken")], [1, price("tiramisu")]], "the closed folio is left alone");
     assert.deepEqual(charges(back), [[-1, price("tiramisu")]]);
@@ -333,7 +333,7 @@ describe("Clock PMS+: when something goes wrong", () => {
     const feed = await poll(MORNING);
     assert.equal(docs()[0].status, "failed");
     assert.match(docs()[0].error, /base_api_company_folios_create/);
-    assert.equal(feed.clock.hour, 6);
+    assert.equal(feed.clock.hour, 4);
   });
 });
 

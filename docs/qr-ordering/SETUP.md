@@ -581,7 +581,7 @@ and wait for them too.
 ## The end-of-day transfer to Clock
 
 Our sales have to be in the restaurant's turnover in Clock (the condition for
-two СУПТО in one site). Each morning at 06:00 (`transfer_hour` in
+two СУПТО in one site). Each morning at 04:00 (`transfer_hour` in
 `public/api/qr/_lib/clock-settings.php`) the previous evening's card sales go
 to Clock, as its EOD Guide describes: one folio per bill on one company, its
 lines, the payment („Продажба чрез ФУ с ИН …“), closed without a document type.

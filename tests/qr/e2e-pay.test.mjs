@@ -263,7 +263,7 @@ describe("paying on the phone, with Clock PMS+ connected", () => {
       await staff.waitForSelector(`[data-order="${code}"]`);
       await clickText(staff, "nav", /За касата/);
       await staff.waitForSelector("[data-clock-mode]");
-      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /всяка сутрин в 06:00.*Чакат: 1/s);
+      assert.match(await staff.$eval("[data-clock-mode]", (e) => e.innerText), /всяка сутрин в 04:00.*Чакат: 1/s);
 
       // Its transfer comes, and Clock refuses it.
       fake.failNext("POST", /^\/companies\/\d+\/folios$/, 503, { error: "Service Unavailable" });

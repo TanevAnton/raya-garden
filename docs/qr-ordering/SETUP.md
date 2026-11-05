@@ -612,11 +612,12 @@ Before going live, on the live EOD POS account (ask Clock to activate it):
 4. the integration on in AppConnector, which gives the API user and URL for
    `QR_CLOCK_*`; a company for `QR_CLOCK_COMPANY_ID`.
 
-**Certification.** Clock tests only this transfer, with a few simulated bills
-in the sandbox (POS DEMO, 16516; `QR_CLOCK_CURRENCY` = `BGN`), once we say we're
-ready. A real run through this code passed on 4.11.2026: folios 24, 25 and 26,
-closed at balance 0, no document type, a refund netted and one as its own folio.
-In that run the charges showed 0 VAT at a 20% rate (net = gross): to raise with Clock.
+**Certification: 12.11.2026, 14:00–15:30.** Clock tests only this transfer, with a
+few simulated bills in the sandbox (POS DEMO, 16516; `QR_CLOCK_CURRENCY` = `BGN`).
+`npm run qr:clock-demo` runs it step by step against the sandbox (needs
+`~/.raya-clock-sandbox.env`); the brief is `CLOCK-CERTIFICATION-BG.md`. Real runs
+through this code passed on 4 and 5.11.2026: closed at balance 0, no document type,
+20% VAT, a refund netted and one as its own folio (folios 24–26 and 28–33).
 
 ### Settings
 

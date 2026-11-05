@@ -110,7 +110,7 @@ so Clock's reports hold the restaurant's whole turnover:
   prints that number on the receipt. Ours is closed in А, with А's printer, before
   Б hears of it, so that point doesn't describe us as it stands. We have asked her
   for the whole annex; its text isn't in `nap/` yet.
-- **Clock's side still open:** certification (they gave a booking link, 5.11.2026)
+- **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 
 ## What Iva and Сашо answered, 5.11.2026

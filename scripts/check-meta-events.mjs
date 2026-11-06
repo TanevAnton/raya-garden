@@ -117,6 +117,7 @@ const json = (body, status = 200) => ({
 
 const formspreeBodies = [];
 const weddingPosts = [];
+const capiPosts = [];
 
 const open = async (path, { failBackends = false, mobile = false, size = null } = {}) => {
   const page = await browser.newPage();
@@ -149,6 +150,11 @@ const open = async (path, { failBackends = false, mobile = false, size = null } 
       let website = "";
       try { website = String(JSON.parse(req.postData() || "{}").website || "").trim(); } catch { /* not JSON */ }
       return req.respond(json({ ok: true, reference: website ? "RG-WD-00000000-0000" : "RG-WD-TEST" }));
+    }
+    // The Conversions API endpoint: what the page posts, answered ok.
+    if (url.includes("/api/meta-capi.php")) {
+      capiPosts.push({ page: page.__label || "", body: JSON.parse(req.postData() || "{}") });
+      return req.respond(json({ ok: true }));
     }
     // Clock's real bundle would register its own callback; the page defines
     // ours regardless, and the funnel steps are invoked directly below.
@@ -972,6 +978,199 @@ const CLOCK_STEPS = [
   await page.close();
 }
 
+// ── Part B: a confirmed booking, however it is seen ──────────────────
+// Clock's iframe talks to the page in postMessages ({type, id, payload});
+// its own listener turns "track" into the callback. Here Clock's bundle is
+// blocked, so the messages are dispatched as Clock's origin would send them
+// and the callback is called where the real listener would call it.
+const CLOCK_ORIGIN = "https://sky-eu1.clock-software.com";
+const clockChecks = [];
+const clockCheck = (name, ok, detail = "") => {
+  clockChecks.push({ name, ok, detail });
+  if (!ok) failures.push(`clock: ${name}${detail ? ` — ${detail}` : ""}`);
+};
+const CHECKOUT_P = { pageName: "checkout", arrival: "2027-06-12", departure: "2027-06-14", roomCount: 1, totalPriceCents: 25000, totalPriceCurrency: "EUR", hotelName: "RAYA Garden" };
+const COMPLETED_P = { ...CHECKOUT_P, pageName: "completed", bookingNumbers: ["77001"] };
+async function clockPage(label, path = "/book?lang=bg") {
+  const page = await open(path);
+  page.__label = label;
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  return page;
+}
+// Dispatch messages as Clock's iframe would; `callback` also calls the page's
+// callback in the same tick for "track", as Clock's own listener does.
+const post = (page, msgs, { origin = CLOCK_ORIGIN, callback = false } = {}) =>
+  page.evaluate(({ msgs, origin, callback }) => {
+    for (const data of msgs) {
+      window.dispatchEvent(new MessageEvent("message", { data, origin }));
+      if (callback && data.type === "track") window.clockPmsWbePageViewCallback(data.payload);
+    }
+  }, { msgs, origin, callback });
+const eventsOf = async (page, name) =>
+  (await page.evaluate(() => window.__fbqCalls)).filter((c) => c[1] === name);
+const capiFor = (label) => capiPosts.filter((c) => c.page === label);
+
+// 1. The real order of things: message, then Clock's callback, for every step.
+{
+  const label = "clockmsg: message + callback";
+  const page = await clockPage(label);
+  const steps = [{ pageName: "rooms" }, { ...CHECKOUT_P }, { ...COMPLETED_P }];
+  await post(page, steps.map((payload, id) => ({ type: "track", id, payload })), { callback: true });
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("message and callback for the same booking: one Purchase", p.length === 1, `${p.length} Purchase(s)`);
+  clockCheck("…it is the callback's, unchanged, with eventID clock-77001",
+    p[0]?.[3]?.eventID === "clock-77001" && p[0]?.[2]?.value === 250 && p[0]?.[2]?.content_type === "hotel_room" && !("order_id" in (p[0]?.[2] || {})),
+    JSON.stringify(p[0]?.slice(2)));
+  const capi = capiFor(label);
+  clockCheck("…and one Conversions API copy with the same event_id and value",
+    capi.length === 1 && capi[0].body.event_id === "clock-77001" && capi[0].body.value === 250 && capi[0].body.currency === "EUR" && JSON.stringify(capi[0].body.content_ids) === '["77001"]',
+    JSON.stringify(capi.map((c) => c.body)));
+  // Clock reporting "completed" again (a re-render, a reload in the tab).
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await post(page, [{ type: "track", id: 9, payload: { ...COMPLETED_P } }], { callback: true });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await sleep(1200);
+  await post(page, [{ type: "track", id: 10, payload: { ...COMPLETED_P } }], { callback: true });
+  await sleep(400);
+  const again = (await eventsOf(page, "Purchase")).length;
+  clockCheck("the same booking reported again, and after a reload: no second Purchase", again === 0 && capiFor(label).length === 1, `${again} Purchase(s), ${capiFor(label).length} API post(s)`);
+  await page.close();
+}
+
+// 2. Only the message (Clock's callback never runs): Purchase from it, with order_id.
+{
+  const label = "clockmsg: message only";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }, { type: "track", id: 2, payload: { ...COMPLETED_P, bookingNumbers: ["77002", "77003"] } }]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a completed message alone: one Purchase with value, currency, content_type, order_id",
+    p.length === 1 && p[0][0] === "track" && p[0][3]?.eventID === "clock-77002-77003" &&
+    JSON.stringify({ v: p[0][2].value, c: p[0][2].currency, t: p[0][2].content_type, o: p[0][2].order_id }) === JSON.stringify({ v: 250, c: "EUR", t: "hotel_room", o: "77002-77003" }),
+    JSON.stringify(p.map((x) => x.slice(2))));
+  clockCheck("…and its Conversions API copy", capiFor(label).length === 1 && capiFor(label)[0].body.event_id === "clock-77002-77003");
+  await page.close();
+}
+
+// 3. A confirmation in some other shape: id + confirmed status + total.
+{
+  const label = "clockmsg: other confirmation shape";
+  const page = await clockPage(label);
+  await post(page, [{ type: "bookingConfirmed", id: 3, payload: { reservation: { reservationNumber: "R5501", status: "confirmed", total: 180, currency: "EUR" } } }]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a message with a reservation number, status confirmed and a total: one Purchase",
+    p.length === 1 && p[0][2].value === 180 && p[0][2].order_id === "R5501" && p[0][3]?.eventID === "clock-R5501", JSON.stringify(p.map((x) => x.slice(2))));
+  await page.close();
+}
+
+// 4. Nothing that is not a confirmation, or not from Clock.
+{
+  const label = "clockmsg: not a booking";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...COMPLETED_P, bookingNumbers: ["99999"] } }], { origin: "https://evil.example" });
+  await post(page, [
+    { type: "track", id: 2, payload: { pageName: "rates", roomTypeName: "Double" } },
+    { type: "localStorageRead", id: 3, payload: "x" },
+    { type: "bookingUpdate", id: 4, payload: { reservationNumber: "R1", status: "pending", total: 99 } },
+    { id: 5, payload: "a reply", success: true },
+  ]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("another origin, other steps, a pending status, replies: no Purchase", p.length === 0 && capiFor(label).length === 0, `${p.length} Purchase(s)`);
+  await page.close();
+}
+
+// 5. A confirmation URL: the iframe's path (windowLocationReplace), and this page's own.
+{
+  const label = "clockmsg: confirmation URL from the iframe";
+  const page = await clockPage(label);
+  await post(page, [
+    { type: "track", id: 1, payload: { ...CHECKOUT_P } },
+    { type: "windowLocationReplace", id: 2, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fbooking%2Fcompleted%3FbookingNumber%3D55501" },
+    { type: "windowLocationReplace", id: 3, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fbooking%2Fcompleted%3FbookingNumber%3D55501" },
+  ]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a completed path reported by the iframe: one Purchase, priced from the checkout",
+    p.length === 1 && p[0][2].order_id === "55501" && p[0][2].value === 250 && p[0][3]?.eventID === "clock-55501", JSON.stringify(p.map((x) => x.slice(2))));
+  await page.close();
+
+  const label2 = "clockmsg: opened on a confirmation URL";
+  // The check runs while the page parses, so its calls are read as they
+  // are rather than cleared first, as clockPage would.
+  const p2 = await browser.newPage();
+  await p2.evaluateOnNewDocument(CAPTURE);
+  await p2.setRequestInterception(true);
+  p2.on("request", (req) => (req.url().includes("clock-software.com") || req.url().includes("facebook.net") || req.url().includes("googletagmanager")) ? req.abort() : req.url().includes(".sanity.io") ? req.respond(json({ result: sanityAnswer(req.url()) })) : req.continue());
+  await p2.goto(`${BASE}/book?lang=bg&clock-pms-wbe=%2Fconfirmation%2F66601`, { waitUntil: "domcontentloaded" });
+  await sleep(800);
+  const calls = await p2.evaluate(() => window.__fbqCalls);
+  record(label2, calls);
+  const pp = calls.filter((c) => c[1] === "Purchase");
+  clockCheck("a page opened on a confirmation URL with a booking number: one Purchase",
+    pp.length === 1 && pp[0][2].order_id === "66601" && pp[0][3]?.eventID === "clock-66601", JSON.stringify(pp.map((x) => x.slice(2))));
+  await p2.close();
+
+  const label3 = "clockmsg: confirmation URL with nothing to key on";
+  const page3 = await clockPage(label3);
+  await post(page3, [{ type: "windowLocationReplace", id: 1, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fthank-you" }]);
+  await sleep(300);
+  record(label3, await page3.evaluate(() => window.__fbqCalls));
+  clockCheck("a thank-you URL with no booking number and no checkout: no Purchase", (await eventsOf(page3, "Purchase")).length === 0);
+  await page3.close();
+}
+
+// 6. BookingCheckoutAbandon: closed after InitiateCheckout, without a Purchase.
+{
+  const label = "clockmsg: closed at checkout";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }], { callback: true });
+  await post(page, [{ type: "integrationClose", id: 2 }, { type: "integrationClose", id: 3 }]);
+  await sleep(300);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const a = await eventsOf(page, "BookingCheckoutAbandon");
+  clockCheck("closed after InitiateCheckout: one BookingCheckoutAbandon, with the checkout's value",
+    a.length === 1 && a[0][0] === "trackCustom" && a[0][2].value === 250 && a[0][2].currency === "EUR" && a[0][2].num_items === 1 && /^clock-abandon-/.test(a[0][3]?.eventID || ""),
+    JSON.stringify(a.map((x) => x.slice(2))));
+  // Back in, a second checkout, then a booking and a close: no abandon.
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await post(page, [{ type: "track", id: 4, payload: { ...CHECKOUT_P } }, { type: "track", id: 5, payload: { ...COMPLETED_P, bookingNumbers: ["77009"] } }], { callback: true });
+  await sleep(200);
+  await post(page, [{ type: "integrationClose", id: 6 }]);
+  await sleep(300);
+  record(`${label}, then booked`, await page.evaluate(() => window.__fbqCalls));
+  clockCheck("…a second checkout that ends in a booking, then closed: no abandon, one Purchase",
+    (await eventsOf(page, "BookingCheckoutAbandon")).length === 0 && (await eventsOf(page, "Purchase")).length === 1);
+  await page.close();
+
+  const label2 = "clockmsg: closed before checkout";
+  const page2 = await clockPage(label2);
+  await post(page2, [{ type: "track", id: 1, payload: { pageName: "rooms" } }, { type: "integrationClose", id: 2 }], { callback: true });
+  await sleep(300);
+  record(label2, await page2.evaluate(() => window.__fbqCalls));
+  clockCheck("closed before checkout: no BookingCheckoutAbandon", (await eventsOf(page2, "BookingCheckoutAbandon")).length === 0);
+  await page2.close();
+}
+
+// 7. ?debugclock=1: every Clock message logged with its payload; silent otherwise.
+for (const [path, want] of [["/book?lang=bg&debugclock=1", true], ["/book?lang=bg", false]]) {
+  const page = await open(path);
+  const logs = [];
+  page.on("console", (m) => { if (m.text().includes("[clock]")) logs.push(m.text()); });
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }, { type: "integrationClose", id: 2 }]);
+  await sleep(400);
+  const sawPayload = logs.some((t) => t.includes("track"));
+  clockCheck(`${path}: Clock messages ${want ? "logged" : "not logged"}`, want ? sawPayload && logs.length >= 2 : logs.length === 0, `${logs.length} line(s)`);
+  await page.close();
+}
+
 await browser.close();
 
 // ── report ───────────────────────────────────────────────────────────
@@ -1367,6 +1566,17 @@ console.log(`link to Clock: same tab held then followed ${sameTab?.held && sameT
 console.log(`\n${"=".repeat(96)}\n  WEDDING CONFIGURATOR\n${"=".repeat(96)}`);
 for (const c of configuratorChecks) console.log(`${c.ok ? "PASS" : "FAIL"}  ${c.name}${c.detail ? `  (${c.detail})` : ""}`);
 
+console.log(`\n${"=".repeat(96)}\n  CLOCK BOOKING — messages, URLs, abandon, Conversions API\n${"=".repeat(96)}`);
+for (const c of clockChecks) console.log(`${c.ok ? "PASS" : "FAIL"}  ${c.name}${c.detail && !c.ok ? `  (${c.detail})` : ""}`);
+// Nowhere else: no Purchase outside the Clock funnel, and no abandon outside
+// the checks above.
+for (const r of rows) {
+  if (r.event === "BookingCheckoutAbandon" && r.where !== "clockmsg: closed at checkout") failures.push(`${r.where}: BookingCheckoutAbandon fired — it must not`);
+  if (r.event === "Purchase" && !r.where.startsWith("clock")) failures.push(`${r.where}: Purchase fired — it must not`);
+}
+const capiOk = capiPosts.filter((c) => c.page.startsWith("clockmsg:")).length;
+console.log(`Conversions API posts: ${capiPosts.length} in the run (${capiOk} from the booking checks, ${capiPosts.length - capiOk} from the Clock funnel steps)`);
+
 // The one that silently ruins reported revenue.
 const purchase = find("Purchase", "clock: completed");
 if (purchase) {
@@ -1396,7 +1606,10 @@ if (rates && "value" in rates.params) {
 
 // Every site-side event needs a dedup id for the Conversions API later.
 // The Clock funnel is exempt only for its deterministic Purchase id.
-for (const r of rows.filter((x) => !x.where.startsWith("clock:"))) {
+// The booking checks (clockmsg:) are the funnel too: Search, ViewContent and
+// InitiateCheckout from Clock never had an id; their Purchase and
+// BookingCheckoutAbandon are asserted with one above.
+for (const r of rows.filter((x) => !x.where.startsWith("clock:") && !x.where.startsWith("clockmsg:"))) {
   if (!r.opts.eventID) failures.push(`${r.event} at ${r.where} has no eventID`);
 }
 const clockPurchase = rows.find((r) => r.where === "clock: completed");

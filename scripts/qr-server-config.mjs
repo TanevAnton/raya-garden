@@ -22,6 +22,8 @@
 //   QR_TIPS                     → 'tips'                (on; unset or off = no tips, the default)
 //   QR_FISCAL_MODE              → 'fiscal_mode'         (off | test | live)
 //   QR_FISCAL_BRIDGE_TOKEN      → 'fiscal_bridge_token' (the fiscal bridge's key, 32+ characters)
+//   META_CAPI_TOKEN             → 'meta_capi_token'     (the Meta Conversions API access token, EAA…;
+//                                 for room bookings' Purchase — public/api/meta-capi.php)
 //
 // A secret that is not set leaves its line as it is. One set to "off"
 // removes its line — for Stripe the system then falls back to paying staff,
@@ -67,6 +69,9 @@ const STRIPE = [
   // The fiscal printer for phone payments (public/api/qr/_lib/fiscal.php, tools/fiscal-bridge).
   ["QR_FISCAL_MODE", "fiscal_mode", /^(test|live)$/, "test or live (or off)"],
   ["QR_FISCAL_BRIDGE_TOKEN", "fiscal_bridge_token", /^[A-Za-z0-9_-]{32,128}$/, "a random key of 32+ letters, digits, - or _ (e.g. openssl rand -hex 32)"],
+  // Not the QR system's, but the same file: the server-side copy of room
+  // bookings' Purchase (public/api/meta-capi.php, README-tracking.md).
+  ["META_CAPI_TOKEN", "meta_capi_token", /^EAA[A-Za-z0-9]{20,500}$/, "a Meta Conversions API access token (EAA…)"],
 ];
 
 const line = (key) => new RegExp(`^([ \\t]*'${key}'\\s*=>\\s*)'([^'\\\\]*)',?[ \\t]*\\n?`, "m");

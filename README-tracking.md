@@ -19,7 +19,9 @@ src/lib/metaPixel.js        trackMeta() / useMetaEvent() — every site event
   ├── QuickCallback.jsx     EventEnquiry, EnquirySubmitted (the configurator's «Обадете ми се»)
   └── WeddingConfigurator   Lead, EnquirySubmitted
 
-index.html (inline script)  the Clock PMS booking funnel
+index.html (inline script)  the Clock PMS booking funnel, the Clock message
+                            listener, BookingCheckoutAbandon
+public/api/meta-capi.php    the Conversions API copy of a booking's Purchase
 ```
 
 The booking funnel is the exception and has to be. Clock's integration script
@@ -185,6 +187,88 @@ overlay does not change the route.
 `Purchase` uses a deterministic `eventID` built from the booking numbers
 rather than a UUID, so the Conversions API can match the same booking.
 
+### One `Purchase` per booking, three ways to see it
+
+Added 06.11.2026. Clock's iframe talks to the page in postMessages
+`{type, id, payload}` from `https://sky-eu1.clock-software.com`. The types it
+sends are `track` (the callback's payload, one per step), `windowLocationRead`,
+`windowLocationReplace` (the iframe's path, mirrored into `?clock-pms-wbe=`),
+`localStorageRead` / `localStorageWrite`, `integrationClose` (its close
+button) and `ready`. Read from Clock's own integration script.
+
+A listener in `index.html` watches every message from a `*.clock-software.com`
+origin. Clock's listener is untouched and still answers them. A confirmed
+booking is reported by whichever of these sees it first:
+
+1. **The callback**, `pageName: 'completed'`: the `Purchase` above, unchanged.
+2. **A message**: Clock's `track` `completed`, or any message with booking
+   numbers (`bookingNumbers`, `booking_id`, `reservationNumber`,
+   `confirmationNumber`, …) and a confirmed status (`confirmed`, `success`,
+   `completed`, `booked`, `paid`). The total comes from `…Cents` fields ÷ 100,
+   or from `total` / `amount` / `totalPrice` as is.
+3. **A confirmation URL**: a path with `completed`, `confirmation`,
+   `confirmed`, `success`, `thank-you` or `thanks`, in the iframe's path or on
+   this page's own URL when it loads. Booking numbers come from the URL's
+   parameters or the segment after `completed/` or `confirmation/`. The price
+   comes from the checkout before it.
+
+`rayaClockPurchaseOnce()` sends it once per booking. It keeps the booking ids
+sent in sessionStorage (`raya.clock.purchased`), so a repeated `completed`, a
+message after the callback, or a reload in the same tab sends nothing more.
+Paths 2 and 3 send the same event as 1, with the same `eventID`, plus
+`order_id`. If they have no booking number, they key on the checkout in
+progress (`raya.clock.checkout`) and send no `eventID`. With neither, they
+send nothing. In the real order, the callback runs first: Clock's listener
+calls it inside the same message, and the page's own `Purchase` waits a tick.
+
+`content_type` stays `hotel_room`, as on the rest of the funnel. The brief
+asked for `hotel`, but `hotel_room` is what is already reported. Changing it
+for `Purchase` alone would split the funnel in Events Manager.
+
+### Conversions API
+
+Each `Purchase` with booking numbers and a value is also posted to
+`/api/meta-capi.php`, which sends it to Meta server-side with the **same
+`event_id`** (`clock-<numbers>`). Meta keeps one copy of the two. The server
+copy still arrives when an ad blocker stops the pixel. It carries the guest's
+IP, user agent and `_fbp` / `_fbc` cookies, and `custom_data` with
+`value`, `currency`, `content_type: 'hotel_room'`, `content_ids`, `order_id`,
+`num_items` and the dates.
+
+- **Token:** GitHub secret `META_CAPI_TOKEN` (Events Manager → the pixel →
+  Settings → Conversions API → Generate access token). The deploy writes it to
+  `meta_capi_token` in `raya-qr-config.php`, above the web root
+  (`scripts/qr-server-config.mjs`). Without it the endpoint answers
+  `{ok:false, error:'not-configured'}` and sends nothing. The pixel's copy is
+  unaffected.
+- **Checked, not trusted:** the browser cannot prove a booking, so the endpoint
+  only accepts what looks like one. It must be `Purchase`, with an `event_id`
+  equal to `clock-` + the `content_ids`, and a value over 0 and at most
+  100 000. It must come from rayagarden.bg's origin, each `event_id` is sent
+  once within 30 days, and one address may post 10 an hour. Someone could
+  still post a made-up booking number. Checking it against Clock's API would
+  close that, but needs a Clock API user with read access to bookings.
+- **Test Events:** open the site with `?meta_test=TEST12345` (the code from
+  Events Manager → Test Events → Server). The server copy then goes to Test
+  Events, and is not counted or remembered as sent.
+
+### `BookingCheckoutAbandon`
+
+A custom event (`trackCustom`). It fires when Clock's window closes
+(`integrationClose`) after `InitiateCheckout` and before a `Purchase`, once
+per checkout, with the checkout's `value`, `currency`, `num_items`, dates
+and `eventID: clock-abandon-<checkout>`. It doesn't fire when the window
+closes before the checkout step or after a booking. It also doesn't fire when
+the guest closes the tab or leaves the page with the window open, because
+only Clock's close button tells the page.
+
+### `?debugclock=1`
+
+It logs every message from Clock's iframe to the console as `[clock] <type>`
+with its full payload, plus each callback, each `Purchase` sent or skipped,
+and the Conversions API's answer. It stays on for the tab's visit, since the
+SPA drops the query on navigation. `?debugclock=0` turns it off.
+
 ### The callback is shared
 
 It reports to **three** systems: ChatGPT Ads `checkout_started`, GA4
@@ -230,6 +314,15 @@ every event with its params and asserts:
   `/book` form, a link straight to Clock in this tab and in a new one) — and
   nowhere else; the same-tab Clock link held, then followed
 - `PhoneClick` exactly once beside every `tel:` tap, and nowhere else
+- a confirmed booking: one `Purchase` when the message and the callback both
+  report it (the callback's, unchanged), and none more on a repeat or a
+  reload. One `Purchase` with `order_id` from a message alone, from another
+  confirmation shape, from the iframe's confirmation path (priced from the
+  checkout) and from a page opened on one. None from another origin, a
+  pending status, a thank-you URL with nothing to key on, or replies. One
+  Conversions API post per booking with the pixel's `event_id`.
+  `BookingCheckoutAbandon` once after a closed checkout, and never before
+  checkout or after a booking. `?debugclock=1` logs and silence without it
 - `EnquirySubmitted` for each of the four forms at 375×812 and 1280×900:
   once on a confirmed send, a double tap, and the callback-then-form visit
   (once each); nothing on an invalid form, a network failure, a 422, a

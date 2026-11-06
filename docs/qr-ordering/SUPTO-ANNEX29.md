@@ -141,7 +141,7 @@ Settled:
 - **The order of filing:** Iva thinks ours is right: test printer, screenshots, producer's declaration, swap the fiscal memory (€62 + VAT) and register, Annex 32, live.
 
 Still open:
-- **Producer:** the company or Anton as a person. Сашо prefers the company; Iva can file for the company with her signature. A person also needs a contract with the company. Anton decides with his father.
+- **Producer: the company** (decided 6.11.2026), so the company files and Iva can sign. Asked Iva what that commits the company to, and whether the rights to the code need a document.
 - **Annex 41**, above.
 - **Payment subtype:** Iva wants to see Clock's data and a printer report first.
 - **A separate test server, with no test code in the registered version:** neither knew. Iva thinks НАП may want a test environment to look at, and the control sheet does ask for screenshots from one. Ask НАП.

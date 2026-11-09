@@ -122,8 +122,19 @@ so Clock's reports hold the restaurant's whole turnover:
   Control sheet 3.2 (closed sales "от ФУ или от друг софтуер – не-СУПТО", booked
   with a payment needing no ФБ) follows Annex 42, which we don't have. Whether a
   sale from our printer can go that way, given that it also comes from a СУПТО, is
-  for Iva, Сашо or НАП. Asked Clock whether their import meets Annex 41. No code
-  changes until they answer.
+  for Iva, Сашо or НАП.
+- **Clock's answer, 9.11.2026: their EOD account is not an Annex 41 import.** It
+  holds consolidated management figures only; Clock is not built to receive the
+  full audit trail of tables 18.1–18.3 from another СУПТО. The УНП, the full
+  history and the stornos stay in our system, which reports to НАП; they keep
+  their advice to send final results after refunds. So nothing changes in what we
+  send. The open question moves to Сашо: the control sheet says two СУПТО *may*
+  exchange sales under Annex 41 (чл. 52з, ал. 9), it doesn't say they must; is a
+  management-only transfer enough for his condition of one turnover in Clock, or
+  does our sale have to arrive as a fiscal import (which Clock doesn't offer)?
+  If it isn't enough, the options are an import under control sheet 3.2 /
+  Annex 42, if those apply to a sale from a СУПТО, or no transfer, with each
+  СУПТО reporting its own sales.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 

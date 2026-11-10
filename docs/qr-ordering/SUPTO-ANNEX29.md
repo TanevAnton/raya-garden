@@ -151,6 +151,11 @@ so Clock's reports hold the restaurant's whole turnover:
   is allowed on those terms, nothing obliges two СУПТО to exchange. So the choice
   is between no transfer (each СУПТО reports its own sales), a management-only
   transfer that НАП might call a non-compliant import, or НАП's written answer.
+- **Сашо, 10.11.2026, with Clock's answer in hand:** he can't answer for certain,
+  the details are a matter of interpretation, and a written answer with
+  instructions from НАП is the sensible way. Draft: `nap/zapitvane-nap-bg.md`,
+  for the company to file with Iva's signature. Until НАП answers, the transfer
+  stays built and off; nothing goes live on an assumption.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 

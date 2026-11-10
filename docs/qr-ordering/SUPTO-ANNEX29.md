@@ -135,6 +135,13 @@ so Clock's reports hold the restaurant's whole turnover:
   If it isn't enough, the options are an import under control sheet 3.2 /
   Annex 42, if those apply to a sale from a СУПТО, or no transfer, with each
   СУПТО reporting its own sales.
+- ⚠ **Сашо, 10.11.2026: "вървим по приложение 41, защото продажбите ни ще са с
+  ФУ"**; Iva also reads only Annex 41 as applying. His answer was to the earlier
+  email and doesn't take up Clock's position, so the two now contradict: Annex 41
+  for the accountants, no Annex 41 import on Clock's side. Put to both of them
+  again, with a written question to НАП as the way to settle it. Annex 42 came as
+  an attachment and isn't in `nap/` yet. The transfer is a setting, so "no
+  transfer" needs no rebuild.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 
@@ -152,7 +159,7 @@ Settled:
 - **The order of filing:** Iva thinks ours is right: test printer, screenshots, producer's declaration, swap the fiscal memory (€62 + VAT) and register, Annex 32, live.
 
 Still open:
-- **Producer: the company** (decided 6.11.2026), so the company files and Iva can sign. Asked Iva what that commits the company to, and whether the rights to the code need a document.
+- **Producer: the company** (decided 6.11.2026). Iva files with her signature, with our help on the technical parts, and the same for later versions. A declaration with untrue information: 5 000–10 000 лв. (in euro) for a company, doubled if repeated. For НАП no document on the rights to the code is needed (Iva and Сашо, 10.11.2026); Сашо notes copyright between author and company is a separate matter НАП doesn't look at.
 - **Annex 41**, above.
 - **Payment subtype:** Iva wants to see Clock's data and a printer report first.
 - **A separate test server, with no test code in the registered version:** neither knew. Iva thinks НАП may want a test environment to look at, and the control sheet does ask for screenshots from one. Ask НАП.

@@ -139,9 +139,18 @@ so Clock's reports hold the restaurant's whole turnover:
   ФУ"**; Iva also reads only Annex 41 as applying. His answer was to the earlier
   email and doesn't take up Clock's position, so the two now contradict: Annex 41
   for the accountants, no Annex 41 import on Clock's side. Put to both of them
-  again, with a written question to НАП as the way to settle it. Annex 42 came as
-  an attachment and isn't in `nap/` yet. The transfer is a setting, so "no
+  again, with a written question to НАП as the way to settle it. Annex 42 is now in
+  `nap/prilozhenie-42.txt` (from lex.bg, with чл. 52з, ал. 9–11). The transfer is a setting, so "no
   transfer" needs no rebuild.
+- **Annex 42 is no way round it** (read 10.11.2026). Its point 2, for sales from
+  other sources and software, also binds the receiving СУПТО: load everything in
+  full and unchanged, generate an УНП at import, and store the source's
+  identifier, the source, the way and time of import and the data of tables 18.1
+  and 18.3, linked to the new УНП. That is again Clock's side, which Clock says
+  its EOD account doesn't do. Both ал. 9 and ал. 10 say "се допуска": an exchange
+  is allowed on those terms, nothing obliges two СУПТО to exchange. So the choice
+  is between no transfer (each СУПТО reports its own sales), a management-only
+  transfer that НАП might call a non-compliant import, or НАП's written answer.
 - **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
   and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 

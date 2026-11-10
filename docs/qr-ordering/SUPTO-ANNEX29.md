@@ -123,7 +123,7 @@ so Clock's reports hold the restaurant's whole turnover:
   with a payment needing no ФБ) follows Annex 42, which we don't have. Whether a
   sale from our printer can go that way, given that it also comes from a СУПТО, is
   for Iva, Сашо or НАП.
-- **Clock's answer, 9.11.2026: their EOD account is not an Annex 41 import.** It
+- **Clock's answer, 9.11.2026 (Nikolay Lazarov, Integration Manager): their EOD account is not an Annex 41 import.** It
   holds consolidated management figures only; Clock is not built to receive the
   full audit trail of tables 18.1–18.3 from another СУПТО. The УНП, the full
   history and the stornos stay in our system, which reports to НАП; they keep

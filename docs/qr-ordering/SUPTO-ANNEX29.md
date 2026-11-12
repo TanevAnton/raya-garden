@@ -161,10 +161,9 @@ so Clock's reports hold the restaurant's whole turnover:
   to infocenter.
 - **Printer:** the test FP-700MX, serial DA055322, has been ready at Datecs
   Велико Търново (ул. „Бачо Киро“ 9) since 10.11.2026.
-- **To build before the first declaration: an automatic Z before midnight**
-  (decided 12.11.2026). A payment after midnight then belongs to the next fiscal
-  day. Open: the exact time, and whether the transfer to Clock groups by evening
-  or by fiscal day. Iva to confirm in one line.
+- **Built 12.11.2026: an automatic Z at 23:55**, and Clock's day follows the
+  Z report (DECISIONS.md, "The fiscal day closes by itself"). A payment from
+  23:55 on belongs to the next fiscal day. Iva to confirm in one line.
 - **Clock's side:** certification passed on 12.11.2026 (`CLOCK-CERTIFICATION-BG.md`).
   Still open: the pilot being enabled, the live credentials and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 

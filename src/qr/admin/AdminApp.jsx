@@ -1214,9 +1214,17 @@ function FiscalReports({ info, onCommand }) {
     c.status === "done" ? `отпечатан в ${clock(c.doneAt)}`
       : c.status === "failed" || c.status === "check" ? `не се отпечата${c.error ? `: ${c.error}` : ""}`
       : "чака касата…";
+  // The day's own Z report that didn't print, and none since: staff print it by hand.
+  const lastZ = (info.commands || []).find((c) => c.kind === "zreport");
+  const autoFailed = lastZ && lastZ.auto && (lastZ.status === "failed" || lastZ.status === "check");
   return (
     <section className="mt-8 border border-gold-300/20 rounded-sm p-4" data-fiscal-reports>
       <h2 className="font-display text-xl text-cream-50">Касата за онлайн плащания</h2>
+      {autoFailed && (
+        <p className="mt-3 rounded-sm border border-red-400/50 bg-red-950/40 p-3 text-sm text-red-200" data-auto-z-failed>
+          Автоматичният дневен отчет (Z) не се отпечата. Проверете принтера и натиснете „Дневен отчет (Z)“.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 mt-3">
         <button type="button" onClick={() => onCommand("xreport")} className="h-11 px-4 rounded-sm border border-gold-300/40 text-sm text-cream-50">X отчет</button>
         <button type="button" onClick={() => onCommand("zreport")} className="btn-gold h-11 px-4 rounded-sm text-sm">Дневен отчет (Z)</button>
@@ -1226,7 +1234,7 @@ function FiscalReports({ info, onCommand }) {
         <ul className="mt-3 text-sm text-cream-100/70 space-y-1">
           {info.commands.map((c) => (
             <li key={c.id} data-command={c.kind} data-command-status={c.status}>
-              {COMMAND_NAMES[c.kind] || c.kind}, поискан в {clock(c.requestedAt)} — <span className={c.status === "done" ? "text-sage-200" : c.status === "failed" || c.status === "check" ? "text-red-300" : ""}>{state(c)}</span>
+              {COMMAND_NAMES[c.kind] || c.kind}, {c.auto ? "автоматичен" : "поискан"} в {clock(c.requestedAt)} — <span className={c.status === "done" ? "text-sage-200" : c.status === "failed" || c.status === "check" ? "text-red-300" : ""}>{state(c)}</span>
             </li>
           ))}
         </ul>

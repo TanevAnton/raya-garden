@@ -49,6 +49,7 @@ export async function startFakeStripe({ webhookSecret }) {
   const failures = []; // queued [pathPrefix, status, body]
   const delays = []; // queued [pathPrefix, ms]
   let webhookUrl = "";
+  let serverNow = 0; // the moment the webhook's server is told it is (X-Test-Now); 0 = its own clock
   let n = 0;
 
   const json = (res, status, body) => {
@@ -69,7 +70,7 @@ export async function startFakeStripe({ webhookSecret }) {
     const sent = tamper ? payload.replace(/"amount_total":\d+/, '"amount_total":1') : payload;
     const res = await fetch(webhookUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Stripe-Signature": sign(payload, secret, time) },
+      headers: { "Content-Type": "application/json", "Stripe-Signature": sign(payload, secret, time), ...(serverNow ? { "X-Test-Now": String(serverNow) } : {}) },
       body: sent,
     });
     return { status: res.status, body: await res.json().catch(() => null) };
@@ -188,6 +189,7 @@ export async function startFakeStripe({ webhookSecret }) {
     refunds,
     refunded: (pi) => (refunds.get(pi) || []).reduce((sum, r) => sum + r.amount, 0),
     setWebhook: (url) => (webhookUrl = url),
+    setNow: (at) => (serverNow = at || 0),
     failNext: (prefix, status, body) => failures.push([prefix, status, body]),
     delayNext: (prefix, ms) => delays.push([prefix, ms]),
     event,
@@ -195,6 +197,7 @@ export async function startFakeStripe({ webhookSecret }) {
     pay,
     calls: (path) => requests.filter((r) => r.path === path),
     reset: () => {
+      serverNow = 0;
       sessions.clear();
       refunds.clear();
       charged.clear();

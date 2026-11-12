@@ -49,6 +49,7 @@ const stripe = await startFakeStripe({ webhookSecret: "whsec_demo" });
 const printer = await startFakeErpNet();
 const srv = await startServer({ stripe: { key: "rk_test_demo", webhookSecret: "whsec_demo", api: stripe.base, publicUrl: "https://rayagarden.bg" }, clock: { api: base, clock_mode: "test", clock_base_url: base, clock_api_user: env.CLOCK_USER, clock_api_key: env.CLOCK_KEY, clock_company_id: 7200455, clock_currency: "BGN", fiscal_mode: "test", fiscal_bridge_token: KEY } });
 stripe.setWebhook(`${srv.base}/api/qr/stripe-webhook.php`);
+stripe.setNow(AT);
 const work = mkdtempSync(path.join(tmpdir(), "raya-demo-"));
 const bridge = (at) => createBridge({ server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "j.json"), waitMs: 1500, headers: { "X-Test-Now": String(at) } }, { log: () => {} });
 const print = async (at) => { const b = bridge(at); for (let i = 0; i < 10; i++) if ((await b.step()) > 0) return; };

@@ -449,7 +449,11 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
 
 - **Reports**: „За касата“ → "Касата за онлайн плащания" asks the bridge for
   the day's Z report, an X report, or a duplicate of the last receipt. A Z
-  report is never printed while a receipt is still on its way.
+  report is never printed while a receipt is still on its way. The day's Z
+  report also prints by itself at 23:55 (`auto_z` in `fiscal-settings.php`,
+  '' to switch it off) if a receipt was printed since the last one; receipts
+  paid from then on wait for it and belong to the next fiscal day. If it
+  fails, the screen says so and staff print it by hand.
 - **Setup on the day**: `sudo ./install-linux.sh` on a Raspberry Pi / Linux
   (a service that starts on boot); `node bridge.mjs --check` tells what the
   bridge can and can't see, printing nothing.
@@ -593,10 +597,13 @@ nothing can print on the restaurant's printer. Staff do nothing in Clock.
 - **The polls start it**, the bridge's above all, since it runs all night.
 - **Only printed sales go.** A receipt not out yet holds its sale back; one
   entered by hand in Clock never goes.
-- **A refund before the transfer** is taken off: Clock gets the final result. A
-  bill refunded in full sends nothing.
-- **A refund after the transfer** is a folio of its own next morning, with
-  negative lines and a negative payment (Clock confirmed this, 4.11.2026).
+- **A day in Clock is a Z report.** A sale counts for its fiscal day: paid from
+  the automatic Z report (23:55, `auto_z` in `fiscal-settings.php`) on, it is the
+  next day's and goes a morning later.
+- **A refund on the sale's own fiscal day** is taken off: Clock gets the day's
+  result. A sale refunded in full that day sends nothing.
+- **A refund on a later day** is a folio of its own in that day's transfer, with
+  negative lines and a negative payment, whether or not its sale has gone yet.
 - **A sale that could not get through** shows Clock's reason on „За касата“,
   with *Опитай пак*.
 - Off unless receipts are on (`QR_FISCAL_MODE`): Clock only hears of fiscalised

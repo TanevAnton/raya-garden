@@ -74,10 +74,11 @@ export const TABLES = {
     receipt_number: "Номер на касовата бележка", receipt_at: "Дата и час на бележката (по ФУ)", fm_number: "Номер на фискалната памет",
     printed_at: "Отпечатана", error: "Грешка от ФУ", created_at: "Създадена (дата и час на плащането)", seq: "Пореден номер на промяната",
   }],
-  fiscal_commands: ["Отчети (Z, X) и дубликати, поискани от екрана.", {
+  fiscal_commands: ["Отчети (Z, X) и дубликати, поискани от екрана, и автоматичният дневен отчет (Z).", {
     id: "Системен номер", test: "Тестов", kind: "zreport, xreport, duplicate", status: "pending, claimed, submitted, done, failed",
     tries: "Опити", claimed_at: "Взет от моста", task_id: "Задача в ErpNet.FP", requested_at: "Поискан", done_at: "Изпълнен",
     error: "Грешка", seq: "Пореден номер на промяната",
+    cutoff_at: "При автоматичен Z отчет: моментът, в който приключва деня (0 — поискан от екрана)",
   }],
   fiscal_bridge: ["Състоянието на моста към ФУ (един ред).", {
     id: "Винаги 1", last_seen: "Последна връзка", version: "Версия на моста", printer_id: "Име на ФУ в ErpNet.FP",

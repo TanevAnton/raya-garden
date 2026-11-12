@@ -287,14 +287,16 @@ function qr_fiscal_claim(array $bridge, int $now)
         if (!empty($bridge['check'])) {
             return null; // the bridge checking its connection: its state is recorded, nothing is claimed
         }
+        // The day's Z report by itself: receipts from its moment on wait for it.
+        $hold = qr_fiscal_auto_z($pdo, $now);
         for ($i = 0; $i < 20; $i++) {
-            $find = $pdo->prepare('SELECT * FROM fiscal_docs WHERE ' . QR_FISCAL_DUE . ' ORDER BY id LIMIT 1');
-            $find->execute([QR_FISCAL_TRIES, $now, $now - QR_FISCAL_LEASE]);
+            $find = $pdo->prepare('SELECT * FROM fiscal_docs WHERE ' . QR_FISCAL_DUE . ' AND created_at < ? ORDER BY id LIMIT 1');
+            $find->execute([QR_FISCAL_TRIES, $now, $now - QR_FISCAL_LEASE, $hold > 0 ? $hold : PHP_INT_MAX]);
             $doc = $find->fetch();
             $find->closeCursor();
             if (!is_array($doc)) {
                 // No receipt waiting: a report or duplicate staff asked for.
-                return qr_fiscal_claim_command($pdo, $now);
+                return qr_fiscal_claim_command($pdo, $now, $hold);
             }
             if ($doc['kind'] === 'sale' && $doc['task_id'] === '' && qr_fiscal_entered_by_hand($pdo, $doc)) {
                 qr_fiscal_set_manual($pdo, $doc);
@@ -518,13 +520,97 @@ function qr_fiscal_command_request(string $kind, int $now): array
     });
 }
 
+/** 'auto_z' (fiscal-settings.php) as the latest such moment not after $now (Europe/Sofia), or 0 when it is off. */
+function qr_fiscal_auto_z_at(int $now): int
+{
+    $time = (string) (qr_fiscal_settings()['auto_z'] ?? '');
+    if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $time, $m)) {
+        return 0;
+    }
+    $at = new DateTime('@' . $now);
+    $at->setTimezone(new DateTimeZone('Europe/Sofia'));
+    $at->setTime((int) $m[1], (int) $m[2], 0);
+    if ($at->getTimestamp() > $now) {
+        $at->modify('-1 day');
+        $at->setTime((int) $m[1], (int) $m[2], 0);
+    }
+    return $at->getTimestamp();
+}
+
+/** The fiscal day a moment belongs to, 'Y-m-d': its date in Sofia, or the next one from the automatic Z on. */
+function qr_fiscal_day(int $now): string
+{
+    $at = new DateTime('@' . $now);
+    $at->setTimezone(new DateTimeZone('Europe/Sofia'));
+    $day = $at->format('Y-m-d');
+    $cutoff = qr_fiscal_auto_z_at($now);
+    if ($cutoff > 0) {
+        $closed = new DateTime('@' . $cutoff);
+        $closed->setTimezone(new DateTimeZone('Europe/Sofia'));
+        if ($closed->format('Y-m-d') === $day) {
+            $at->modify('+1 day');
+            return $at->format('Y-m-d');
+        }
+    }
+    return $day;
+}
+
+/**
+ * Inside qr_fiscal_claim: the day's Z report by itself. Once its moment has
+ * come it is asked for, once, if a receipt was printed since the last Z report
+ * or is still on its way. Returns the moment of an automatic report still to
+ * print (receipts created from then on wait for it), or 0. One that failed
+ * holds nothing back: the screen says so and staff print it by hand.
+ */
+function qr_fiscal_auto_z(PDO $pdo, int $now): int
+{
+    $find = $pdo->query("SELECT cutoff_at FROM fiscal_commands WHERE kind = 'zreport' AND cutoff_at > 0
+        AND status IN ('pending', 'claimed', 'submitted') ORDER BY id LIMIT 1");
+    $waiting = $find->fetchColumn();
+    $find->closeCursor();
+    if ($waiting !== false) {
+        return (int) $waiting;
+    }
+    $cutoff = qr_fiscal_auto_z_at($now);
+    $mode = qr_fiscal_mode();
+    if ($cutoff === 0 || $mode === '') {
+        return 0;
+    }
+    // Once for each day; and not while one staff asked for is on its way.
+    $find = $pdo->prepare("SELECT 1 FROM fiscal_commands WHERE kind = 'zreport'
+        AND (cutoff_at = ? OR status IN ('pending', 'claimed', 'submitted')) LIMIT 1");
+    $find->execute([$cutoff]);
+    $asked = $find->fetchColumn() !== false;
+    $find->closeCursor();
+    if ($asked) {
+        return 0;
+    }
+    // "Since the last one" by the order things happened in (seq), not by the clock:
+    // a receipt may print in the very second its day's report ended.
+    $last = (int) $pdo->query("SELECT COALESCE(MAX(seq), 0) FROM fiscal_commands WHERE kind = 'zreport' AND status = 'done'")->fetchColumn();
+    // Only for a day just over: after a longer silence staff look first.
+    $find = $pdo->prepare("SELECT 1 FROM fiscal_docs WHERE test = ? AND created_at < ? AND created_at >= ?
+        AND ((status = 'printed' AND seq > ?) OR status IN ('pending', 'claimed', 'submitted')) LIMIT 1");
+    $find->execute([$mode === 'test' ? 1 : 0, $cutoff, $cutoff - 86400, $last]);
+    $open = $find->fetchColumn() !== false;
+    $find->closeCursor();
+    if (!$open) {
+        return 0;
+    }
+    $pdo->prepare("INSERT INTO fiscal_commands (test, kind, requested_at, cutoff_at, seq) VALUES (?, 'zreport', ?, ?, ?)")
+        ->execute([$mode === 'test' ? 1 : 0, $now, $cutoff, qr_bump_seq($pdo)]);
+    return $cutoff;
+}
+
 /** Inside qr_fiscal_claim: the next report due, as a job for the bridge, or null. */
-function qr_fiscal_claim_command(PDO $pdo, int $now)
+function qr_fiscal_claim_command(PDO $pdo, int $now, int $hold = 0)
 {
     // A Z report closes the day: never while a receipt is still on its way
     // (claimed by the bridge, or sent to the printer). X reports and
     // duplicates close nothing, and need not wait.
-    $busy = $pdo->query("SELECT 1 FROM fiscal_docs WHERE status IN ('pending', 'claimed', 'submitted') LIMIT 1");
+    // Receipts held for the automatic Z come after it: they don't keep it waiting.
+    $busy = $pdo->prepare("SELECT 1 FROM fiscal_docs WHERE status IN ('pending', 'claimed', 'submitted') AND created_at < ? LIMIT 1");
+    $busy->execute([$hold > 0 ? $hold : PHP_INT_MAX]);
     $receiptsOnTheirWay = $busy->fetchColumn() !== false;
     $busy->closeCursor();
     $find = $pdo->prepare("SELECT * FROM fiscal_commands WHERE (status = 'pending'
@@ -602,6 +688,7 @@ function qr_fiscal_command_json(array $c): array
         'requestedAt' => (int) $c['requested_at'],
         'doneAt' => (int) $c['done_at'],
         'error' => (string) $c['error'],
+        'auto' => (int) ($c['cutoff_at'] ?? 0) > 0,
         'seq' => (int) $c['seq'],
     ];
 }

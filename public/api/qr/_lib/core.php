@@ -185,7 +185,7 @@ function qr_data_dir(): string
 // committed in exactly the order the changes happened. The admin screen
 // asks for "everything after seq N", so it can never skip a change.
 
-const QR_SCHEMA_VERSION = 16;
+const QR_SCHEMA_VERSION = 17;
 
 // The version of the sales software, as declared to НАП (Annex 31): raise
 // it with every change to the sales part or the database (_manifest.json
@@ -951,6 +951,11 @@ function qr_migrate(PDO $pdo)
                 ALTER TABLE clock_docs ADD COLUMN net_json TEXT NOT NULL DEFAULT '';
                 UPDATE clock_docs SET status = 'manual' WHERE status <> 'manual';
             ");
+        }
+        if ($version < 17) {
+            // The automatic Z report (_lib/fiscal.php): cutoff_at is the moment it
+            // closes the day at; 0 on a report staff asked for.
+            $pdo->exec('ALTER TABLE fiscal_commands ADD COLUMN cutoff_at INTEGER NOT NULL DEFAULT 0');
         }
         $pdo->exec('PRAGMA user_version = ' . QR_SCHEMA_VERSION);
         $pdo->exec('COMMIT');

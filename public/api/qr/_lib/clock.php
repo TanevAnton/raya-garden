@@ -14,15 +14,18 @@
 // When. A row is queued in the same transaction that records the payment or the
 // refund (qr_clock_sale, qr_clock_refunds), so it can never be lost or made twice,
 // and waits for the transfer: 'transfer_hour' (clock-settings.php) on the morning
-// after its day. It goes then, from the next poll of the bridge or of a staff
+// after its day. Its day is its fiscal day (qr_fiscal_day): a payment from the
+// automatic Z report on belongs to the next one, so a day in Clock adds up to
+// its Z report. It goes then, from the next poll of the bridge or of a staff
 // screen, once every receipt of that payment has printed: Clock only hears of
 // fiscalised sales.
 //
-// Refunds. What went back before the transfer is taken off the sale ('netted'):
-// Clock gets the final result, and the details stay here (reversal receipt with
-// the УНП, log, НАП's tables). A sale refunded in full sends nothing. Money given
-// back after its sale went: a folio of its own in the next transfer, the lines at
-// a negative quantity and a negative payment, dated the day of the refund.
+// Refunds. What went back on the sale's own fiscal day is taken off the sale
+// ('netted'): Clock gets the day's result, and the details stay here (reversal
+// receipt with the УНП, log, НАП's tables). A sale refunded in full that day
+// sends nothing. Money given back on a later day, whether or not its sale has
+// gone yet: a folio of its own in that day's transfer, the lines at a negative
+// quantity and a negative payment.
 //
 // Exactly once, without idempotency keys (Clock's API has none):
 //   - a row is claimed ('sending') in a write transaction before it is sent,
@@ -106,15 +109,14 @@ function qr_clock_mode(): string
     return $mode === qr_fiscal_mode() ? $mode : '';
 }
 
-/** The working day a moment belongs to: it runs until the morning's transfer. */
+/**
+ * The day a sale or a refund counts for in Clock: its fiscal day, the one whose
+ * Z report holds its receipt (qr_fiscal_day). So Clock's total for a day is the
+ * Z report's.
+ */
 function qr_clock_day(int $now): string
 {
-    $at = new DateTime('@' . $now);
-    $at->setTimezone(new DateTimeZone('Europe/Sofia'));
-    if ((int) $at->format('G') < qr_clock_transfer_hour()) {
-        $at->modify('-1 day');
-    }
-    return $at->format('Y-m-d');
+    return qr_fiscal_day($now);
 }
 
 /** When a day's sales go to Clock: the transfer hour on the morning after it. */
@@ -182,24 +184,6 @@ function qr_clock_lines(PDO $pdo, string $source, array $row): array
     return $lines;
 }
 
-/** The evening an order or bill payment belongs to, for Clock's service date. */
-function qr_clock_evening(PDO $pdo, string $source, array $row, int $now): string
-{
-    if ($source === 'order' && (string) ($row['evening'] ?? '') !== '') {
-        return (string) $row['evening'];
-    }
-    if ($source === 'bill') {
-        $find = $pdo->prepare('SELECT evening FROM tabs WHERE id = ?');
-        $find->execute([(int) $row['tab_id']]);
-        $evening = $find->fetchColumn();
-        $find->closeCursor();
-        if (is_string($evening) && $evening !== '') {
-            return $evening;
-        }
-    }
-    return qr_clock_day($now);
-}
-
 function qr_clock_find_sale(PDO $pdo, string $source, int $sourceId)
 {
     $find = $pdo->prepare("SELECT * FROM clock_docs WHERE source = ? AND source_id = ? AND kind = 'sale'");
@@ -229,7 +213,7 @@ function qr_clock_sale(PDO $pdo, string $source, array $row, array $session, int
         'source_id' => (int) $row['id'],
         'code' => (string) $row['code'],
         'payment_intent' => (string) ($session['payment_intent'] ?? ''),
-        'evening' => qr_clock_evening($pdo, $source, $row, $now),
+        'evening' => qr_clock_day($now),
         'lines' => $lines,
         'total' => qr_ereceipt_lines_total($lines),
         'tip' => (int) $row['tip_cents'],
@@ -423,8 +407,8 @@ function qr_clock_send_due(int $now)
             if ($doc['kind'] === 'sale' && (int) $doc['step'] === 0) {
                 $net = qr_clock_net($pdo, $doc);
                 $doc['net_json'] = json_encode($net, JSON_UNESCAPED_UNICODE);
-                $pdo->prepare("UPDATE clock_docs SET status = 'netted', error = '', seq = ? WHERE sale_id = ? AND status IN ('pending', 'failed')")
-                    ->execute([$seq, $doc['id']]);
+                $pdo->prepare("UPDATE clock_docs SET status = 'netted', error = '', seq = ? WHERE sale_id = ? AND evening = ? AND status IN ('pending', 'failed')")
+                    ->execute([$seq, $doc['id'], $doc['evening']]);
                 if (qr_ereceipt_lines_total($net) <= 0) {
                     $pdo->prepare("UPDATE clock_docs SET status = 'netted', error = '', net_json = ?, seq = ? WHERE id = ?")
                         ->execute([$doc['net_json'], $seq, $doc['id']]);
@@ -451,15 +435,19 @@ function qr_clock_send_due(int $now)
     }
 }
 
-/** A sale's lines less all its stornos, as they stand now; an amount with no line of its own goes at -1. */
+/**
+ * A sale's lines less the stornos of its own fiscal day, as they stand now; an
+ * amount with no line of its own goes at -1. A refund on a later day is on that
+ * day's Z report, and goes to Clock as a folio of its own.
+ */
 function qr_clock_net(PDO $pdo, array $sale): array
 {
     $lines = [];
     foreach (json_decode((string) $sale['lines_json'], true) as $line) {
         $lines[$line['key']] = $line;
     }
-    $find = $pdo->prepare("SELECT lines_json FROM clock_docs WHERE sale_id = ? AND kind = 'storno' ORDER BY id");
-    $find->execute([(int) $sale['id']]);
+    $find = $pdo->prepare("SELECT lines_json FROM clock_docs WHERE sale_id = ? AND kind = 'storno' AND evening = ? ORDER BY id");
+    $find->execute([(int) $sale['id'], (string) $sale['evening']]);
     $extra = [];
     foreach ($find->fetchAll() as $storno) {
         foreach (json_decode((string) $storno['lines_json'], true) as $back) {

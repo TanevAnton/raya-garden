@@ -39,6 +39,10 @@ return [
     'site_code' => '0001',
     'site_name' => 'Ресторант Park Hotel RAYA Garden',
     'site_address' => '',
+    // The day's Z report by itself, at this time (Europe/Sofia), if a receipt was
+    // printed since the last one. A payment from then on belongs to the next
+    // fiscal day. '' = never; staff print it from „За касата“.
+    'auto_z' => '23:55',
     'workplace_code' => '01',
     'workplace_name' => 'QR меню (плащане в телефона)',
 ];

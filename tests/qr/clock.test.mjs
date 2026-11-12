@@ -66,6 +66,7 @@ after(async () => {
 });
 beforeEach(() => {
   stripe.reset();
+  stripe.setNow(AT_20H); // payments happen that evening, as the orders do
   clock.reset();
   printer.reset();
   srv.config(CONFIG);
@@ -167,7 +168,9 @@ describe("Clock PMS+: the transfer", () => {
   it("the bridge's poll starts it too: nobody has to be at a screen", async () => {
     await setUp();
     await sold(4, [["tiramisu"]]);
-    await bridge(MORNING).step();
+    const b = bridge(MORNING);
+    await b.step(); // the evening's Z report, overdue (nobody polled at 23:55), comes first
+    await b.step();
     for (let i = 0; i < 100 && docs()[0].status !== "done"; i++) await new Promise((r) => setTimeout(r, 50));
     assert.equal(docs()[0].status, "done");
     assert.equal(folios().length, 1);
@@ -245,6 +248,43 @@ describe("Clock PMS+: refunds", () => {
     assert.ok(back.closedAt);
     assert.equal(back.charges[0].service_date, "2026-10-04");
     assert.match(back.credits[0].text, /^Сторно: Продажба чрез ФУ/);
+  });
+});
+
+describe("Clock PMS+: a day in Clock is a Z report", () => {
+  const NEXT_MORNING = sofia("2026-10-05T04:00", 3);
+
+  it("paid after the day's Z report (23:55): it counts for the next day, and goes a morning later", async () => {
+    await setUp();
+    stripe.setNow(sofia("2026-10-03T23:57", 3));
+    await sold(4, [["tiramisu"]]);
+    assert.equal(docs()[0].evening, "2026-10-04");
+    await poll(MORNING);
+    assert.equal(folios().length, 0, "its fiscal day isn't over yet");
+    await poll(NEXT_MORNING);
+    assert.equal(folios().length, 1);
+    assert.equal(folios()[0].charges[0].service_date, "2026-10-04");
+  });
+
+  it("refunded after midnight, before the transfer: the sale goes whole, the refund as a folio of its own a morning later", async () => {
+    await setUp();
+    const { order: o } = await sold(4, [["caesar", "chicken", 1], ["tiramisu"]]);
+    const AFTER_MIDNIGHT = sofia("2026-10-04T00:30", 3);
+    const admin = client(srv.base, { now: AFTER_MIDNIGHT });
+    assert.equal((await admin.login()).status, 200);
+    assert.equal((await voidLine(admin, o.id, 1, 1, 1)).status, 200);
+    await print(AFTER_MIDNIGHT);
+
+    await poll(MORNING);
+    assert.equal(folios().length, 1);
+    assert.deepEqual(charges(folios()[0]), [[1, price("caesar", "chicken")], [1, price("tiramisu")]], "as the Z report of 3.10 has it");
+    assert.deepEqual(docs().map((d) => [d.kind, d.status, d.evening]), [["sale", "done", "2026-10-03"], ["storno", "pending", "2026-10-04"]]);
+
+    await poll(NEXT_MORNING);
+    const back = folios()[1];
+    assert.deepEqual(charges(back), [[-1, price("tiramisu")]]);
+    assert.deepEqual(credits(back), [-price("tiramisu")]);
+    assert.equal(back.charges[0].service_date, "2026-10-04");
   });
 });
 

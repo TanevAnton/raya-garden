@@ -945,6 +945,36 @@ by hand.
   go again, and refunds of those sales don't either.
 - **The transfer logs as „Система“** (9000), whoever's poll started it.
 
+## The fiscal day closes by itself, 12.11.2026
+
+After the certification with Clock: the Z report prints by itself at 23:55
+(`auto_z` in `fiscal-settings.php`), and a day in Clock is that Z report.
+
+- **23:55, not 23:59**, so a receipt on its way still gets out before midnight.
+  The report waits for those; whatever is paid from 23:55 on waits for it, and
+  prints after it, in the next fiscal day.
+- **Only on a day with a receipt since the last Z report**, and once: after a
+  day with nothing, or when staff already printed it, there is none.
+- **Started by the bridge's poll**, like the transfer: no cron on the host. If
+  the bridge was off at 23:55, it prints when it is back, within a day; after a
+  longer silence staff look first.
+- **A report that fails holds nothing back.** A printer that can't print a
+  report can't print receipts either; the screen says so in red and staff print
+  it by hand. Receipts paid meanwhile then land on the old day's report: the one
+  case where Clock's day and the Z report can differ.
+- **"Since the last report" goes by `seq`**, not the clock: a held receipt can
+  print in the very second its report ended.
+- **Clock's day is the fiscal day** (`qr_fiscal_day`), not the evening: paid from
+  23:55 on, it goes a morning later. Chosen so the accountant can put Clock's
+  daily total next to the Z report.
+- **A refund is netted only on its sale's own fiscal day.** One made after the
+  Z report is on the next day's report, so it goes to Clock as a folio of its
+  own that day, even if the sale hasn't gone yet. This replaces "netted until
+  the transfer".
+- **Schema 17:** `fiscal_commands.cutoff_at`, the moment an automatic report
+  closes the day at.
+- A program change, so it is in before the first declaration.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

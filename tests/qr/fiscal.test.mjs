@@ -77,9 +77,9 @@ const cancel = (admin, id) => admin.admin("/api/qr/admin/order.php", { id, actio
 const now = () => Math.floor(Date.now() / 1000);
 
 /** A bridge, as in the restaurant; `later` moves the server's clock (leases run out). */
-const bridge = ({ later = 0, fetch } = {}) =>
+const bridge = ({ later = 0, at = 0, fetch } = {}) =>
   createBridge(
-    { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "journal.json"), waitMs: 1500, headers: later ? { "X-Test-Now": String(now() + later) } : {} },
+    { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "journal.json"), waitMs: 1500, headers: later || at ? { "X-Test-Now": String(at || now() + later) } : {} },
     { log: () => {}, ...(fetch ? { fetch } : {}) },
   );
 /** Rounds until nothing is left to claim. */
@@ -448,6 +448,60 @@ describe("fiscal receipts: by hand, and switches", () => {
     assert.equal((await fresh.login()).status, 200);
     assert.equal((await fresh.get("/api/qr/admin/feed.php?since=0")).body.fiscal.online, true);
     rmSync(work, { recursive: true, force: true });
+  });
+});
+
+describe("fiscal printer: the day's Z report by itself", () => {
+  const at = (time, day = "2026-10-03") => sofia(`${day}T${time}`, 3);
+  const kinds = () => printer.posts.map((p) => p.kind);
+  const commands = async (admin) => (await admin.get("/api/qr/admin/feed.php?since=0")).body.fiscal.commands.map((c) => [c.kind, c.status, c.auto]);
+
+  it("at 23:55: the receipts paid before it, the report, then the ones paid after; once a day", async () => {
+    const admin = await setUp();
+    stripe.setNow(at("20:00"));
+    await paid(4, [["tiramisu"]]);
+    await drain(bridge({ at: at("23:54") }));
+    assert.deepEqual(kinds(), ["receipt"], "not before its time");
+    stripe.setNow(at("23:56"));
+    await paid(5, [["tiramisu"]]);
+    await drain(bridge({ at: at("23:57") }));
+    assert.deepEqual(kinds(), ["receipt", "zreport", "receipt"]);
+    assert.deepEqual(await commands(admin), [["zreport", "done", true]]);
+    await drain(bridge({ at: at("23:59") }));
+    await drain(bridge({ at: at("03:00", "2026-10-04") }));
+    assert.equal(printer.reports.length, 1, "one a day");
+
+    await drain(bridge({ at: at("23:56", "2026-10-04") }));
+    assert.equal(printer.reports.length, 2, "the receipt paid after it closed the first day is the next day's");
+  });
+
+  it("none on a day with no receipt, or when staff printed it after the last one", async () => {
+    const admin = await setUp();
+    await drain(bridge({ at: at("23:57") }));
+    assert.deepEqual(kinds(), []);
+
+    stripe.setNow(at("20:00", "2026-10-04"));
+    await paid(4, [["tiramisu"]]);
+    await drain(bridge({ at: at("20:01", "2026-10-04") }));
+    assert.equal((await admin.admin("/api/qr/admin/fiscal.php", { action: "zreport" })).status, 200);
+    await drain(bridge({ at: at("23:00", "2026-10-04") }));
+    await drain(bridge({ at: at("23:57", "2026-10-04") }));
+    assert.deepEqual(kinds(), ["receipt", "zreport"]);
+    assert.deepEqual(await commands(admin), [["zreport", "done", false]]);
+  });
+
+  it("it waits for a receipt still on its way, and holds back what was paid after its time", async () => {
+    await setUp();
+    stripe.setNow(at("23:50"));
+    await paid(4, [["tiramisu"]]);
+    stripe.setNow(at("23:58"));
+    await paid(5, [["tiramisu"]]);
+    printer.setStatusOk(false);
+    await drain(bridge({ at: at("23:59") }));
+    assert.deepEqual(kinds(), []);
+    printer.setStatusOk(true);
+    await drain(bridge({ at: at("00:10", "2026-10-04") }));
+    assert.deepEqual(kinds(), ["receipt", "zreport", "receipt"]);
   });
 });
 

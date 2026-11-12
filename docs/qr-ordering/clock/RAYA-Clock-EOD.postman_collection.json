@@ -1,0 +1,581 @@
+{
+  "info": {
+    "name": "RAYA Garden QR меню → Clock EOD трансфер (тест)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Точните заявки, които системата на QR менюто на RAYA Garden изпраща в Clock PMS+ при дневния трансфер (04:00) към отделния EOD POS акаунт. Попълнете променливите на колекцията (base_url, api_user, api_key, company_id, шаблоните) и пуснете папките по ред. Сумите са примерни. Достъпът е HTTP Digest."
+  },
+  "auth": {
+    "type": "digest",
+    "digest": [
+      {
+        "key": "username",
+        "value": "{{api_user}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{api_key}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "А. Продажба (нормална сметка 15,80)",
+      "item": [
+        {
+          "name": "1. Създай фолио към фирмата",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/companies/{{company_id}}/folios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies",
+                "{{company_id}}",
+                "folios"
+              ]
+            },
+            "description": "Едно фолио на платена сметка.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_folio\": {\n    \"currency\": \"{{currency}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('folio created', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "const j = pm.response.json(); const id = j.id || (j.folio && j.folio.id) || (j.company_folio && j.company_folio.id);",
+                  "pm.collectionVariables.set('folio_id', id); console.log('folio id', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Добави редовете (артикулите)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{folio_id}}/charges/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{folio_id}}",
+                "charges",
+                "bulk"
+              ]
+            },
+            "description": "Всяко ястие със собственото си име. Шаблон по категория (кухня/бар). print_text носи номера на сметката и УНП.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"charges\": [\n    {\n      \"text\": \"Салата Цезар\",\n      \"price\": \"9.90\",\n      \"qty\": 1,\n      \"currency\": \"{{currency}}\",\n      \"service_date\": \"{{service_date}}\",\n      \"print_text\": \"QR R-3Q9V #1 УНП {{usn}}\",\n      \"charge_template_id\": {{template_kitchen}}\n    },\n    {\n      \"text\": \"Тирамису\",\n      \"price\": \"5.90\",\n      \"qty\": 1,\n      \"currency\": \"{{currency}}\",\n      \"service_date\": \"{{service_date}}\",\n      \"print_text\": \"QR R-3Q9V #1 УНП {{usn}}\",\n      \"charge_template_id\": {{template_kitchen}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Добави плащането",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{folio_id}}/credit_items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{folio_id}}",
+                "credit_items"
+              ]
+            },
+            "description": "Картово плащане. Текстът сочи фискалното устройство, което вече е издало бона.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credit_item\": {\n    \"currency\": \"{{currency}}\",\n    \"value\": \"15.80\",\n    \"text\": \"Продажба чрез ФУ с ИН {{printer_id}}\",\n    \"payment_type\": \"card\",\n    \"payment_sub_type\": \"\",\n    \"reference\": \"QR R-3Q9V #1 УНП {{usn}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Затвори фолиото (без вид документ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{folio_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{folio_id}}",
+                "close"
+              ]
+            },
+            "description": "Без document_type_id – няма фискално събитие в Clock.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Провери: фолиото",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{folio_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{folio_id}}"
+              ]
+            },
+            "description": "Очаква се: затворено, баланс 0."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('closed, balance 0', () => { const j = pm.response.json(); const f = j.folio || j; pm.expect(f.closed_at).to.be.ok; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Провери: редовете",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{folio_id}}/charges",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{folio_id}}",
+                "charges"
+              ]
+            },
+            "description": "Така търсим по print_text, ако отговорът на Clock се загуби."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Б. Връщане след трансфера (−5,90)",
+      "item": [
+        {
+          "name": "1. Създай фолио за сторното",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/companies/{{company_id}}/folios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "companies",
+                "{{company_id}}",
+                "folios"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_folio\": {\n    \"currency\": \"{{currency}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('folio created', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "const j = pm.response.json(); const id = j.id || (j.folio && j.folio.id) || (j.company_folio && j.company_folio.id);",
+                  "pm.collectionVariables.set('storno_folio_id', id); console.log('folio id', id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Отрицателен ред",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{storno_folio_id}}/charges/bulk",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{storno_folio_id}}",
+                "charges",
+                "bulk"
+              ]
+            },
+            "description": "Върнатият ред с отрицателно количество, с датата на връщането.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"charges\": [\n    {\n      \"text\": \"Тирамису\",\n      \"price\": \"5.90\",\n      \"qty\": -1,\n      \"currency\": \"{{currency}}\",\n      \"service_date\": \"{{refund_date}}\",\n      \"print_text\": \"QR R-3Q9V #4 УНП {{usn}}\",\n      \"charge_template_id\": {{template_kitchen}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Отрицателно плащане",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{storno_folio_id}}/credit_items",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{storno_folio_id}}",
+                "credit_items"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credit_item\": {\n    \"currency\": \"{{currency}}\",\n    \"value\": \"-5.90\",\n    \"text\": \"Сторно: Продажба чрез ФУ с ИН {{printer_id}}\",\n    \"payment_type\": \"card\",\n    \"payment_sub_type\": \"\",\n    \"reference\": \"QR R-3Q9V #4 УНП {{usn}}\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Затвори (без вид документ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{storno_folio_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{storno_folio_id}}",
+                "close"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Провери",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/folios/{{storno_folio_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "folios",
+                "{{storno_folio_id}}"
+              ]
+            },
+            "description": "Очаква се: −5,90, баланс 0, затворено."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ok', () => pm.expect(pm.response.code).to.be.oneOf([200,201,204]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://sky-eu1.clock-software.com/base_api/<абонамент>/<акаунт>"
+    },
+    {
+      "key": "api_user",
+      "value": ""
+    },
+    {
+      "key": "api_key",
+      "value": ""
+    },
+    {
+      "key": "company_id",
+      "value": "7200455"
+    },
+    {
+      "key": "currency",
+      "value": "EUR"
+    },
+    {
+      "key": "template_kitchen",
+      "value": "1508218"
+    },
+    {
+      "key": "template_bar",
+      "value": "1508229"
+    },
+    {
+      "key": "printer_id",
+      "value": "DT279013"
+    },
+    {
+      "key": "usn",
+      "value": "DT279013-9001-0000001"
+    },
+    {
+      "key": "service_date",
+      "value": "2026-11-11"
+    },
+    {
+      "key": "refund_date",
+      "value": "2026-11-12"
+    },
+    {
+      "key": "folio_id",
+      "value": ""
+    },
+    {
+      "key": "storno_folio_id",
+      "value": ""
+    }
+  ]
+}

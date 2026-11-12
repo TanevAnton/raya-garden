@@ -612,7 +612,8 @@ Before going live, on the live EOD POS account (ask Clock to activate it):
 4. the integration on in AppConnector, which gives the API user and URL for
    `QR_CLOCK_*`; a company for `QR_CLOCK_COMPANY_ID`.
 
-**Certification: 12.11.2026, 14:00–15:30.** Clock tests only this transfer, with a
+**Certification: passed on 12.11.2026** (folios 36–38 in POS DEMO; next steps in
+`CLOCK-CERTIFICATION-BG.md`). Clock tests only this transfer, with a
 few simulated bills in the sandbox (POS DEMO, 16516; `QR_CLOCK_CURRENCY` = `BGN`).
 `npm run qr:clock-demo` runs it step by step against the sandbox (needs
 `~/.raya-clock-sandbox.env`); the brief is `CLOCK-CERTIFICATION-BG.md`. Real runs

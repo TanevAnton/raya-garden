@@ -156,8 +156,17 @@ so Clock's reports hold the restaurant's whole turnover:
   instructions from НАП is the sensible way. Draft: `nap/zapitvane-nap-bg.md`,
   for the company to file with Iva's signature. Until НАП answers, the transfer
   stays built and off; nothing goes live on an assumption.
-- **Clock's side still open:** certification (booked for 12.11.2026, 14:00)
-  and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
+- **Filed 11.11.2026:** Iva sent the question to both ТД на НАП Велико Търново
+  and the central office in Sofia. No answer yet (12.11), nor to the 5.11 email
+  to infocenter.
+- **Printer:** the test FP-700MX, serial DA055322, has been ready at Datecs
+  Велико Търново (ул. „Бачо Киро“ 9) since 10.11.2026.
+- **To build before the first declaration: an automatic Z before midnight**
+  (decided 12.11.2026). A payment after midnight then belongs to the next fiscal
+  day. Open: the exact time, and whether the transfer to Clock groups by evening
+  or by fiscal day. Iva to confirm in one line.
+- **Clock's side:** certification passed on 12.11.2026 (`CLOCK-CERTIFICATION-BG.md`).
+  Still open: the pilot being enabled, the live credentials and the live EOD account. Dates and VAT are settled: see DECISIONS.md.
 
 ## What Iva and Сашо answered, 5.11.2026
 

@@ -366,17 +366,26 @@
               currency: currency,
               num_items: p.roomCount
             });
+            rayaClockCheckoutStarted(p);
             break;
           case 'completed':
             // Deterministic eventID rather than a UUID: the same booking
             // reported later by the Conversions API carries the same id and
-            // is deduplicated instead of counted twice.
-            send('Purchase', {
-              value: amount,
-              currency: currency,
-              content_ids: ids.length ? ids : null,
-              num_items: p.roomCount
-            }, ids.length ? 'clock-' + ids.join('-') : null);
+            // is deduplicated instead of counted twice. Once per booking —
+            // rayaClockPurchaseOnce() is shared with the message listener and
+            // the confirmation-URL check below, whichever sees it first.
+            rayaClockPurchaseOnce(ids, function (eventID) {
+              send('Purchase', {
+                value: amount,
+                currency: currency,
+                content_ids: ids.length ? ids : null,
+                num_items: p.roomCount
+              }, eventID);
+            }, {
+              value: amount, currency: currency, num_items: p.roomCount,
+              checkin_date: p.arrival, checkout_date: p.departure,
+              fromCallback: true
+            });
             break;
           case 'offer':
             // A room booking request the guest submitted inside Clock — the
@@ -390,8 +399,294 @@
         }
       }
 
+      // ── Booking state shared by every way a booking can be seen ───────
+      //
+      // A confirmed booking reaches this page three ways: Clock calls the
+      // callback below (pageName "completed"), the same news arrives as a
+      // postMessage from Clock's iframe, and the iframe may report a
+      // confirmation URL. Purchase must be sent once per booking whichever
+      // comes first, so all three go through rayaClockPurchaseOnce(), which
+      // remembers the booking in sessionStorage. See README-tracking.md.
+      var RAYA_CLOCK_ORIGIN = /^https:\/\/[a-z0-9-]+\.clock-software\.com$/;
+      var RAYA_PURCHASED = 'raya.clock.purchased';
+      var RAYA_CHECKOUT = 'raya.clock.checkout';
+
+      function rayaStore(key, value) {
+        try {
+          if (value === undefined) {
+            var raw = window.sessionStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+          }
+          window.sessionStorage.setItem(key, JSON.stringify(value));
+        } catch (e) { /* private mode, blocked storage: no memory, no harm */ }
+        return null;
+      }
+
+      // ?debugclock=1 logs every message from Clock's iframe with its full
+      // payload. Kept for the tab's visit, since the SPA drops the query on
+      // navigation; ?debugclock=0 turns it off. ?meta_test=TEST12345 sends
+      // the Conversions API copy to Events Manager → Test Events.
+      (function () {
+        try {
+          var q = new URLSearchParams(window.location.search);
+          if (q.get('debugclock') === '1') window.sessionStorage.setItem('raya.clock.debug', '1');
+          if (q.get('debugclock') === '0') window.sessionStorage.removeItem('raya.clock.debug');
+          var t = q.get('meta_test');
+          if (t && /^TEST[A-Za-z0-9]{1,20}$/.test(t)) window.sessionStorage.setItem('raya.meta.testCode', t);
+        } catch (e) { /* ignore */ }
+      })();
+      function rayaClockDebug() {
+        try { return window.sessionStorage.getItem('raya.clock.debug') === '1'; } catch (e) { return false; }
+      }
+      function rayaClockLog() {
+        if (!rayaClockDebug() || !window.console) return;
+        var args = ['%c[clock]', 'color:#b8860b;font-weight:bold'];
+        for (var i = 0; i < arguments.length; i++) args.push(arguments[i]);
+        console.log.apply(console, args);
+      }
+
+      // The checkout in progress: what InitiateCheckout reported, kept so a
+      // confirmation that arrives without a price (a URL) can still carry
+      // one, and so closing the overlay can tell an abandoned checkout.
+      function rayaClockCheckoutStarted(p) {
+        var c = rayaStore(RAYA_CHECKOUT);
+        if (!c || c.done) {
+          c = { token: Date.now().toString(36) + Math.random().toString(36).slice(2, 8) };
+        }
+        if (typeof p.totalPriceCents === 'number') c.value = p.totalPriceCents / 100;
+        if (p.totalPriceCurrency) c.currency = p.totalPriceCurrency;
+        if (p.roomCount) c.num_items = p.roomCount;
+        if (p.arrival) c.checkin_date = p.arrival;
+        if (p.departure) c.checkout_date = p.departure;
+        rayaStore(RAYA_CHECKOUT, c);
+      }
+
+      // Calls send(eventID) once per booking, then posts the same event to
+      // the Conversions API. A booking without numbers is keyed on the
+      // checkout it ended, and skips the Conversions API: without a stable
+      // id the two copies could not be matched, and would count twice.
+      function rayaClockPurchaseOnce(ids, send, data) {
+        var checkout = rayaStore(RAYA_CHECKOUT);
+        var key = ids.length ? 'clock-' + ids.join('-')
+          : checkout && !checkout.done ? 'clock-checkout-' + checkout.token : null;
+        if (!key) {
+          // Clock's callback sent Purchase here before this guard existed,
+          // and still does; the other two ways need something to key on.
+          if (data.fromCallback) {
+            send(null);
+            return true;
+          }
+          rayaClockLog('confirmation without a booking number or a checkout — no Purchase');
+          return false;
+        }
+        var sent = rayaStore(RAYA_PURCHASED) || [];
+        if (sent.indexOf(key) !== -1) {
+          rayaClockLog('Purchase already sent for', key);
+          return false;
+        }
+        sent.push(key);
+        rayaStore(RAYA_PURCHASED, sent.slice(-20));
+        if (checkout) {
+          checkout.done = 'purchase';
+          rayaStore(RAYA_CHECKOUT, checkout);
+        }
+        send(ids.length ? key : null);
+        rayaClockLog('Purchase sent', key, data);
+        if (ids.length) rayaClockCapi(key, ids, data);
+        return true;
+      }
+
+      function rayaClockCapi(eventID, ids, data) {
+        try {
+          if (typeof data.value !== 'number' || !(data.value > 0)) return;
+          var body = {
+            event_name: 'Purchase',
+            event_id: eventID,
+            content_ids: ids,
+            value: data.value,
+            currency: data.currency || 'EUR',
+            event_source_url: window.location.href.split('#')[0]
+          };
+          if (data.num_items) body.num_items = data.num_items;
+          if (data.checkin_date) body.checkin_date = data.checkin_date;
+          if (data.checkout_date) body.checkout_date = data.checkout_date;
+          try {
+            var t = window.sessionStorage.getItem('raya.meta.testCode');
+            if (t) body.test_event_code = t;
+          } catch (e) { /* ignore */ }
+          window.fetch('/api/meta-capi.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            keepalive: true,
+            credentials: 'same-origin'
+          }).then(function (r) { return r.json(); })
+            .then(function (j) { rayaClockLog('Conversions API', j); })
+            .catch(function (err) { rayaClockLog('Conversions API failed', err); });
+        } catch (err) {
+          if (window.console) console.error('[clock->capi]', err);
+        }
+      }
+
+      // The confirmed booking in an arbitrary message, if there is one:
+      // booking numbers, a confirmed status or Clock's "completed" page, and
+      // a total. Clock's own "track" message has the callback's shape; the
+      // rest is a search, in case Clock sends a confirmation some other way.
+      var RAYA_ID_KEY = /^(booking|reservation|confirmation|order)_?(numbers?|ids?|refs?|references?|codes?)$|^bookingNumbers$/i;
+      function rayaClockFindBooking(data) {
+        var found = { ids: [], status: null, amount: null, currency: null, pageName: null };
+        var seen = 0;
+        (function walk(v, depth) {
+          if (!v || typeof v !== 'object' || depth > 5 || seen++ > 500) return;
+          for (var k in v) {
+            if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+            var x = v[k];
+            if (RAYA_ID_KEY.test(k)) {
+              var list = Array.isArray(x) ? x : [x];
+              for (var i = 0; i < list.length; i++) {
+                if ((typeof list[i] === 'string' || typeof list[i] === 'number') && /^[A-Za-z0-9_.-]{1,40}$/.test(String(list[i])) &&
+                    found.ids.indexOf(String(list[i])) === -1) found.ids.push(String(list[i]));
+              }
+            } else if (/^(status|state|bookingStatus|reservationStatus)$/i.test(k) && typeof x === 'string') {
+              found.status = found.status || x;
+            } else if (k === 'pageName' && typeof x === 'string') {
+              found.pageName = found.pageName || x;
+            } else if (/cents$/i.test(k) && /total|price|amount/i.test(k) && typeof x === 'number') {
+              if (found.amount === null) found.amount = x / 100;
+            } else if (/^(total|totalPrice|totalAmount|amount|grandTotal)$/i.test(k) && typeof x === 'number') {
+              if (found.amount === null) found.amount = x;
+            } else if (/currency$/i.test(k) && typeof x === 'string' && /^[A-Z]{3}$/.test(x)) {
+              found.currency = found.currency || x;
+            } else if (typeof x === 'object') {
+              walk(x, depth + 1);
+            }
+          }
+        })(data, 0);
+        found.confirmed = found.pageName === 'completed' ||
+          /^(confirmed|success|succeeded|successful|completed|booked|paid)$/i.test(found.status || '');
+        return found;
+      }
+
+      // A confirmation page by its URL — the iframe's path, which Clock
+      // reports as windowLocationReplace and mirrors into ?clock-pms-wbe=,
+      // or this page's own, should a payment step ever land the guest on a
+      // thank-you URL here. Booking numbers are taken from the URL where it
+      // has them; the price from the checkout that preceded it.
+      var RAYA_CONFIRM_URL = /(booking-?)?(completed|confirmation|confirmed|success|thank-?you|thanks)(\/|$|\?|#|&)/i;
+      function rayaClockCheckUrl(href, how) {
+        var url;
+        try { url = new URL(href, window.location.href); } catch (e) { return; }
+        var wbe = url.searchParams.get('clock-pms-wbe') || '';
+        var paths = [wbe, url.pathname, url.hash.slice(1)];
+        var hit = null;
+        for (var i = 0; i < paths.length; i++) {
+          if (paths[i] && RAYA_CONFIRM_URL.test(paths[i])) { hit = paths[i]; break; }
+        }
+        if (!hit) return;
+        var ids = [];
+        var params = [url.searchParams];
+        var q = hit.indexOf('?');
+        if (q !== -1) params.push(new URLSearchParams(hit.slice(q + 1)));
+        for (var j = 0; j < params.length; j++) {
+          params[j].forEach(function (v, k) {
+            if (RAYA_ID_KEY.test(k.replace(/[-\[\]]/g, '_').replace(/_+$/, ''))) {
+              String(v).split(/[,\s]+/).forEach(function (id) {
+                if (/^[A-Za-z0-9_.-]{1,40}$/.test(id) && ids.indexOf(id) === -1) ids.push(id);
+              });
+            }
+          });
+        }
+        var m = /(completed|confirmation|confirmed|success)\/([A-Za-z0-9_.-]{3,40})/i.exec(hit);
+        if (!ids.length && m) ids.push(m[2]);
+        rayaClockLog('confirmation URL (' + how + ')', href, ids);
+        rayaClockPurchaseFrom({ ids: ids }, 'url');
+      }
+
+      // Purchase from a message or a URL: the same event the callback sends,
+      // with order_id, and only if the callback has not sent it already.
+      function rayaClockPurchaseFrom(found, how) {
+        if (typeof window.fbq !== 'function') return;
+        var checkout = rayaStore(RAYA_CHECKOUT) || {};
+        var data = {
+          value: found.amount !== null && found.amount !== undefined ? found.amount : checkout.value,
+          currency: found.currency || checkout.currency || 'EUR',
+          num_items: checkout.num_items,
+          checkin_date: checkout.checkin_date,
+          checkout_date: checkout.checkout_date
+        };
+        rayaClockPurchaseOnce(found.ids, function (eventID) {
+          var payload = { content_type: 'hotel_room', currency: data.currency };
+          if (typeof data.value === 'number') payload.value = data.value;
+          if (found.ids.length) {
+            payload.content_ids = found.ids;
+            payload.order_id = found.ids.join('-');
+          }
+          if (data.num_items) payload.num_items = data.num_items;
+          if (data.checkin_date) payload.checkin_date = data.checkin_date;
+          if (data.checkout_date) payload.checkout_date = data.checkout_date;
+          if (eventID) window.fbq('track', 'Purchase', payload, { eventID: eventID });
+          else window.fbq('track', 'Purchase', payload);
+          rayaClockLog('Purchase from ' + how, payload);
+        }, data);
+      }
+
+      // BookingCheckoutAbandon: the overlay closed after InitiateCheckout
+      // and before a Purchase. Once per checkout.
+      function rayaClockClosed() {
+        var c = rayaStore(RAYA_CHECKOUT);
+        if (!c || c.done) return;
+        c.done = 'abandon';
+        rayaStore(RAYA_CHECKOUT, c);
+        if (typeof window.fbq !== 'function') return;
+        var payload = { content_type: 'hotel_room', currency: c.currency || 'EUR' };
+        if (typeof c.value === 'number') payload.value = c.value;
+        if (c.num_items) payload.num_items = c.num_items;
+        if (c.checkin_date) payload.checkin_date = c.checkin_date;
+        if (c.checkout_date) payload.checkout_date = c.checkout_date;
+        window.fbq('trackCustom', 'BookingCheckoutAbandon', payload, { eventID: 'clock-abandon-' + c.token });
+        rayaClockLog('BookingCheckoutAbandon', payload);
+      }
+
+      // Every message from Clock's iframe. Clock's own listener answers them;
+      // this one only watches. Its own failures stay inside it.
+      window.addEventListener('message', function (event) {
+        try {
+          if (!RAYA_CLOCK_ORIGIN.test(event.origin || '')) return;
+          var d = event.data;
+          if (!d || typeof d !== 'object') return;
+          rayaClockLog(d.type || '(reply #' + d.id + ')', d);
+          if (d.type === 'integrationClose') {
+            rayaClockClosed();
+            return;
+          }
+          if (d.type === 'windowLocationReplace' && typeof d.payload === 'string') {
+            rayaClockCheckUrl(d.payload, 'iframe');
+            return;
+          }
+          if (!d.type) return; // a reply to one of the page's own requests
+          var found = rayaClockFindBooking(d.payload);
+          // "track" "checkout" is InitiateCheckout's: the callback records
+          // it, and does so again here only if Clock never called it.
+          if (d.type === 'track' && d.payload && d.payload.pageName === 'checkout') {
+            var c = rayaStore(RAYA_CHECKOUT);
+            if (!c || c.done) rayaClockCheckoutStarted(d.payload);
+          }
+          if (found.confirmed && (found.ids.length || found.pageName === 'completed')) {
+            // After Clock's own listener, so its callback goes first when
+            // both run; whichever does, the booking is sent once.
+            setTimeout(function () { rayaClockPurchaseFrom(found, 'message'); }, 0);
+          }
+        } catch (err) {
+          if (window.console) console.error('[clock->message]', err);
+        }
+      }, false);
+
+      // A confirmation URL this page was opened on.
+      try { rayaClockCheckUrl(window.location.href, 'page'); } catch (e) { /* ignore */ }
+
       window.clockPmsWbePageViewCallback = function (params) {
         var p = params || {};
+        rayaClockLog('callback', p);
         // Isolated: a throw in one reporter must not stop the others. The
         // Google block in particular reads params.bookingNumbers.join(),
         // which would throw if Clock ever omitted it.

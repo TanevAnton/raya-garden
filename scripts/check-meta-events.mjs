@@ -116,10 +116,14 @@ const json = (body, status = 200) => ({
 });
 
 const formspreeBodies = [];
+const weddingPosts = [];
+const capiPosts = [];
 
-const open = async (path, { failBackends = false, mobile = false } = {}) => {
+const open = async (path, { failBackends = false, mobile = false, size = null } = {}) => {
   const page = await browser.newPage();
-  if (mobile) {
+  if (size) {
+    await page.setViewport({ ...size, isMobile: size.width < 768, hasTouch: size.width < 768 });
+  } else if (mobile) {
     await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   }
   await page.evaluateOnNewDocument(CAPTURE);
@@ -130,16 +134,27 @@ const open = async (path, { failBackends = false, mobile = false } = {}) => {
       return req.respond(json({ result: sanityAnswer(url) }));
     }
     // Both enquiry backends answer success, so the Lead paths are reachable
-    // — or, with failBackends, refuse, to prove a Lead needs a real success.
+    // — or, with failBackends, refuse, to prove a Lead needs a real success;
+    // with failBackends "network", never answer at all.
     if (url.includes("formspree.io")) {
       formspreeBodies.push(req.postData() || "");
+      if (failBackends === "network") return req.abort("failed");
       return req.respond(failBackends ? json({ errors: [{ message: "test refusal" }] }, 422) : json({}));
     }
     if (url.includes("/api/wedding-enquiry.php")) {
-      return req.respond(
-        failBackends ? json({ ok: false, errors: { email: "invalid" } }, 422)
-                     : json({ ok: true, reference: "RG-WD-TEST" })
-      );
+      if (req.method() === "POST") weddingPosts.push(req.postData() || "");
+      if (failBackends === "network") return req.abort("failed");
+      if (failBackends) return req.respond(json({ ok: false, errors: { email: "invalid" } }, 422));
+      // As the real endpoint does: a filled honeypot gets a success-shaped
+      // answer with the all-zero reference, and nothing is sent.
+      let website = "";
+      try { website = String(JSON.parse(req.postData() || "{}").website || "").trim(); } catch { /* not JSON */ }
+      return req.respond(json({ ok: true, reference: website ? "RG-WD-00000000-0000" : "RG-WD-TEST" }));
+    }
+    // The Conversions API endpoint: what the page posts, answered ok.
+    if (url.includes("/api/meta-capi.php")) {
+      capiPosts.push({ page: page.__label || "", body: JSON.parse(req.postData() || "{}") });
+      return req.respond(json({ ok: true }));
     }
     // Clock's real bundle would register its own callback; the page defines
     // ours regardless, and the funnel steps are invoked directly below.
@@ -478,6 +493,333 @@ const clockLinks = {};
 await clockLink("book: link to Clock, same tab, on /hotel", null);
 await clockLink("book: link to Clock, new tab, on /hotel", "_blank");
 
+// ── Part A: the wedding configurator on a phone ──────────────────────
+// What the ads' visitors meet first, at 375×812 (and 1280×900 for the step
+// changes): the first question on the first screen, a НАПРЕД that shows its
+// errors, step changes that land on the step, the quick callback, and the
+// call button. Each case fails with a reason rather than throwing.
+const PHONE = { width: 375, height: 812 };
+const DESKTOP = { width: 1280, height: 900 };
+const configuratorChecks = [];
+const check = (name, ok, detail = "") => {
+  configuratorChecks.push({ name, ok, detail });
+  if (!ok) failures.push(`configurator: ${name}${detail ? ` — ${detail}` : ""}`);
+};
+// Where things are on screen: the header's bottom, the mobile bar's top.
+const frame = (page) => page.evaluate(() => {
+  const header = document.querySelector("header")?.getBoundingClientRect().bottom ?? 0;
+  const bar = [...document.querySelectorAll("div.fixed.bottom-0")].find((d) => d.offsetParent !== null || getComputedStyle(d).display !== "none");
+  const barTop = bar && getComputedStyle(bar).display !== "none" ? bar.getBoundingClientRect().top : innerHeight;
+  return { header, barTop, innerHeight };
+});
+const tapNext = (page) => page.evaluate(() => {
+  // The visible НАПРЕД: the mobile bar's on a phone, the page's on a desktop.
+  const b = [...document.querySelectorAll("button")].filter((x) => /^Напред$/.test(x.textContent.trim()) && x.getClientRects().length);
+  b[b.length - 1].click();
+});
+const tapBack = (page) => page.evaluate(() => {
+  [...document.querySelectorAll("button")].find((x) => /^Назад$/.test(x.textContent.trim())).click();
+});
+const stepperTop = (page) => page.evaluate(() => document.querySelector('nav[aria-label] ol').getBoundingClientRect().top);
+
+// 1. The first question and НАПРЕД without scrolling.
+{
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  const f = await frame(page);
+  const q = await page.evaluate(() => {
+    const h = [...document.querySelectorAll("h2")].find((e) => /Кога планирате/.test(e.textContent));
+    const d = document.querySelector('input[type="date"]').getBoundingClientRect();
+    const next = [...document.querySelectorAll("button")].filter((x) => /^Напред$/.test(x.textContent.trim()) && x.getClientRects().length).pop().getBoundingClientRect();
+    return { heading: h.getBoundingClientRect().top, dateBottom: d.bottom, nextTop: next.top, nextBottom: next.bottom, scrollY };
+  });
+  check("375×812: the first question and its date field are on the first screen",
+    q.scrollY === 0 && q.heading >= f.header && q.dateBottom <= Math.min(f.barTop, 812),
+    `heading at ${Math.round(q.heading)}, date field ends at ${Math.round(q.dateBottom)}, bar from ${Math.round(f.barTop)}`);
+  check("375×812: НАПРЕД is on the first screen", q.nextBottom <= 812 && q.nextTop >= 0, `НАПРЕД at ${Math.round(q.nextTop)}–${Math.round(q.nextBottom)}`);
+  await page.close();
+}
+
+// 2. НАПРЕД with nothing filled in: the first error in view, its field focused.
+for (const size of [PHONE, DESKTOP]) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  // Start lower down, as a guest who has read the page would be.
+  await page.evaluate(() => scrollTo(0, 400));
+  await sleep(300);
+  await tapNext(page);
+  await sleep(1300);
+  const f = await frame(page);
+  const e = await page.evaluate(() => {
+    const alert = document.querySelector('[role="alert"]');
+    const r = alert.getBoundingClientRect();
+    const active = document.activeElement;
+    return { top: r.top, bottom: r.bottom, text: alert.textContent.trim(), focusType: active?.type, focusInvalid: active?.getAttribute("aria-invalid"), live: document.querySelectorAll('[role="alert"]').length };
+  });
+  const tag = `${size.width}×${size.height}`;
+  check(`${tag}: a bad НАПРЕД brings the first error into view`, e.top >= f.header && e.bottom <= f.barTop, `"${e.text}" at ${Math.round(e.top)}–${Math.round(e.bottom)}, visible ${Math.round(f.header)}–${Math.round(f.barTop)}`);
+  check(`${tag}: …and puts the cursor in its field`, e.focusType === "date" && e.focusInvalid === "true", `focus on ${e.focusType}`);
+  check(`${tag}: …with the messages still role="alert"`, e.live >= 2, `${e.live} alerts`);
+  await page.close();
+}
+
+// 3. Each step change lands on the step's progress bar, not the page top —
+// НАПРЕД 1→2→3→4, then НАЗАД 4→3.
+for (const size of [PHONE, DESKTOP]) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size });
+  await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+  await fill(page, "input[type=date]", "2027-06-12");
+  await fill(page, "input[type=number]", "60", 0);
+  await sleep(300);
+  const tag = `${size.width}×${size.height}`;
+  const landed = [];
+  for (const [label, act] of [
+    ["→ step 2", () => tapNext(page)],
+    ["→ step 3", async () => { await clickText(page, /^Избери$/); await sleep(300); await tapNext(page); }],
+    ["→ step 4", () => tapNext(page)],
+    ["НАЗАД → step 3", () => tapBack(page)],
+  ]) {
+    // From further down the page, as after reading a step.
+    await page.evaluate(() => scrollTo(0, document.body.scrollHeight / 2));
+    await sleep(200);
+    await act();
+    await sleep(1400);
+    const f = await frame(page);
+    const top = await stepperTop(page);
+    const y = await page.evaluate(() => Math.round(scrollY));
+    landed.push(`${label}: scrollY ${y}, steps bar at ${Math.round(top)}`);
+    check(`${tag}: ${label} lands on the step, not the page top`, y > 0 && top >= f.header - 1 && top <= f.header + 40, `scrollY ${y}, steps bar at ${Math.round(top)}, header ends ${Math.round(f.header)}`);
+  }
+  console.log(`${tag} step changes: ${landed.join("; ")}`);
+  await page.close();
+}
+
+// 4. The quick callback: EventEnquiry once, only on Formspree's confirmation,
+// and not again when the same visit sends the full configurator.
+async function callback(where, { failBackends = false, name = "Тест Тестов", phone = "+359888123456", thenFull = false } = {}) {
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE, failBackends });
+  await page.waitForSelector("[data-quick-callback] form", { timeout: 8000 });
+  const sentBefore = formspreeBodies.length;
+  await fill(page, '[data-quick-callback] input[autocomplete="name"]', name);
+  await fill(page, '[data-quick-callback] input[type="tel"]', phone);
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await page.evaluate(() => document.querySelector('[data-quick-callback] button[type="submit"]').click());
+  await sleep(1200);
+  record(where, await page.evaluate(() => window.__fbqCalls));
+  const sent = formspreeBodies.slice(sentBefore);
+  callbackPosts[where] = sent;
+  if (thenFull) {
+    // The same visit goes on to send the whole configuration.
+    await fill(page, "input[type=date]", "2027-06-12");
+    await fill(page, "input[type=number]", "60", 0);
+    await sleep(300);
+    await tapNext(page); await sleep(700);
+    await clickText(page, /^Избери$/); await sleep(300);
+    await tapNext(page); await sleep(700);
+    await tapNext(page); await sleep(700);
+    await fill(page, "input[type=text]", "Тест Тестов", 0);
+    await fill(page, "input[type=tel]", "+359888123456", 0);
+    await fill(page, "input[type=email]", "test@example.com", 0);
+    await page.evaluate(() => { const b = document.querySelectorAll("input[type=checkbox]"); b[b.length - 1].click(); });
+    await sleep(200);
+    await page.evaluate(() => (window.__fbqCalls.length = 0));
+    await clickText(page, /Изпрати запитване/);
+    await sleep(1800);
+    record(`${where}, then the full configurator`, await page.evaluate(() => window.__fbqCalls));
+  }
+  await page.close();
+}
+const callbackPosts = {};
+await callback("configurator callback sent");
+await callback("configurator callback refused by Formspree", { failBackends: true });
+await callback("configurator callback with the phone empty", { phone: "" });
+await callback("configurator callback sent then the full form", { thenFull: true });
+{
+  const body = callbackPosts["configurator callback sent"][0] || "";
+  check("the callback reaches Formspree once, marked as a quick callback",
+    callbackPosts["configurator callback sent"].length === 1 && /name="kind"\r\n\r\nquick_callback/.test(body) && /name="phone"\r\n\r\n\+359888123456/.test(body),
+    `${callbackPosts["configurator callback sent"].length} post(s)`);
+  check("a callback with the phone empty sends nothing", callbackPosts["configurator callback with the phone empty"].length === 0);
+}
+
+// 5. The call button on a phone: PhoneClick once per tap.
+{
+  const page = await open("/svatben-konfigurator?lang=bg", { size: PHONE });
+  await page.waitForSelector("[data-configurator-call]", { timeout: 8000 });
+  const box = await page.evaluate(() => {
+    const r = document.querySelector("[data-configurator-call]").getBoundingClientRect();
+    return { height: r.height, top: r.top, href: document.querySelector("[data-configurator-call]").getAttribute("href"), text: document.querySelector("[data-configurator-call]").textContent.trim() };
+  });
+  check("the call button is at least 44px tall and on the first screen", box.height >= 44 && box.top < 812, `${Math.round(box.height)}px at ${Math.round(box.top)}`);
+  check("the call button reads «Обади се: +359 896 100 100» and dials it", box.text === "Обади се: +359 896 100 100" && box.href === "tel:+359896100100", `"${box.text}" → ${box.href}`);
+  for (const n of [1, 2]) {
+    await page.evaluate(() => {
+      window.__fbqCalls.length = 0;
+      const a = document.querySelector("[data-configurator-call]");
+      a.addEventListener("click", (e) => e.preventDefault(), { once: true });
+      a.click();
+    });
+    await sleep(300);
+    record(`configurator call button, tap ${n}`, await page.evaluate(() => window.__fbqCalls));
+  }
+  await page.close();
+  const desktop = await open("/svatben-konfigurator?lang=bg", { size: DESKTOP });
+  await desktop.waitForSelector('input[type="date"]', { timeout: 8000 });
+  const shown = await desktop.evaluate(() => document.querySelector("[data-configurator-call]")?.getClientRects().length || 0);
+  check("the call button is for phones only (hidden at 1280)", shown === 0);
+  const photo = await desktop.evaluate(() => !!document.querySelector('img[src="/img/wedding-head-table.jpg"]')?.getClientRects().length);
+  check("the desktop hero keeps its photo", photo);
+  await desktop.close();
+}
+
+// ── Part A: EnquirySubmitted — real submissions, and nothing else ────
+// Every enquiry form on the site, at a phone and a desktop width, through
+// each way a send can end: confirmed, stopped by validation, the network
+// gone, refused (4xx), a bot in the honeypot, a double tap on the button,
+// and the same form sent again later in the same visit (the page reloaded,
+// sessionStorage kept). Lead and EventEnquiry are counted beside it, to show
+// they are as they were.
+const SUBMIT_FORMS = {
+  "contact form": {
+    path: "/contact?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector("main form", { timeout: 8000 });
+      await page.evaluate(({ invalid, honeypot }) => {
+        const set = (el, v) => {
+          Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), "value").set.call(el, v);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        };
+        for (const el of document.querySelectorAll("main form input, main form textarea")) {
+          if (el.type === "hidden" || el.name === "_gotcha") continue;
+          // invalid: the name left empty — the browser's required stops it.
+          if (invalid && el.required && el.type === "text") continue;
+          set(el, el.type === "email" ? "test@example.com" : "Тест Тестов");
+        }
+        set(document.querySelector("main form select"), document.querySelector("main form select").options[1].value);
+        if (honeypot) document.querySelector('main form input[name="_gotcha"]').value = "http://spam.example";
+      }, { invalid, honeypot });
+    },
+    submit: 'main form button[type="submit"]',
+  },
+  "events form": {
+    path: "/events?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector("#enquiry form", { timeout: 8000 });
+      if (!invalid) await fill(page, '#enquiry input[autocomplete="name"]', "Тест Тестов");
+      await fill(page, '#enquiry input[type="tel"]', "+359888123456");
+      await fill(page, "#enquiry select", "corporate", 0);
+      await fill(page, "#enquiry select", "20-50", 1);
+      await fill(page, "#enquiry select", "unknown", 2);
+      await page.evaluate(() => document.querySelector('#enquiry input[type="checkbox"]').click());
+      if (honeypot) await page.evaluate(() => (document.querySelector('#enquiry input[name="_gotcha"]').value = "http://spam.example"));
+    },
+    submit: '#enquiry button[type="submit"]',
+  },
+  "configurator form": {
+    path: "/svatben-konfigurator?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+      await fill(page, "input[type=date]", "2027-06-12");
+      await fill(page, "input[type=number]", "60", 0);
+      await sleep(300);
+      await tapNext(page); await sleep(700);
+      await clickText(page, /^Избери$/); await sleep(300);
+      await tapNext(page); await sleep(700);
+      await tapNext(page); await sleep(700);
+      await fill(page, "input[type=text]", "Тест Тестов", 0);
+      await fill(page, "input[type=tel]", "+359888123456", 0);
+      await fill(page, "input[type=email]", "test@example.com", 0);
+      if (honeypot) await fill(page, "#website-url", "http://spam.example");
+      // invalid: consent left unticked — the form's own check stops it.
+      if (!invalid) await page.evaluate(() => { const b = document.querySelectorAll("input[type=checkbox]"); b[b.length - 1].click(); });
+      await sleep(200);
+    },
+    submitText: /Изпрати запитване/,
+  },
+  "configurator callback": {
+    path: "/svatben-konfigurator?lang=bg",
+    async fill(page, { invalid, honeypot }) {
+      await page.waitForSelector('input[type="date"]', { timeout: 8000 });
+      if (honeypot) {
+        // The honeypot is on the last step: a bot that filled it there and
+        // came back to step 1 for the callback.
+        await fill(page, "input[type=date]", "2027-06-12");
+        await fill(page, "input[type=number]", "60", 0);
+        await sleep(300);
+        await tapNext(page); await sleep(700);
+        await clickText(page, /^Избери$/); await sleep(300);
+        await tapNext(page); await sleep(700);
+        await tapNext(page); await sleep(700);
+        await fill(page, "#website-url", "http://spam.example");
+        for (let i = 0; i < 3; i++) { await tapBack(page); await sleep(700); }
+      }
+      await page.waitForSelector("[data-quick-callback] form", { timeout: 8000 });
+      await fill(page, '[data-quick-callback] input[autocomplete="name"]', "Тест Тестов");
+      // invalid: the phone left empty.
+      await fill(page, '[data-quick-callback] input[type="tel"]', invalid ? "" : "+359888123456");
+    },
+    submit: '[data-quick-callback] button[type="submit"]',
+  },
+};
+const SUBMIT_CASES = ["sent", "invalid", "network failure", "refused 422", "honeypot", "double tap", "sent again in the same visit"];
+
+async function pressSubmit(page, form, times = 1) {
+  // The same button clicked `times` times in one go, as a double tap is:
+  // before React has re-rendered it as disabled.
+  const ok = await page.evaluate(({ sel, text, times }) => {
+    const b = sel
+      ? document.querySelector(sel)
+      : [...document.querySelectorAll("button")].find((e) => new RegExp(text).test(e.textContent.trim()));
+    if (!b) return false;
+    for (let i = 0; i < times; i++) b.click();
+    return true;
+  }, { sel: form.submit || null, text: form.submitText?.source || null, times });
+  if (!ok) throw new Error(`no submit button for ${form.submit || form.submitText}`);
+}
+
+const submittedCases = [];
+for (const [sizeName, size] of [["phone", PHONE], ["desktop", DESKTOP]]) {
+  for (const [name, form] of Object.entries(SUBMIT_FORMS)) {
+    for (const c of SUBMIT_CASES) {
+      const where = `submitted: ${name}, ${c} (${sizeName})`;
+      const failBackends = c === "network failure" ? "network" : c === "refused 422";
+      const page = await open(form.path, { size, failBackends });
+      const postsBefore = formspreeBodies.length + weddingPosts.length;
+      if (c === "sent again in the same visit") {
+        // The first send, then a reload in the same tab and a second one.
+        await form.fill(page, {});
+        await pressSubmit(page, form);
+        await sleep(1800);
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await sleep(1400);
+      }
+      await form.fill(page, { invalid: c === "invalid", honeypot: c === "honeypot" });
+      await page.evaluate(() => (window.__fbqCalls.length = 0));
+      await pressSubmit(page, form, c === "double tap" ? 2 : 1);
+      await sleep(1800);
+      record(where, await page.evaluate(() => window.__fbqCalls));
+      submittedCases.push({ where, form: name, case: c, size: sizeName, posts: formspreeBodies.length + weddingPosts.length - postsBefore });
+      await page.close();
+    }
+  }
+  // Two submissions in one visit: the callback, then the full configurator.
+  {
+    const where = `submitted: configurator callback, then the full form (${sizeName})`;
+    const page = await open("/svatben-konfigurator?lang=bg", { size });
+    await SUBMIT_FORMS["configurator callback"].fill(page, {});
+    await page.evaluate(() => (window.__fbqCalls.length = 0));
+    await pressSubmit(page, SUBMIT_FORMS["configurator callback"]);
+    await sleep(1400);
+    await SUBMIT_FORMS["configurator form"].fill(page, {});
+    await pressSubmit(page, SUBMIT_FORMS["configurator form"]);
+    await sleep(1800);
+    record(where, await page.evaluate(() => window.__fbqCalls));
+    submittedCases.push({ where, form: "both", case: "callback then full form", size: sizeName });
+    await page.close();
+  }
+}
+
 // ── Part A: StrictMode must not double-count ─────────────────────────
 // The sharpest test of the guard there is. React StrictMode double-invokes
 // every effect in development and not in a production build, so a dev
@@ -633,6 +975,199 @@ const CLOCK_STEPS = [
     `\nisolation: fbq threw → callback ${isolation.threw ? "PROPAGATED (bad)" : "contained"}, ` +
       `GA4 ${isolation.gtagFired ? "still fired" : "was blocked (bad)"}`
   );
+  await page.close();
+}
+
+// ── Part B: a confirmed booking, however it is seen ──────────────────
+// Clock's iframe talks to the page in postMessages ({type, id, payload});
+// its own listener turns "track" into the callback. Here Clock's bundle is
+// blocked, so the messages are dispatched as Clock's origin would send them
+// and the callback is called where the real listener would call it.
+const CLOCK_ORIGIN = "https://sky-eu1.clock-software.com";
+const clockChecks = [];
+const clockCheck = (name, ok, detail = "") => {
+  clockChecks.push({ name, ok, detail });
+  if (!ok) failures.push(`clock: ${name}${detail ? ` — ${detail}` : ""}`);
+};
+const CHECKOUT_P = { pageName: "checkout", arrival: "2027-06-12", departure: "2027-06-14", roomCount: 1, totalPriceCents: 25000, totalPriceCurrency: "EUR", hotelName: "RAYA Garden" };
+const COMPLETED_P = { ...CHECKOUT_P, pageName: "completed", bookingNumbers: ["77001"] };
+async function clockPage(label, path = "/book?lang=bg") {
+  const page = await open(path);
+  page.__label = label;
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  return page;
+}
+// Dispatch messages as Clock's iframe would; `callback` also calls the page's
+// callback in the same tick for "track", as Clock's own listener does.
+const post = (page, msgs, { origin = CLOCK_ORIGIN, callback = false } = {}) =>
+  page.evaluate(({ msgs, origin, callback }) => {
+    for (const data of msgs) {
+      window.dispatchEvent(new MessageEvent("message", { data, origin }));
+      if (callback && data.type === "track") window.clockPmsWbePageViewCallback(data.payload);
+    }
+  }, { msgs, origin, callback });
+const eventsOf = async (page, name) =>
+  (await page.evaluate(() => window.__fbqCalls)).filter((c) => c[1] === name);
+const capiFor = (label) => capiPosts.filter((c) => c.page === label);
+
+// 1. The real order of things: message, then Clock's callback, for every step.
+{
+  const label = "clockmsg: message + callback";
+  const page = await clockPage(label);
+  const steps = [{ pageName: "rooms" }, { ...CHECKOUT_P }, { ...COMPLETED_P }];
+  await post(page, steps.map((payload, id) => ({ type: "track", id, payload })), { callback: true });
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("message and callback for the same booking: one Purchase", p.length === 1, `${p.length} Purchase(s)`);
+  clockCheck("…it is the callback's, unchanged, with eventID clock-77001",
+    p[0]?.[3]?.eventID === "clock-77001" && p[0]?.[2]?.value === 250 && p[0]?.[2]?.content_type === "hotel_room" && !("order_id" in (p[0]?.[2] || {})),
+    JSON.stringify(p[0]?.slice(2)));
+  const capi = capiFor(label);
+  clockCheck("…and one Conversions API copy with the same event_id and value",
+    capi.length === 1 && capi[0].body.event_id === "clock-77001" && capi[0].body.value === 250 && capi[0].body.currency === "EUR" && JSON.stringify(capi[0].body.content_ids) === '["77001"]',
+    JSON.stringify(capi.map((c) => c.body)));
+  // Clock reporting "completed" again (a re-render, a reload in the tab).
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await post(page, [{ type: "track", id: 9, payload: { ...COMPLETED_P } }], { callback: true });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await sleep(1200);
+  await post(page, [{ type: "track", id: 10, payload: { ...COMPLETED_P } }], { callback: true });
+  await sleep(400);
+  const again = (await eventsOf(page, "Purchase")).length;
+  clockCheck("the same booking reported again, and after a reload: no second Purchase", again === 0 && capiFor(label).length === 1, `${again} Purchase(s), ${capiFor(label).length} API post(s)`);
+  await page.close();
+}
+
+// 2. Only the message (Clock's callback never runs): Purchase from it, with order_id.
+{
+  const label = "clockmsg: message only";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }, { type: "track", id: 2, payload: { ...COMPLETED_P, bookingNumbers: ["77002", "77003"] } }]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a completed message alone: one Purchase with value, currency, content_type, order_id",
+    p.length === 1 && p[0][0] === "track" && p[0][3]?.eventID === "clock-77002-77003" &&
+    JSON.stringify({ v: p[0][2].value, c: p[0][2].currency, t: p[0][2].content_type, o: p[0][2].order_id }) === JSON.stringify({ v: 250, c: "EUR", t: "hotel_room", o: "77002-77003" }),
+    JSON.stringify(p.map((x) => x.slice(2))));
+  clockCheck("…and its Conversions API copy", capiFor(label).length === 1 && capiFor(label)[0].body.event_id === "clock-77002-77003");
+  await page.close();
+}
+
+// 3. A confirmation in some other shape: id + confirmed status + total.
+{
+  const label = "clockmsg: other confirmation shape";
+  const page = await clockPage(label);
+  await post(page, [{ type: "bookingConfirmed", id: 3, payload: { reservation: { reservationNumber: "R5501", status: "confirmed", total: 180, currency: "EUR" } } }]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a message with a reservation number, status confirmed and a total: one Purchase",
+    p.length === 1 && p[0][2].value === 180 && p[0][2].order_id === "R5501" && p[0][3]?.eventID === "clock-R5501", JSON.stringify(p.map((x) => x.slice(2))));
+  await page.close();
+}
+
+// 4. Nothing that is not a confirmation, or not from Clock.
+{
+  const label = "clockmsg: not a booking";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...COMPLETED_P, bookingNumbers: ["99999"] } }], { origin: "https://evil.example" });
+  await post(page, [
+    { type: "track", id: 2, payload: { pageName: "rates", roomTypeName: "Double" } },
+    { type: "localStorageRead", id: 3, payload: "x" },
+    { type: "bookingUpdate", id: 4, payload: { reservationNumber: "R1", status: "pending", total: 99 } },
+    { id: 5, payload: "a reply", success: true },
+  ]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("another origin, other steps, a pending status, replies: no Purchase", p.length === 0 && capiFor(label).length === 0, `${p.length} Purchase(s)`);
+  await page.close();
+}
+
+// 5. A confirmation URL: the iframe's path (windowLocationReplace), and this page's own.
+{
+  const label = "clockmsg: confirmation URL from the iframe";
+  const page = await clockPage(label);
+  await post(page, [
+    { type: "track", id: 1, payload: { ...CHECKOUT_P } },
+    { type: "windowLocationReplace", id: 2, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fbooking%2Fcompleted%3FbookingNumber%3D55501" },
+    { type: "windowLocationReplace", id: 3, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fbooking%2Fcompleted%3FbookingNumber%3D55501" },
+  ]);
+  await sleep(400);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const p = await eventsOf(page, "Purchase");
+  clockCheck("a completed path reported by the iframe: one Purchase, priced from the checkout",
+    p.length === 1 && p[0][2].order_id === "55501" && p[0][2].value === 250 && p[0][3]?.eventID === "clock-55501", JSON.stringify(p.map((x) => x.slice(2))));
+  await page.close();
+
+  const label2 = "clockmsg: opened on a confirmation URL";
+  // The check runs while the page parses, so its calls are read as they
+  // are rather than cleared first, as clockPage would.
+  const p2 = await browser.newPage();
+  await p2.evaluateOnNewDocument(CAPTURE);
+  await p2.setRequestInterception(true);
+  p2.on("request", (req) => (req.url().includes("clock-software.com") || req.url().includes("facebook.net") || req.url().includes("googletagmanager")) ? req.abort() : req.url().includes(".sanity.io") ? req.respond(json({ result: sanityAnswer(req.url()) })) : req.continue());
+  await p2.goto(`${BASE}/book?lang=bg&clock-pms-wbe=%2Fconfirmation%2F66601`, { waitUntil: "domcontentloaded" });
+  await sleep(800);
+  const calls = await p2.evaluate(() => window.__fbqCalls);
+  record(label2, calls);
+  const pp = calls.filter((c) => c[1] === "Purchase");
+  clockCheck("a page opened on a confirmation URL with a booking number: one Purchase",
+    pp.length === 1 && pp[0][2].order_id === "66601" && pp[0][3]?.eventID === "clock-66601", JSON.stringify(pp.map((x) => x.slice(2))));
+  await p2.close();
+
+  const label3 = "clockmsg: confirmation URL with nothing to key on";
+  const page3 = await clockPage(label3);
+  await post(page3, [{ type: "windowLocationReplace", id: 1, payload: "https://rayagarden.bg/book?clock-pms-wbe=%2Fthank-you" }]);
+  await sleep(300);
+  record(label3, await page3.evaluate(() => window.__fbqCalls));
+  clockCheck("a thank-you URL with no booking number and no checkout: no Purchase", (await eventsOf(page3, "Purchase")).length === 0);
+  await page3.close();
+}
+
+// 6. BookingCheckoutAbandon: closed after InitiateCheckout, without a Purchase.
+{
+  const label = "clockmsg: closed at checkout";
+  const page = await clockPage(label);
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }], { callback: true });
+  await post(page, [{ type: "integrationClose", id: 2 }, { type: "integrationClose", id: 3 }]);
+  await sleep(300);
+  record(label, await page.evaluate(() => window.__fbqCalls));
+  const a = await eventsOf(page, "BookingCheckoutAbandon");
+  clockCheck("closed after InitiateCheckout: one BookingCheckoutAbandon, with the checkout's value",
+    a.length === 1 && a[0][0] === "trackCustom" && a[0][2].value === 250 && a[0][2].currency === "EUR" && a[0][2].num_items === 1 && /^clock-abandon-/.test(a[0][3]?.eventID || ""),
+    JSON.stringify(a.map((x) => x.slice(2))));
+  // Back in, a second checkout, then a booking and a close: no abandon.
+  await page.evaluate(() => (window.__fbqCalls.length = 0));
+  await post(page, [{ type: "track", id: 4, payload: { ...CHECKOUT_P } }, { type: "track", id: 5, payload: { ...COMPLETED_P, bookingNumbers: ["77009"] } }], { callback: true });
+  await sleep(200);
+  await post(page, [{ type: "integrationClose", id: 6 }]);
+  await sleep(300);
+  record(`${label}, then booked`, await page.evaluate(() => window.__fbqCalls));
+  clockCheck("…a second checkout that ends in a booking, then closed: no abandon, one Purchase",
+    (await eventsOf(page, "BookingCheckoutAbandon")).length === 0 && (await eventsOf(page, "Purchase")).length === 1);
+  await page.close();
+
+  const label2 = "clockmsg: closed before checkout";
+  const page2 = await clockPage(label2);
+  await post(page2, [{ type: "track", id: 1, payload: { pageName: "rooms" } }, { type: "integrationClose", id: 2 }], { callback: true });
+  await sleep(300);
+  record(label2, await page2.evaluate(() => window.__fbqCalls));
+  clockCheck("closed before checkout: no BookingCheckoutAbandon", (await eventsOf(page2, "BookingCheckoutAbandon")).length === 0);
+  await page2.close();
+}
+
+// 7. ?debugclock=1: every Clock message logged with its payload; silent otherwise.
+for (const [path, want] of [["/book?lang=bg&debugclock=1", true], ["/book?lang=bg", false]]) {
+  const page = await open(path);
+  const logs = [];
+  page.on("console", (m) => { if (m.text().includes("[clock]")) logs.push(m.text()); });
+  await post(page, [{ type: "track", id: 1, payload: { ...CHECKOUT_P } }, { type: "integrationClose", id: 2 }]);
+  await sleep(400);
+  const sawPayload = logs.some((t) => t.includes("track"));
+  clockCheck(`${path}: Clock messages ${want ? "logged" : "not logged"}`, want ? sawPayload && logs.length >= 2 : logs.length === 0, `${logs.length} line(s)`);
   await page.close();
 }
 
@@ -808,8 +1343,16 @@ const ENQUIRY_FIRES = {
   "contact link: viber on /svatben-konfigurator": { method: "viber", event_type: "wedding" },
   "contact link: wa.me on /svatben-konfigurator": { method: "whatsapp", event_type: "wedding" },
   "contact link: tel on /svatben-konfigurator?for=corporate": { method: "phone", event_type: "wedding" },
+  // The configurator's quick callback, on Formspree's confirmation only —
+  // and nothing more when the same visit then sends the full form.
+  "configurator callback sent": { source: "configurator_callback" },
+  "configurator callback sent then the full form": { source: "configurator_callback" },
+  // Its call button is a tel: link: the same enquiry as any call from here.
+  "configurator call button, tap 1": { method: "phone", event_type: "wedding" },
+  "configurator call button, tap 2": { method: "phone", event_type: "wedding" },
 };
-const everyWhere = new Set([...rows.map((r) => r.where), ...Object.keys(ENQUIRY_FIRES)]);
+// The EnquirySubmitted matrix counts EventEnquiry case by case, below.
+const everyWhere = new Set([...rows.map((r) => r.where).filter((w) => !w.startsWith("submitted: ")), ...Object.keys(ENQUIRY_FIRES)]);
 let enquiryFires = 0;
 let enquirySilent = 0;
 for (const where of everyWhere) {
@@ -851,6 +1394,96 @@ for (const where of [
   if (!rows.some((r) => r.where === where && r.event === "EventEnquiry")) console.log(`no EventEnquiry, correctly: ${where}`);
 }
 
+// EnquirySubmitted: exactly once per confirmed submission, with exactly
+// these params — and nowhere else in the whole run: no page load, no tap on
+// a phone, e-mail, Viber or WhatsApp link, no call button or mobile bar, no
+// refused, failed, invalid or honeypot send, no repeat in the same visit.
+const SUBMITTED = {
+  "contact form": { source: "contact_form" },
+  "events form": { source: "events_form", event_type: "corporate" },
+  "configurator form": { source: "configurator_form", event_type: "wedding" },
+  "configurator callback": { source: "configurator_callback", event_type: "wedding" },
+};
+const SUBMITTED_FIRES = {
+  "/contact submit [topic: Резервация]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Сватба или събитие]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Ресторант]": [SUBMITTED["contact form"]],
+  "/contact submit [topic: Езеро]": [SUBMITTED["contact form"]],
+  "/svatben-konfigurator submit": [SUBMITTED["configurator form"]],
+  "/events?for=corporate enquiry sent": [SUBMITTED["events form"]],
+  "/events enquiry sent [Сватба]": [{ source: "events_form", event_type: "wedding" }],
+  "configurator callback sent": [SUBMITTED["configurator callback"]],
+  "configurator callback sent then the full form": [SUBMITTED["configurator callback"]],
+  "configurator callback sent then the full form, then the full configurator": [SUBMITTED["configurator form"]],
+};
+for (const c of submittedCases) {
+  if (c.form === "both") SUBMITTED_FIRES[c.where] = [SUBMITTED["configurator callback"], SUBMITTED["configurator form"]];
+  else if (c.case === "sent" || c.case === "double tap") SUBMITTED_FIRES[c.where] = [SUBMITTED[c.form]];
+}
+{
+  const wheres = new Set([...rows.map((r) => r.where), ...Object.keys(SUBMITTED_FIRES)]);
+  let fired = 0;
+  let silent = 0;
+  let taps = 0;
+  const tapWheres = new Set([
+    ...CONTACT_CASES.filter((c) => c.href !== "/contact").map((c) => c.where),
+    "configurator call button, tap 1", "configurator call button, tap 2",
+    "/events enquiry call button", "/events mobile bar: call", `/event/${EVENT_SLUG} mobile bar: call`,
+    "/events?for=corporate mobile bar: call", `/event/${OTHER_EVENT_SLUG} mobile bar: call`,
+  ]);
+  for (const where of wheres) {
+    const got = rows.filter((r) => r.where === where && r.event === "EnquirySubmitted");
+    const want = SUBMITTED_FIRES[where] || [];
+    if (tapWheres.has(where) && got.length === 0) taps++;
+    if (got.length !== want.length) {
+      failures.push(`${where}: EnquirySubmitted fired ${got.length} time(s), expected ${want.length}`);
+      continue;
+    }
+    if (!want.length) { silent++; continue; }
+    const bad = got.find((g, i) => g.kind !== "trackCustom" || JSON.stringify(g.params) !== JSON.stringify(want[i]));
+    if (bad) failures.push(`${where}: EnquirySubmitted ${bad.kind} ${JSON.stringify(got.map((g) => g.params))}, expected trackCustom ${JSON.stringify(want)}`);
+    else fired++;
+  }
+  console.log(`\nEnquirySubmitted: right count and params at ${fired}/${Object.keys(SUBMITTED_FIRES).length} submissions; silent, correctly, at the other ${silent} actions — ${taps}/${tapWheres.size} of them taps on phone/e-mail/Viber/WhatsApp links`);
+}
+
+// Lead and EventEnquiry in the same matrix. A double tap is one send (one
+// post, everything once); a filled honeypot is none (no post, nothing).
+const LEAD_ON_SUCCESS = { "contact form": 1, "events form": 1, "configurator form": 1, "configurator callback": 0 };
+const ENQUIRY_ON_SUCCESS = { "contact form": 0, "events form": 1, "configurator form": 1, "configurator callback": 1 };
+// A repeat in the same visit: EventEnquiry is once per visit on the
+// configurator (both forms share its flag), per send on /events.
+const ENQUIRY_ON_REPEAT = { "contact form": 0, "events form": 1, "configurator form": 0, "configurator callback": 0 };
+console.log(`\n${"=".repeat(96)}\n  ENQUIRY SUBMITTED — every form, phone (375×812) and desktop (1280×900)\n${"=".repeat(96)}`);
+console.log(pad("CASE", 70) + pad("Submitted", 11) + pad("Lead", 6) + pad("EventEnq", 10) + "posts");
+for (const c of submittedCases) {
+  const n = (event) => rows.filter((r) => r.where === c.where && r.event === event).length;
+  const sub = n("EnquirySubmitted");
+  const lead = n("Lead");
+  const enq = n("EventEnquiry");
+  let ok = true;
+  if (c.form !== "both") {
+    const success = c.case === "sent" || c.case === "double tap" || c.case === "sent again in the same visit";
+    const wantLead = success ? LEAD_ON_SUCCESS[c.form] : 0;
+    const wantEnq = !success ? 0 : c.case === "sent again in the same visit" ? ENQUIRY_ON_REPEAT[c.form] : ENQUIRY_ON_SUCCESS[c.form];
+    if (lead !== wantLead) { ok = false; failures.push(`${c.where}: Lead fired ${lead} time(s), expected ${wantLead}`); }
+    if (enq !== wantEnq) { ok = false; failures.push(`${c.where}: EventEnquiry fired ${enq} time(s), expected ${wantEnq}`); }
+    // Posts to Formspree or the wedding endpoint; the configurator's
+    // honeypot does reach the endpoint, which answers ok and sends nothing.
+    const wantPosts = c.case === "invalid" ? 0
+      : c.case === "honeypot" ? (c.form === "configurator form" ? 1 : 0)
+      : c.case === "sent again in the same visit" ? 2 : 1;
+    if (c.posts !== wantPosts) { ok = false; failures.push(`${c.where}: ${c.posts} post(s), expected ${wantPosts}`); }
+  }
+  if (c.form === "both" && (lead !== 1 || enq !== 1)) {
+    ok = false;
+    failures.push(`${c.where}: Lead ${lead}, EventEnquiry ${enq} — expected 1 and 1, as before`);
+  }
+  const wantSub = (SUBMITTED_FIRES[c.where] || []).length;
+  if (sub !== wantSub) ok = false;
+  console.log(`${ok ? "PASS" : "FAIL"}  ${pad(c.where.replace("submitted: ", ""), 64)}${pad(sub, 11)}${pad(lead, 6)}${pad(enq, 10)}${c.posts ?? ""}`);
+}
+
 // BookingIntent: exactly once per «Резервирай» tap or /book search, with
 // exactly these params — and nowhere else in the run.
 const BOOKING_FIRES = {
@@ -877,6 +1510,8 @@ for (const c of CONTACT_CASES) {
   }
 }
 for (const [where, path] of [
+  ["configurator call button, tap 1", "/svatben-konfigurator"],
+  ["configurator call button, tap 2", "/svatben-konfigurator"],
   ["/events enquiry call button", "/events"],
   ["/events mobile bar: call", "/events"],
   [`/event/${EVENT_SLUG} mobile bar: call`, `/event/${EVENT_SLUG}`],
@@ -917,6 +1552,31 @@ if (clockLinks["book: link to Clock, new tab, on /hotel"]?.held) {
 }
 console.log(`link to Clock: same tab held then followed ${sameTab?.held && sameTab?.navigated ? "yes" : "NO"}; new tab left alone ${clockLinks["book: link to Clock, new tab, on /hotel"]?.held === false ? "yes" : "NO"}`);
 
+// The full configurator after a callback: its Lead as always, no second
+// EventEnquiry (asserted above). The callback itself sends no Lead.
+{
+  const after = "configurator callback sent then the full form, then the full configurator";
+  const leads = rows.filter((r) => r.where === after && r.event === "Lead").length;
+  check("the full form after a callback still sends its Lead, once", leads === 1, `${leads} Lead(s)`);
+  for (const where of ["configurator callback sent", "configurator callback refused by Formspree", "configurator callback with the phone empty"]) {
+    const n = rows.filter((r) => r.where === where && r.event === "Lead").length;
+    if (n) failures.push(`${where}: Lead fired ${n} time(s) — the callback sends EventEnquiry only`);
+  }
+}
+console.log(`\n${"=".repeat(96)}\n  WEDDING CONFIGURATOR\n${"=".repeat(96)}`);
+for (const c of configuratorChecks) console.log(`${c.ok ? "PASS" : "FAIL"}  ${c.name}${c.detail ? `  (${c.detail})` : ""}`);
+
+console.log(`\n${"=".repeat(96)}\n  CLOCK BOOKING — messages, URLs, abandon, Conversions API\n${"=".repeat(96)}`);
+for (const c of clockChecks) console.log(`${c.ok ? "PASS" : "FAIL"}  ${c.name}${c.detail && !c.ok ? `  (${c.detail})` : ""}`);
+// Nowhere else: no Purchase outside the Clock funnel, and no abandon outside
+// the checks above.
+for (const r of rows) {
+  if (r.event === "BookingCheckoutAbandon" && r.where !== "clockmsg: closed at checkout") failures.push(`${r.where}: BookingCheckoutAbandon fired — it must not`);
+  if (r.event === "Purchase" && !r.where.startsWith("clock")) failures.push(`${r.where}: Purchase fired — it must not`);
+}
+const capiOk = capiPosts.filter((c) => c.page.startsWith("clockmsg:")).length;
+console.log(`Conversions API posts: ${capiPosts.length} in the run (${capiOk} from the booking checks, ${capiPosts.length - capiOk} from the Clock funnel steps)`);
+
 // The one that silently ruins reported revenue.
 const purchase = find("Purchase", "clock: completed");
 if (purchase) {
@@ -946,7 +1606,10 @@ if (rates && "value" in rates.params) {
 
 // Every site-side event needs a dedup id for the Conversions API later.
 // The Clock funnel is exempt only for its deterministic Purchase id.
-for (const r of rows.filter((x) => !x.where.startsWith("clock:"))) {
+// The booking checks (clockmsg:) are the funnel too: Search, ViewContent and
+// InitiateCheckout from Clock never had an id; their Purchase and
+// BookingCheckoutAbandon are asserted with one above.
+for (const r of rows.filter((x) => !x.where.startsWith("clock:") && !x.where.startsWith("clockmsg:"))) {
   if (!r.opts.eventID) failures.push(`${r.event} at ${r.where} has no eventID`);
 }
 const clockPurchase = rows.find((r) => r.where === "clock: completed");

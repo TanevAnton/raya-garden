@@ -36,7 +36,7 @@ $out = array(
 $out['parses'] = array();
 if (version_compare(PHP_VERSION, '7.0', '>=') && defined('TOKEN_PARSE')) {
     $files = array(
-        'wedding-enquiry.php', '_lib/quote.php', '_lib/smtp.php',
+        'wedding-enquiry.php', 'meta-capi.php', '_lib/quote.php', '_lib/smtp.php',
         'qr/_lib/core.php', 'qr/_lib/order.php', 'qr/_lib/auth.php', 'qr/_lib/pay.php',
         'qr/_lib/bill.php', 'qr/_lib/history.php', 'qr/_lib/report.php', 'qr/_lib/mail.php',
         'qr/_lib/ereceipt.php', 'qr/_lib/qrcode.php', 'qr/_lib/ereceipt-settings.php',

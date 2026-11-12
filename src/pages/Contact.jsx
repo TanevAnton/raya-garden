@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   MapPin,
@@ -14,7 +14,7 @@ import {
 import PageHero from "../components/PageHero.jsx";
 import { IMG } from "../data.js";
 import { useSeo } from "../hooks/useSeo.js";
-import { trackMeta } from "../lib/metaPixel.js";
+import { trackMeta, trackEnquirySubmitted } from "../lib/metaPixel.js";
 import { useSanityQuery } from "../hooks/useSanity.js";
 import { urlFor, pickLocale } from "../lib/sanity.js";
 import { heroImage } from "../lib/images.js";
@@ -120,9 +120,20 @@ export default function Contact() {
   });
   const [status, setStatus] = useState("idle"); // idle | submitting | sent | error
   const [errorMsg, setErrorMsg] = useState("");
+  // Set before the first await, so a second tap in the same instant — before
+  // React has re-rendered the button as disabled — sends nothing.
+  const busy = useRef(false);
 
   async function onSubmit(e) {
     e.preventDefault();
+    if (busy.current) return;
+    // A bot filled the hidden field: look successful, send nothing, count
+    // nothing.
+    if (e.currentTarget.elements._gotcha?.value) {
+      setStatus("sent");
+      return;
+    }
+    busy.current = true;
     setStatus("submitting");
     setErrorMsg("");
 
@@ -166,7 +177,9 @@ export default function Contact() {
         content_category: TOPIC_CATEGORY[tp.topics.indexOf(form.topic)],
         lang,
       });
+      trackEnquirySubmitted({ source: "contact_form" });
     } catch (err) {
+      busy.current = false;
       console.error("[Formspree] error:", err);
       setStatus("error");
       setErrorMsg(

@@ -355,10 +355,15 @@ function qr_fiscal_set_manual(PDO $pdo, array $doc)
     }
 }
 
-/** Task ids of a receipt start with this: raya-<t|l>-<id>-, then the try. */
+/**
+ * A receipt's task ids: raya-<t|l>-<id>-<created, base 36>-<try>. ErpNet.FP
+ * remembers task ids and hands back the old answer for one it has seen. The
+ * id alone could come round again (a test database started over, a backup
+ * restored); with the moment it was created it can't.
+ */
 function qr_fiscal_task_prefix(array $doc): string
 {
-    return 'raya-' . ((int) $doc['test'] === 1 ? 't' : 'l') . '-' . $doc['id'] . '-';
+    return 'raya-' . ((int) $doc['test'] === 1 ? 't' : 'l') . '-' . $doc['id'] . '-' . base_convert((string) (int) $doc['created_at'], 10, 36) . '-';
 }
 
 /** A receipt as the bridge prints it: ErpNet.FP's receipt (or reversal receipt) body, and how to name the task. */
@@ -638,7 +643,7 @@ function qr_fiscal_claim_command(PDO $pdo, int $now, int $hold = 0)
 
 function qr_fiscal_command_prefix(array $command): string
 {
-    return 'raya-cmd-' . ((int) $command['test'] === 1 ? 't' : 'l') . '-' . $command['id'] . '-';
+    return 'raya-cmd-' . ((int) $command['test'] === 1 ? 't' : 'l') . '-' . $command['id'] . '-' . base_convert((string) (int) $command['requested_at'], 10, 36) . '-';
 }
 
 /** What the bridge says about a report: submitted {taskId} · done · failed {error} · check {error}. */

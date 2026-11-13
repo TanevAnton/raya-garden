@@ -1,8 +1,16 @@
 // A fake ErpNet.FP (https://github.com/erpnet/ErpNet.FP, PROTOCOL.md) with one
-// Datecs printer, for the fiscal bridge's tests: printers, status, receipts
-// and reversal receipts, asynchronous and idempotent by task id (asyncTimeout=0
-// &taskId=…), and task info that is forgotten once read or on a restart — as
-// the real one does. The "paper" is every receipt actually printed.
+// Datecs printer, for the fiscal bridge's tests: printers, status, receipts,
+// and raw printer commands (rawrequest) for the storno, all asynchronous and
+// idempotent by task id (asyncTimeout=0&taskId=…), and task info that is
+// forgotten once read or on a restart — as the real one does. The "paper" is
+// every receipt actually printed; a storno lands there as kind
+// "reversalreceipt", with the fields ErpNet.FP's own reversal receipt has.
+//
+// The raw commands are a Datecs FP-700MX's, as the real one answered them on
+// 13.11.2026: 0x3C cancels an open receipt (-111016 when none is open), 0x2B
+// opens a storno, 0x36 a comment, 0x31 a line, 0x35 the payment (an empty one
+// pays in cash: -111017, no cash in the till), 0x38 closes it ("0\t<number>"),
+// 0x3E reads the clock.
 import http from "node:http";
 import net from "node:net";
 import { sofiaLocal, parseSofia } from "../../tools/fiscal-bridge/bridge.mjs";
@@ -42,13 +50,69 @@ export async function startFakeErpNet() {
   let clockOffset = 0; // ms the printer's clock is ahead
   let clockRefuses = false; // setting the time is refused (as some printers do before the Z report)
   const clockSets = []; // every time the bridge set the clock
+  let open = null; // a storno being built on the printer, command by command
 
   const json = (res, status, body) => {
     res.writeHead(status, { "Content-Type": "application/json" });
     res.end(JSON.stringify(body));
   };
 
+  const xDate = (ms) => sofiaLocal(ms).replace(/^\d\d(\d\d)-(\d\d)-(\d\d)T/, "$3-$2-$1 ");
+  const fromX = (x) => x.replace(/^(\d\d)-(\d\d)-(\d\d) /, "20$3-$2-$1T");
+
+  /** One raw command, as a Datecs answers it. */
+  function rawCommand(taskId, request) {
+    const task = tasks.get(taskId);
+    const cmd = request.charCodeAt(0);
+    const f = request.slice(1).split("\t");
+    let answer;
+    if (cmd === 0x3c) {
+      answer = open ? "0\t" : "-111016\t";
+      open = null;
+    } else if (cmd === 0x3e) {
+      answer = `0\t${xDate(Date.now() + clockOffset)}\t`;
+    } else if (cmd === 0x2b) {
+      open = { items: [], payments: [], body: {
+        receiptNumber: f[4], receiptDateTime: fromX(f[5]), fiscalMemorySerialNumber: f[6], reason: f[3] === "1" ? "refund" : f[3], uniqueSaleNumber: f[10],
+      } };
+      answer = `0\t${number + 1}\t`;
+    } else if (!open) {
+      answer = "-111016\t";
+    } else if (cmd === 0x36) {
+      open.items.push({ type: "comment", text: f[0] });
+      answer = "0\t";
+    } else if (cmd === 0x31) {
+      open.items.push({ text: f[0], taxGroup: Number(f[1]), unitPrice: Number(f[2]), quantity: Number(f[3]) });
+      answer = `0\t${number + 1}\t`;
+    } else if (cmd === 0x35) {
+      if (f[0] === "") answer = "-111017\t";
+      else {
+        open.payments.push({ amount: Number(f[1]), paymentType: f[0] === "1" ? "card" : "cash" });
+        answer = "0\tD\t0.00\t";
+      }
+    } else if (cmd === 0x38) {
+      if (failNext) {
+        failNext = null;
+        answer = "-111018\t";
+      } else {
+        const amount = Math.round(open.payments.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+        paper.push({
+          taskId, kind: "reversalreceipt", body: { items: open.items, payments: open.payments, ...open.body },
+          receiptNumber: String(++number).padStart(7, "0"), receiptDateTime: sofiaLocal(Date.now()),
+          receiptAmount: amount, fiscalMemorySerialNumber: PRINTER.fiscalMemorySerialNumber,
+        });
+        answer = `0\t${String(number).padStart(7, "0")}\t`;
+        open = null;
+      }
+    } else {
+      answer = "-100001\t";
+    }
+    task.status = "finished";
+    task.result = { ok: "true", messages: [], rawResponse: answer };
+  }
+
   function run(taskId, kind, body) {
+    if (kind === "rawrequest") return rawCommand(taskId, body.rawRequest);
     const task = tasks.get(taskId);
     if (failNext) {
       const { code, text } = failNext;
@@ -110,7 +174,7 @@ export async function startFakeErpNet() {
       }
       return json(res, 200, { taskId });
     }
-    const print = url.pathname.match(new RegExp(`^/printers/${PRINTER.id}/(receipt|reversalreceipt)$`));
+    const print = url.pathname.match(new RegExp(`^/printers/${PRINTER.id}/(receipt|rawrequest)$`));
     if (req.method === "POST" && print) {
       const taskId = url.searchParams.get("taskId");
       const body = JSON.parse(raw);
@@ -154,6 +218,7 @@ export async function startFakeErpNet() {
       reports.length = 0;
       tasks.clear();
       held.length = 0;
+      open = null;
       number = 0;
       failNext = null;
       hold = false;

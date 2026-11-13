@@ -296,6 +296,7 @@ describe("fiscal receipts: refunds", () => {
       [sale.body.uniqueSaleNumber, sale.receiptNumber, sale.receiptDateTime, sale.fiscalMemorySerialNumber, "refund"],
     );
     assert.deepEqual(storno.body.items.filter((i) => !i.type).map((i) => [i.quantity, i.unitPrice]), [[1, S / 100]], "positive, as ErpNet.FP wants");
+    assert.deepEqual(storno.body.payments, [{ amount: S / 100, paymentType: "card" }], "back to the card, not cash from the till");
     assert.deepEqual([row(placed.order.id).till_cents, row(placed.order.id).till_void_cents], [C + 3 * S, S]);
 
     assert.equal((await cancel(admin, placed.order.id)).status, 200);
@@ -317,6 +318,95 @@ describe("fiscal receipts: refunds", () => {
     printer.setStatusOk(true);
     await drain(bridge({ later: 130 }));
     assert.deepEqual(printer.paper.map((p) => p.kind), ["receipt", "reversalreceipt"]);
+  });
+});
+
+describe("fiscal receipts: a storno, command by command", () => {
+  const stornoSteps = () => printer.posts.filter((p) => p.kind === "rawrequest").map((p) => p.taskId.split(".").pop());
+
+  it("goes as the printer's own commands: cancel what's open, open, comment, line, card payment, close, the time", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    await drain();
+    assert.deepEqual(stornoSteps(), ["1x", "1o", "1m0", "1i1", "1p", "1c", "1d"]);
+    const [, storno] = docs();
+    assert.equal(storno.status, "printed");
+    assert.equal(storno.receipt_number, printer.paper[1].receiptNumber);
+  });
+
+  it("stopped before its close: a new attempt cancels what was left open and prints it once", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    let calls = 0;
+    const dies = (url, init) => {
+      if (String(url).includes("rawrequest") && ++calls === 3) return Promise.reject(new Error("the bridge's computer lost power"));
+      return fetch(url, init);
+    };
+    await bridge({ fetch: dies }).step().catch(() => {});
+    assert.equal(printer.paper.length, 1, "nothing closed yet");
+    await drain(bridge({ later: 130 }));
+    assert.equal(printer.paper.length, 2);
+    assert.ok(stornoSteps().includes("2x") && stornoSteps().includes("2c"), "a second attempt, from a cancel");
+    assert.equal(docs()[1].status, "printed");
+  });
+
+  it("its close sent and the answer lost: looked up, never sent again; unknown, it is for a person", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    const lost = (url, init) => (String(url).includes("taskinfo") && String(url).endsWith(".1c") ? Promise.reject(new Error("the network dropped")) : fetch(url, init));
+    await bridge({ fetch: lost }).step().catch(() => {});
+    assert.equal(printer.paper.length, 2, "printed");
+    await drain(bridge({ later: 130 }));
+    assert.equal(printer.paper.length, 2, "and not again");
+    assert.equal(docs()[1].status, "printed");
+
+    const other = await paid(5, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain(bridge({ later: 140 }));
+    assert.equal((await voidLine(admin, other.order.id, 0, 1, 1)).status, 200);
+    await bridge({ fetch: lost, later: 140 }).step().catch(() => {});
+    printer.restart(); // ErpNet.FP restarted: it no longer knows
+    await drain(bridge({ later: 300 }));
+    assert.equal(printer.paper.length, 4, "nothing printed twice");
+    assert.equal(docs()[3].status, "check");
+  });
+
+  it("refused at the close: cancelled on the printer, failed here, tried again later", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    printer.failNext();
+    await drain();
+    assert.deepEqual([docs()[1].status, printer.paper.length], ["failed", 1]);
+    assert.match(docs()[1].error, /-111018/);
+    assert.ok(stornoSteps().includes("1y"), "what was open is cancelled");
+  });
+});
+
+describe("fiscal receipts: task ids", () => {
+  it("a database started over (or restored) never reuses a task id ErpNet.FP still knows", async () => {
+    await setUp();
+    stripe.setNow(now());
+    await paid(4, [["tiramisu"]]);
+    await drain();
+    srv.reset();
+    stripe.reset(); // Stripe's own idempotency keys are not what this is about
+    stripe.setWebhook(`${srv.base}/api/qr/stripe-webhook.php`);
+    const admin = client(srv.base);
+    assert.equal((await admin.login()).status, 200);
+    assert.equal((await admin.admin("/api/qr/admin/settings.php", { ...EVENING, tables: 12, disabledTables: [], paused: false, paymentMode: "online" })).status, 200);
+    await bridge().check();
+    stripe.setNow(now() + 5);
+    await paid(4, [["tiramisu"]]);
+    await drain();
+    assert.equal(docs()[0].id, 1, "the same id as before the reset");
+    assert.equal(printer.paper.length, 2, "printed, not answered from ErpNet.FP's memory of the first");
   });
 });
 

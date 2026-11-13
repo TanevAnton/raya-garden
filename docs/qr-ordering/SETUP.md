@@ -447,6 +447,18 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
   isn't ready. Anything can still be entered by hand ("Въведена ръчно ✓"),
   which stops it from printing.
 
+- **Storno, command by command** (bridge 1.1.0): ErpNet.FP's own reversal
+  receipt drops the payments and pays the storno in cash, which a Datecs
+  refuses with no cash in the till (-111017). The bridge sends the printer's
+  own commands through ErpNet.FP's `rawrequest` instead, with the card payment.
+  ⚠ On the real FP-700MX (13.11.2026) the card payment in a storno is refused
+  with -112201: asked Datecs what it needs. Sales print fine.
+- **ErpNet.FP over the network:** printer URI `bg.dt.x.isl.tcp://<ip>:4999`
+  (the printer's interface set to LAN). Its connect timeout is 200 ms; if the
+  first detection fails, add the printer again from ErpNet.FP's page.
+- **Task ids** carry the receipt's creation time, so a database started over
+  or restored never reuses one ErpNet.FP still remembers (it would hand back
+  the old receipt without printing).
 - **Reports**: „За касата“ → "Касата за онлайн плащания" asks the bridge for
   the day's Z report, an X report, or a duplicate of the last receipt. A Z
   report is never printed while a receipt is still on its way. The day's Z

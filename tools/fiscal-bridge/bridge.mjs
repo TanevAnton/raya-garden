@@ -40,7 +40,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const VERSION = "1.0.0";
+export const VERSION = "1.1.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CLOCK_EVERY_MS = 24 * 3600 * 1000; // the printer's clock is set at least daily (Наредба Н-18, Annex 29 т. 5) …
@@ -246,6 +246,123 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     return finish(result);
   }
 
+  // ── a storno, command by command ──────────────────────────────────
+  //
+  // ErpNet.FP's reversalreceipt drops the payments it is given (warning W302)
+  // and pays the storno in cash. A Datecs refuses that when there is no cash
+  // in the till (-111017), and our refunds go back to the card anyway. So a
+  // storno goes as the printer's own commands, through ErpNet.FP's rawrequest,
+  // exactly as ErpNet.FP would send them, with the card payment (code 1).
+  // Each command is a task of its own: <taskId>.<attempt><step>. Until the
+  // close is sent nothing is in the fiscal memory, and a new attempt starts by
+  // cancelling whatever was left open. Once it is sent, it is looked up, never
+  // sent again.
+  const X = { abort: 0x3c, open: 0x2b, comment: 0x36, item: 0x31, total: 0x35, close: 0x38, datetime: 0x3e };
+  const field = (t) => String(t).replace(/[\t\r\n]+/g, " ");
+  const money = (n) => Number(n).toFixed(2);
+  /** "2026-11-13T16:51:34" → "13-11-26 16:51:34", the printer's way. */
+  const toX = (iso) => `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(2, 4)} ${iso.slice(11, 19)}`;
+  const fromX = (x) => {
+    const m = String(x).match(/^(\d\d)-(\d\d)-(\d\d) (\d\d:\d\d:\d\d)/);
+    return m ? `20${m[3]}-${m[2]}-${m[1]}T${m[4]}` : "";
+  };
+
+  /** One printer command through ErpNet.FP: { ok, code, response } or { state: 'pending' | 'unknown' }. */
+  async function command(taskId, cmd, data = "") {
+    await erpnet(`/printers/${printer.id}/rawrequest?asyncTimeout=0&taskId=${encodeURIComponent(taskId)}`, {
+      method: "POST", body: { rawRequest: String.fromCharCode(cmd) + data },
+    });
+    const result = await waitForTask(taskId);
+    if (result === "pending" || result === "unknown") return { state: result };
+    const response = String(result.rawResponse ?? "");
+    const code = response.split("\t")[0];
+    return { ok: code === "0", code: code || errorsOf(result), response };
+  }
+
+  /** The storno's commands after the abort: open, comments and lines, the card payment, close. */
+  function stornoCommands(receipt) {
+    const out = [{ step: "o", cmd: X.open, data: [
+      "1", "0000", "1", "1", receipt.receiptNumber, toX(receipt.receiptDateTime), receipt.fiscalMemorySerialNumber, "", "", "", receipt.uniqueSaleNumber, "",
+    ].join("\t") }];
+    receipt.items.forEach((it, i) => {
+      out.push(it.type === "comment"
+        ? { step: `m${i}`, cmd: X.comment, data: `${field(it.text)}\t` }
+        : { step: `i${i}`, cmd: X.item, data: [field(it.text), it.taxGroup, money(it.unitPrice), it.quantity, "0", "0.00", "0", ""].join("\t") });
+    });
+    const total = receipt.payments.reduce((sum, p) => sum + p.amount, 0);
+    out.push({ step: "p", cmd: X.total, data: ["1", money(total), "1", ""].join("\t") });
+    out.push({ step: "c", cmd: X.close, data: "" });
+    return out;
+  }
+
+  /** The storno closed: its number from the close, its time from the printer. */
+  async function stornoPrinted(job, attempt, closeResponse) {
+    const number = closeResponse.split("\t")[1] || "";
+    const time = await command(`${job.taskId}.${attempt}d`, X.datetime);
+    const result = {
+      ok: true, messages: [],
+      receiptNumber: number,
+      receiptDateTime: (time.ok && fromX(time.response.split("\t")[1])) || sofiaLocal(Date.now()),
+      fiscalMemorySerialNumber: printer.fiscalMemorySerialNumber,
+      receiptAmount: job.amount,
+    };
+    journal.set(job.taskId, { result });
+    return reportResult(job, result);
+  }
+
+  async function printStorno(job, receipt) {
+    const attempt = (journal.get(job.taskId)?.attempt || 0) + 1;
+    journal.set(job.taskId, { id: job.id, code: job.code, sent: true, storno: true, attempt, closing: false });
+    const id = (step) => `${job.taskId}.${attempt}${step}`;
+    await command(id("x"), X.abort); // a storno left open by an earlier attempt: nothing is in the fiscal memory yet
+    for (const c of stornoCommands(receipt)) {
+      // Written down before the close goes: from then on it is looked up, never sent again.
+      if (c.step === "c") journal.set(job.taskId, { closing: true });
+      const answer = await command(id(c.step), c.cmd, c.data);
+      if (answer.state) return; // still printing, or ErpNet.FP lost it: next round
+      if (!answer.ok) {
+        await command(id("y"), X.abort);
+        const result = { ok: false, messages: [{ type: "error", code: answer.code, text: `the printer refused the storno (${c.step === "c" ? "close" : c.step}): ${answer.code}` }] };
+        journal.set(job.taskId, { result, closing: false });
+        return reportResult(job, result);
+      }
+      if (c.step === "c") return stornoPrinted(job, attempt, answer.response);
+    }
+  }
+
+  /** A storno that was being sent: was it closed? */
+  async function resumeStorno(job, entry, receipt) {
+    if (!entry?.closing) return printStorno(job, receipt); // never closed: cancel what's open and start again
+    const closeId = `${job.taskId}.${entry.attempt}c`;
+    const result = await waitForTask(closeId);
+    if (result === "pending") return;
+    if (result !== "unknown") {
+      const response = String(result.rawResponse ?? "");
+      if (response.split("\t")[0] === "0") return stornoPrinted(job, entry.attempt, response);
+      journal.set(job.taskId, { closing: false });
+      return printStorno(job, receipt);
+    }
+    await server("/api/qr/fiscal/report.php", {
+      id: job.id,
+      event: "check",
+      error: `storno sent to the printer as ${closeId}, but ErpNet.FP no longer knows the answer: check whether a storno for ${job.code} printed`,
+    });
+    log(`${job.code}: unknown whether the storno printed — left for a person to check`);
+  }
+
+  /** The receipt as it goes to the printer: its УНП, texts as long as the printer takes. */
+  function receiptFor(job, usn) {
+    const max = printer.itemTextMaxLength || 22;
+    const maxComment = printer.commentTextMaxLength || 40;
+    return {
+      ...job.receipt,
+      uniqueSaleNumber: usn,
+      items: job.receipt.items.map((it) =>
+        it.type === "comment" ? { ...it, text: it.text.slice(0, maxComment) } : { ...it, text: it.text.slice(0, max) },
+      ),
+    };
+  }
+
   /** One receipt, from claim to report. */
   async function handle(job) {
     if (job.kind === "command") return handleCommand(job);
@@ -253,6 +370,15 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     // 1. Already answered: report it (again), print nothing.
     if (entry?.result) return reportResult(job, entry.result);
     // 2. Sent before: find out what happened to it.
+    if (job.kind === "storno" && entry?.storno) {
+      if (!printer?.serialNumber) throw new Error("no printer serial number yet");
+      try {
+        return await resumeStorno(job, entry, receiptFor(job, job.usn));
+      } catch (e) {
+        log(`${job.code}: ErpNet.FP did not answer about the storno: ${e.message}`);
+        return;
+      }
+    }
     if (job.submitted || entry?.sent) {
       let result;
       try {
@@ -283,21 +409,13 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     const usn = job.usn || `${printer.serialNumber}-${job.operatorCode}-${String(job.usnSequence).padStart(7, "0")}`;
     const said = await server("/api/qr/fiscal/report.php", { id: job.id, event: "submitted", taskId: job.taskId, usn });
     if (said.status !== 200) throw new Error(`the server did not take ${job.code} as sent: HTTP ${said.status} ${said.body?.error || ""}`);
-    const max = printer.itemTextMaxLength || 22;
-    const maxComment = printer.commentTextMaxLength || 40;
-    const receipt = {
-      ...job.receipt,
-      uniqueSaleNumber: usn,
-      items: job.receipt.items.map((it) =>
-        it.type === "comment" ? { ...it, text: it.text.slice(0, maxComment) } : { ...it, text: it.text.slice(0, max) },
-      ),
-    };
-    const kind = job.kind === "storno" ? "reversalreceipt" : "receipt";
+    const receipt = receiptFor(job, usn);
+    if (job.kind === "storno") return printStorno(job, receipt);
     // Written down as (maybe) sent before it goes: if this program dies while
     // sending, the next round asks instead of printing it again.
     journal.set(job.taskId, { id: job.id, code: job.code, sent: true });
     try {
-      await erpnet(`/printers/${printer.id}/${kind}?asyncTimeout=0&taskId=${encodeURIComponent(job.taskId)}`, { method: "POST", body: receipt });
+      await erpnet(`/printers/${printer.id}/receipt?asyncTimeout=0&taskId=${encodeURIComponent(job.taskId)}`, { method: "POST", body: receipt });
     } catch (e) {
       // Refused before it reached ErpNet.FP: nothing printed, it can go again.
       if (e.cause?.code === "ECONNREFUSED") {

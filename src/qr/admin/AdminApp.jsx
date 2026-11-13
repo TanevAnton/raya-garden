@@ -216,6 +216,8 @@ function useChime() {
 function Dashboard({ operator, onSignedOut }) {
   const roles = operator?.roles || [];
   const manages = roles.includes("manager") || roles.includes("auditor");
+  // The auditor only reads (Annex 29 т. 19): the server refuses every change.
+  const readOnly = roles.length > 0 && roles.every((r) => r === "auditor");
   const [orders, setOrders] = useState(() => new Map());
   const [tabs, setTabs] = useState(() => new Map());
   const [billPayments, setBillPayments] = useState(() => new Map());
@@ -361,6 +363,9 @@ function Dashboard({ operator, onSignedOut }) {
   }, []);
 
   const say = (text) => {
+    // Whatever the screen meant to say about a change that didn't go through, for
+    // the auditor the reason is always the same.
+    if (readOnly && /^Не успях/.test(text)) text = "Профилът „Проверяващ“ е само за преглед: промени не се записват.";
     setToast(text);
     setTimeout(() => setToast(""), 5000);
   };
@@ -607,6 +612,11 @@ function Dashboard({ operator, onSignedOut }) {
         </div>
       )}
 
+      {readOnly && (
+        <div className="bg-ink-900 border-b border-gold-300/25 text-cream-100/80 text-sm px-4 py-2 text-center" data-read-only>
+          Профил „Проверяващ“: само преглед. Промени не се записват.
+        </div>
+      )}
       {integrity?.status === "changed" && (
         <div role="alert" className="bg-red-950/80 border-b border-red-400/40 text-cream-50 text-sm px-4 py-3 text-center" data-integrity="changed">
           Програмата на сървъра е променена извън обновяване ({integrity.detail}). Кажете на управителя — записано е в журнала.

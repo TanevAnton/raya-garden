@@ -41,3 +41,6 @@ vendor/
 # The fiscal bridge's own settings (its key) and journal, on the computer in the restaurant
 tools/fiscal-bridge/config.json
 tools/fiscal-bridge/journal.json*
+
+# НАП screenshots (tests/qr/nap-shots.mjs): made again for each declared version
+docs/qr-ordering/nap/shots/

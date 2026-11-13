@@ -204,8 +204,9 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
       log(`${job.code}: receipt ${result.receiptNumber}`);
       return;
     }
-    // Refused by the printer: nothing was printed (ErpNet.FP voids it), so it can go again.
-    await server("/api/qr/fiscal/report.php", { id: job.id, event: "failed", error: errorsOf(result) });
+    // Refused by the printer: nothing was printed (ErpNet.FP voids it), so it can go again
+    // — by itself, unless each try would print an annulled storno ('final').
+    await server("/api/qr/fiscal/report.php", { id: job.id, event: "failed", error: errorsOf(result), ...(result.final ? { final: true } : {}) });
     log(`${job.code}: refused — ${errorsOf(result)}`);
   }
 
@@ -257,6 +258,12 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   // close is sent nothing is in the fiscal memory, and a new attempt starts by
   // cancelling whatever was left open. Once it is sent, it is looked up, never
   // sent again.
+  //
+  // A storno the printer opened and then cancelled is not nothing: it prints as
+  // „АНУЛИРАН – НЕ СЕ ДЪЛЖИ ПЛАЩАНЕ“ under a number of its own and stays in the
+  // printer's journal. Each one is kept in our journal until the server has
+  // logged it ('annulled'). A storno the printer refuses is not tried again by
+  // itself ('final'): every try would print another.
   const X = { abort: 0x3c, open: 0x2b, comment: 0x36, item: 0x31, total: 0x35, close: 0x38, datetime: 0x3e };
   const field = (t) => String(t).replace(/[\t\r\n]+/g, " ");
   const money = (n) => Number(n).toFixed(2);
@@ -310,28 +317,63 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     return reportResult(job, result);
   }
 
+  /** Cancel a storno left open; one that was open is logged as annulled. */
+  async function cancelStorno(job, taskId, reason) {
+    const answer = await command(taskId, X.abort);
+    if (answer.state) return; // no answer yet: cancelled next round (cancelPending stays)
+    if (answer.ok) {
+      const entry = journal.get(job.taskId) || {};
+      const annulled = [...(entry.annulled || []), { receiptNumber: entry.openNumber || "", at: sofiaLocal(Date.now()), error: reason }];
+      journal.set(job.taskId, { annulled, openNumber: "", cancelPending: false });
+      log(`${job.code}: the open storno${entry.openNumber ? ` ${entry.openNumber}` : ""} was cancelled (printed as annulled)`);
+    } else {
+      journal.set(job.taskId, { cancelPending: false });
+    }
+    await reportAnnulled(job);
+  }
+
+  /** Tell the server of every annulled storno the journal still holds for this job. */
+  async function reportAnnulled(job) {
+    for (;;) {
+      const pending = journal.get(job.taskId)?.annulled || [];
+      if (!pending.length) return;
+      const res = await server("/api/qr/fiscal/report.php", { id: job.id, event: "annulled", ...pending[0] });
+      if (res.status !== 200) throw new Error(`the server did not log the annulled storno: HTTP ${res.status}`);
+      journal.set(job.taskId, { annulled: pending.slice(1) });
+    }
+  }
+
   async function printStorno(job, receipt) {
+    await reportAnnulled(job);
     const attempt = (journal.get(job.taskId)?.attempt || 0) + 1;
     journal.set(job.taskId, { id: job.id, code: job.code, sent: true, storno: true, attempt, closing: false });
     const id = (step) => `${job.taskId}.${attempt}${step}`;
-    await command(id("x"), X.abort); // a storno left open by an earlier attempt: nothing is in the fiscal memory yet
+    // A storno left open by an earlier attempt: nothing is in the fiscal memory yet.
+    await cancelStorno(job, id("x"), "left open by an earlier attempt");
     for (const c of stornoCommands(receipt)) {
       // Written down before the close goes: from then on it is looked up, never sent again.
       if (c.step === "c") journal.set(job.taskId, { closing: true });
       const answer = await command(id(c.step), c.cmd, c.data);
       if (answer.state) return; // still printing, or ErpNet.FP lost it: next round
       if (!answer.ok) {
-        await command(id("y"), X.abort);
-        const result = { ok: false, messages: [{ type: "error", code: answer.code, text: `the printer refused the storno (${c.step === "c" ? "close" : c.step}): ${answer.code}` }] };
-        journal.set(job.taskId, { result, closing: false });
+        const text = `the printer refused the storno (${c.step === "c" ? "close" : c.step}): ${answer.code}`;
+        const result = { ok: false, final: true, messages: [{ type: "error", code: answer.code, text }] };
+        // Refused is written down first: whatever breaks after, it is never tried again by itself.
+        journal.set(job.taskId, { result, closing: false, cancelPending: true, cancelReason: text });
+        await cancelStorno(job, id("y"), text);
         return reportResult(job, result);
       }
-      if (c.step === "c") return stornoPrinted(job, attempt, answer.response);
+      if (c.step === "o") journal.set(job.taskId, { openNumber: answer.response.split("\t")[1] || "" });
+      if (c.step === "c") {
+        journal.set(job.taskId, { openNumber: "" });
+        return stornoPrinted(job, attempt, answer.response);
+      }
     }
   }
 
   /** A storno that was being sent: was it closed? */
   async function resumeStorno(job, entry, receipt) {
+    await reportAnnulled(job);
     if (!entry?.closing) return printStorno(job, receipt); // never closed: cancel what's open and start again
     const closeId = `${job.taskId}.${entry.attempt}c`;
     const result = await waitForTask(closeId);
@@ -368,7 +410,11 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     if (job.kind === "command") return handleCommand(job);
     const entry = journal.get(job.taskId);
     // 1. Already answered: report it (again), print nothing.
-    if (entry?.result) return reportResult(job, entry.result);
+    if (entry?.result) {
+      if (entry.storno && entry.cancelPending) await cancelStorno(job, `${job.taskId}.${entry.attempt}z${Date.now() % 100000}`, entry.cancelReason || "");
+      if (entry.storno) await reportAnnulled(job);
+      return reportResult(job, entry.result);
+    }
     // 2. Sent before: find out what happened to it.
     if (job.kind === "storno" && entry?.storno) {
       if (!printer?.serialNumber) throw new Error("no printer serial number yet");

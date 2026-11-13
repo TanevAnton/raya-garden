@@ -7,7 +7,8 @@
 // "reversalreceipt", with the fields ErpNet.FP's own reversal receipt has.
 //
 // The raw commands are a Datecs FP-700MX's, as the real one answered them on
-// 13.11.2026: 0x3C cancels an open receipt (-111016 when none is open), 0x2B
+// 13.11.2026: 0x3C cancels an open receipt (-111016 when none is open; one
+// that was open prints as an annulled storno under its number: `annulled`), 0x2B
 // opens a storno, 0x36 a comment, 0x31 a line, 0x35 the payment (an empty one
 // pays in cash: -111017, no cash in the till), 0x38 closes it ("0\t<number>"),
 // 0x3E reads the clock.
@@ -51,6 +52,8 @@ export async function startFakeErpNet() {
   let clockRefuses = false; // setting the time is refused (as some printers do before the Z report)
   const clockSets = []; // every time the bridge set the clock
   let open = null; // a storno being built on the printer, command by command
+  const annulled = []; // stornos opened and then cancelled: { receiptNumber, body }
+  let cardStornoRefused = false; // as the real FP-700MX did on 13.11.2026: -112201
 
   const json = (res, status, body) => {
     res.writeHead(status, { "Content-Type": "application/json" });
@@ -67,6 +70,7 @@ export async function startFakeErpNet() {
     const f = request.slice(1).split("\t");
     let answer;
     if (cmd === 0x3c) {
+      if (open) annulled.push({ receiptNumber: String(++number).padStart(7, "0"), body: { items: open.items, ...open.body } });
       answer = open ? "0\t" : "-111016\t";
       open = null;
     } else if (cmd === 0x3e) {
@@ -75,7 +79,7 @@ export async function startFakeErpNet() {
       open = { items: [], payments: [], body: {
         receiptNumber: f[4], receiptDateTime: fromX(f[5]), fiscalMemorySerialNumber: f[6], reason: f[3] === "1" ? "refund" : f[3], uniqueSaleNumber: f[10],
       } };
-      answer = `0\t${number + 1}\t`;
+      answer = `0\t${String(number + 1).padStart(7, "0")}\t`;
     } else if (!open) {
       answer = "-111016\t";
     } else if (cmd === 0x36) {
@@ -86,6 +90,7 @@ export async function startFakeErpNet() {
       answer = `0\t${number + 1}\t`;
     } else if (cmd === 0x35) {
       if (f[0] === "") answer = "-111017\t";
+      else if (f[0] === "1" && cardStornoRefused) answer = "-112201\t";
       else {
         open.payments.push({ amount: Number(f[1]), paymentType: f[0] === "1" ? "card" : "cash" });
         answer = "0\tD\t0.00\t";
@@ -195,6 +200,7 @@ export async function startFakeErpNet() {
   return {
     base,
     paper,
+    annulled,
     posts,
     reports,
     /** The next receipt is refused by the printer (nothing printed). */
@@ -208,6 +214,8 @@ export async function startFakeErpNet() {
     /** ErpNet.FP restarted: every task's information is gone (what printed stays printed). */
     restart: () => tasks.clear(),
     setStatusOk: (ok) => (statusOk = ok),
+    /** A storno's card payment is refused, as the real FP-700MX does (-112201). */
+    refuseCardStorno: (refuse) => (cardStornoRefused = refuse),
     clockSets,
     /** The printer's clock runs this many seconds ahead (negative: behind). */
     setClock: (seconds) => (clockOffset = seconds * 1000),
@@ -219,6 +227,8 @@ export async function startFakeErpNet() {
       tasks.clear();
       held.length = 0;
       open = null;
+      annulled.length = 0;
+      cardStornoRefused = false;
       number = 0;
       failNext = null;
       hold = false;

@@ -376,7 +376,39 @@ describe("fiscal receipts: a storno, command by command", () => {
     assert.equal(docs()[3].status, "check");
   });
 
-  it("refused at the close: cancelled on the printer, failed here, tried again later", async () => {
+  const annulledLog = () => JSON.parse(srv.sqlite("SELECT ref, amount_cents, detail FROM audit_log WHERE kind = 'receipt_annulled' ORDER BY id"));
+
+  it("refused (the card payment, as the real FP-700MX): cancelled, logged as annulled with its number, and not tried again by itself", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    printer.refuseCardStorno(true);
+    await drain();
+    const [, storno] = docs();
+    assert.equal(storno.status, "failed");
+    assert.match(storno.error, /-112201/);
+    assert.equal(printer.annulled.length, 1, "the printer printed one annulled storno");
+    const [line] = annulledLog();
+    assert.equal(line.ref, placed.order.code);
+    assert.equal(line.amount_cents, storno.total_cents);
+    assert.match(line.detail, new RegExp(`;receipt=${printer.annulled[0].receiptNumber};`));
+    assert.match(line.detail, /usn=DT279013-9001-0000001/);
+
+    await drain(bridge({ later: 7200 }));
+    assert.equal(printer.annulled.length, 1, "no try by itself: each would print another");
+    assert.equal(docs()[1].status, "failed");
+
+    printer.refuseCardStorno(false); // fixed
+    const res = await admin.admin("/api/qr/admin/fiscal.php", { id: storno.id, action: "retry" });
+    assert.equal(res.status, 200, res.text);
+    await drain(bridge({ later: 7300 }));
+    assert.equal(docs()[1].status, "printed");
+    assert.equal(printer.paper.length, 2);
+    assert.equal(annulledLog().length, 1);
+  });
+
+  it("refused at the close: cancelled on the printer and logged as annulled", async () => {
     const admin = await setUp();
     const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
     await drain();
@@ -386,6 +418,29 @@ describe("fiscal receipts: a storno, command by command", () => {
     assert.deepEqual([docs()[1].status, printer.paper.length], ["failed", 1]);
     assert.match(docs()[1].error, /-111018/);
     assert.ok(stornoSteps().includes("1y"), "what was open is cancelled");
+    assert.equal(annulledLog().length, 1);
+  });
+
+  it("an annulled storno the server didn't hear of is told again, once", async () => {
+    const admin = await setUp();
+    const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
+    await drain();
+    assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
+    printer.refuseCardStorno(true);
+    let dropped = false;
+    const flaky = (url, init) => {
+      if (!dropped && String(url).includes("report.php") && String(init?.body).includes('"annulled"')) {
+        dropped = true;
+        return Promise.reject(new Error("the network dropped"));
+      }
+      return fetch(url, init);
+    };
+    await bridge({ fetch: flaky }).step().catch(() => {});
+    assert.equal(annulledLog().length, 0);
+    await drain(bridge({ later: 130 }));
+    assert.equal(annulledLog().length, 1);
+    assert.equal(printer.annulled.length, 1, "and nothing printed again meanwhile");
+    assert.equal(docs()[1].status, "failed");
   });
 });
 

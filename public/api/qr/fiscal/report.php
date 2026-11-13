@@ -9,6 +9,8 @@
 //    "receiptAmount": 32.7}
 //   {"id": 12, "event": "failed", "error": "E201 The fiscal memory is full"}
 //   {"id": 12, "event": "check", "error": "…"}
+//   {"id": 13, "event": "annulled", "receiptNumber": "12", "at": "2026-11-13T17:09:46", "error": "-112201"}
+//   {"id": 13, "event": "failed", "error": "…", "final": true}   refused: staff try it again
 //
 // ⚠ PHP 7.3 on the production host — see ../_lib/core.php.
 

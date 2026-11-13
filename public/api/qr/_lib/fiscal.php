@@ -425,6 +425,12 @@ function qr_fiscal_job(PDO $pdo, array $doc, bool $submitted): array
  *   printed   {receiptNumber, receiptDateTime, fiscalMemorySerialNumber, receiptAmount}
  *   failed    {error}      the printer refused it, or could not be reached: tried again later
  *   check     {error}      nobody knows whether it printed: a person looks
+ *   annulled  {receiptNumber, at, error}  a storno the printer opened and
+ *                          then cancelled: it printed as „АНУЛИРАН“ and is in
+ *                          its journal (КЛЕН), so it goes in ours too. Any
+ *                          state; the same news twice is one line.
+ * A failed one with "final" (a storno the printer refused) is not tried again
+ * by itself: each try would print another annulled storno. Staff try it again.
  * Returns [httpStatus, body].
  */
 function qr_fiscal_report(int $id, string $event, array $data, int $now): array
@@ -439,6 +445,22 @@ function qr_fiscal_report(int $id, string $event, array $data, int $now): array
         }
         if ($doc['status'] === 'printed' && $event === 'printed') {
             return [200, ['ok' => true, 'already' => true]]; // a repeat of the same news
+        }
+        if ($event === 'annulled') {
+            $number = mb_substr((string) ($data['receiptNumber'] ?? ''), 0, 20);
+            $detail = 'doc=' . $doc['id'] . ';kind=' . $doc['kind'] . ';usn=' . $doc['usn'] . ';receipt=' . $number
+                . ';at=' . mb_substr((string) ($data['at'] ?? ''), 0, 30) . ';error=' . mb_substr((string) ($data['error'] ?? ''), 0, 200);
+            $seen = $pdo->prepare("SELECT 1 FROM audit_log WHERE kind = 'receipt_annulled' AND ref = ? AND detail LIKE ? LIMIT 1");
+            $seen->execute([$doc['code'], 'doc=' . $doc['id'] . ';%;receipt=' . $number . ';%']);
+            $already = $number !== '' && $seen->fetchColumn() !== false;
+            $seen->closeCursor();
+            if (!$already) {
+                $pdo->prepare('INSERT INTO audit_log (kind, ref, amount_cents, detail, operator, operator_name)
+                    SELECT ?, ?, ?, ?, code, name FROM audit_actor WHERE id = 1')
+                    ->execute(['receipt_annulled', $doc['code'], (int) $doc['total_cents'], $detail]);
+                qr_bump_seq($pdo);
+            }
+            return [200, ['ok' => true, 'already' => $already]];
         }
         if (!in_array($doc['status'], ['claimed', 'submitted'], true)) {
             return [409, ['ok' => false, 'error' => 'not_claimed', 'status' => $doc['status']]];
@@ -477,9 +499,9 @@ function qr_fiscal_report(int $id, string $event, array $data, int $now): array
         if ($event === 'failed') {
             $tries = (int) $doc['tries'];
             $wait = QR_FISCAL_BACKOFF[min(max($tries, 1), count(QR_FISCAL_BACKOFF)) - 1] ?? 3600;
-            // Never printed: it may go again under the same task id.
-            $pdo->prepare("UPDATE fiscal_docs SET status = 'failed', task_id = '', error = ?, next_at = ?, seq = ? WHERE id = ?")
-                ->execute([$error, $now + $wait, $seq, $id]);
+            // Never printed: it may go again under the same task id. A final one waits for staff.
+            $pdo->prepare("UPDATE fiscal_docs SET status = 'failed', task_id = '', error = ?, next_at = ?, tries = ?, seq = ? WHERE id = ?")
+                ->execute([$error, $now + $wait, !empty($data['final']) ? QR_FISCAL_TRIES : $tries, $seq, $id]);
             return [200, ['ok' => true]];
         }
         if ($event === 'check') {

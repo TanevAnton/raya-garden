@@ -453,6 +453,13 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
   own commands through ErpNet.FP's `rawrequest` instead, with the card payment.
   ⚠ On the real FP-700MX (13.11.2026) the card payment in a storno is refused
   with -112201: asked Datecs what it needs. Sales print fine.
+- **A cancelled storno is a fiscal document.** A storno the printer opened and
+  then cancelled prints as „АНУЛИРАН – НЕ СЕ ДЪЛЖИ ПЛАЩАНЕ“ under its own
+  number and stays in the printer's journal. The bridge logs each one (event
+  `annulled`, operations log `receipt_annulled`, with the number, amount, УНП
+  and reason), keeping it in its journal until the server has it. A storno the
+  printer refuses is not retried by itself (each try prints another): it stays
+  failed until staff press „Опитай пак“.
 - **ErpNet.FP over the network:** printer URI `bg.dt.x.isl.tcp://<ip>:4999`
   (the printer's interface set to LAN). Its connect timeout is 200 ms; if the
   first detection fails, add the printer again from ErpNet.FP's page.

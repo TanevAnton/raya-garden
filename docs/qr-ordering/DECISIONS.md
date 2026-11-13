@@ -975,6 +975,25 @@ After the certification with Clock: the Z report prints by itself at 23:55
   closes the day at.
 - A program change, so it is in before the first declaration.
 
+## Stornos on the real printer, 13.11.2026
+
+- **ErpNet.FP's reversal receipt can't refund to a card.** It clears the
+  payments (W302) and pays the storno in cash; with no cash in the till the
+  FP-700MX refuses (-111017). Bridge 1.1.0 sends the printer's own commands
+  through `rawrequest`, as ErpNet.FP would, with the card payment.
+- **The FP-700MX still refuses the card payment in a storno (-112201).** Asked
+  Datecs. Not worked round with a cash deposit: the receipt would say cash
+  where the money went back to the card.
+- **A cancelled storno is a fiscal document** („АНУЛИРАН – НЕ СЕ ДЪЛЖИ
+  ПЛАЩАНЕ“, its own number, in the КЛЕН). It is not an annulled sale in Annex
+  29's sense (table 18.5 is for lines cancelled before payment), but our log
+  must match the printer's journal: each one is logged (`receipt_annulled`).
+- **A refused storno waits for staff.** A printer refusal repeats, and every
+  automatic try would print another annulled storno. The refusal is written in
+  the bridge's journal before the cancel, so no crash makes it try again.
+- **Task ids carry the receipt's creation time**, so a database started over or
+  restored never gets an old answer from ErpNet.FP.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

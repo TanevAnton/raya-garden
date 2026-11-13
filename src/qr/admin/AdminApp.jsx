@@ -1262,6 +1262,11 @@ function FiscalStatus({ doc, onFiscal }) {
         {check ? "Не е излязла — печатай" : "Опитай пак"}
       </button>
       {check && <span className="text-xs text-cream-100/60">Ако е излязла — отметнете „Въведена ръчно ✓“.</span>}
+      {!check && doc.kind === "storno" && (
+        <span className="text-xs text-cream-100/60" data-storno-refused>
+          Касата отказа сторното и не опитва сама: всеки отказ излиза като анулиран бон. Опитайте пак, след като причината е оправена.
+        </span>
+      )}
     </div>
   );
 }

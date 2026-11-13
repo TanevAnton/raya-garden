@@ -23,11 +23,13 @@ if (!defined('RAYA_QR')) {
 return [
     'templates' => [
         // Defaults per station: everything made in the kitchen, at the bar.
-        // ⚠ SANDBOX ONLY (POS DEMO, 16516): "Beef Stroganoff" and "Amstel" stand
-        // in for food and drinks (each charge carries the dish's own name). Put
-        // the live EOD account's template ids here before QR_CLOCK_MODE = live.
-        'kitchen' => 1508218,
-        'bar' => 1508229,
+        // The live EOD account „Sveta Gora QR menu EOD“ (subscription 127767,
+        // POS account 16596), set up 13.11.2026: „QR меню – храна“ (food) and
+        // „QR меню – напитки“ (beverage), 20% VAT, floating price (each
+        // charge carries the dish's own name and price). The sandbox's were
+        // 1508218 and 1508229.
+        'kitchen' => 1520748,
+        'bar' => 1520749,
         // Per category, overriding its station's default, e.g. 'wines' => 0.
         // The tip: 0 sends it as a plain surcharge with no VAT.
         'tip' => 0,

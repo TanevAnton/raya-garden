@@ -636,7 +636,14 @@ nothing can print on the restaurant's printer. Staff do nothing in Clock.
 Before going live, on the live EOD POS account (ask Clock to activate it):
 1. a charge template for food and one for drinks, their ids in `clock-settings.php`;
 2. tax settings identical to the PMS account;
-3. Auto Revenue Date Offset 7, so the revenue date changes after the transfer.
+3. Auto Revenue Date Offset 6 (the most Clock offers), so a transfer before
+   06:00 counts for the evening before: two hours' margin after 04:00.
+   **Done 13.11.2026** on „Sveta Gora QR menu EOD“ (POS account 16596): tax
+   mode „Данъкът се включва в цените, закръгляне – на тотала“ and label ДДС, as
+   „Ресторант RAYA GARDEN“; currency EUR; offset 6; no document type on close;
+   no printers; charge templates „QR меню – храна“ 1520748 and „QR меню –
+   напитки“ 1520749 (20%, floating price). Still to do: the integration in
+   AppConnector and its API user, when the transfer is to start.
    ⚠ This is what puts a sale on the right day: Clock ignored `service_date`,
    `revenue_date` and `preffered_revenue_date` in the sandbox (4.11.2026) and
    booked the day it arrived, so a transfer after the offset hour lands a day late;

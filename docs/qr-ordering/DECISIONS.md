@@ -981,9 +981,11 @@ After the certification with Clock: the Z report prints by itself at 23:55
   payments (W302) and pays the storno in cash; with no cash in the till the
   FP-700MX refuses (-111017). Bridge 1.1.0 sends the printer's own commands
   through `rawrequest`, as ErpNet.FP would, with the card payment.
-- **The FP-700MX still refuses the card payment in a storno (-112201).** Asked
-  Datecs. Not worked round with a cash deposit: the receipt would say cash
-  where the money went back to the card.
+- **A storno is paid in cash** (Datecs, 13.11.2026: Наредба Н-18 allows a
+  storno in cash only; the FP-700MX refuses a card one, -112201). The bridge
+  first puts the missing amount into the till („служебно въведени“), reading
+  the till so a retry never puts it in twice; the storno pays it out, and the
+  money goes back to the card through Stripe. Iva asked to confirm.
 - **A cancelled storno is a fiscal document** („АНУЛИРАН – НЕ СЕ ДЪЛЖИ
   ПЛАЩАНЕ“, its own number, in the КЛЕН). It is not an annulled sale in Annex
   29's sense (table 18.5 is for lines cancelled before payment), but our log

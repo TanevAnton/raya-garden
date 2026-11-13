@@ -415,6 +415,8 @@ function qr_fiscal_job(PDO $pdo, array $doc, bool $submitted): array
         $job['receipt']['receiptDateTime'] = (string) $sale['receipt_at'];
         $job['receipt']['fiscalMemorySerialNumber'] = (string) $sale['fm_number'];
         $job['receipt']['reason'] = 'refund';
+        $pay = (string) ($settings['storno_payment'] ?? 'cash');
+        $job['receipt']['payments'][0]['paymentType'] = $pay === 'card' ? 'card' : 'cash';
     }
     return $job;
 }

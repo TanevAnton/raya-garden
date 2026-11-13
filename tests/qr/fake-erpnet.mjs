@@ -54,6 +54,9 @@ export async function startFakeErpNet() {
   let open = null; // a storno being built on the printer, command by command
   const annulled = []; // stornos opened and then cancelled: { receiptNumber, body }
   let cardStornoRefused = false; // as the real FP-700MX did on 13.11.2026: -112201
+  let stornoPaymentRefused = false; // any storno payment refused (a printer that won't, for whatever reason)
+  let cashCents = 0; // the till; a storno paid in cash needs it (-111017)
+  const cashIns = []; // „служебно въведени“: cents each time
 
   const json = (res, status, body) => {
     res.writeHead(status, { "Content-Type": "application/json" });
@@ -73,6 +76,13 @@ export async function startFakeErpNet() {
       if (open) annulled.push({ receiptNumber: String(++number).padStart(7, "0"), body: { items: open.items, ...open.body } });
       answer = open ? "0\t" : "-111016\t";
       open = null;
+    } else if (cmd === 0x46) {
+      const cents = Math.round(Number(f[1] || 0) * 100);
+      if (f[0] === "0" && cents > 0) {
+        cashCents += cents;
+        cashIns.push(cents);
+      } else if (f[0] === "1") cashCents -= cents;
+      answer = `0\t${(cashCents / 100).toFixed(2)}\t0.00\t0.00\t`;
     } else if (cmd === 0x3e) {
       answer = `0\t${xDate(Date.now() + clockOffset)}\t`;
     } else if (cmd === 0x2b) {
@@ -89,9 +99,11 @@ export async function startFakeErpNet() {
       open.items.push({ text: f[0], taxGroup: Number(f[1]), unitPrice: Number(f[2]), quantity: Number(f[3]) });
       answer = `0\t${number + 1}\t`;
     } else if (cmd === 0x35) {
-      if (f[0] === "") answer = "-111017\t";
-      else if (f[0] === "1" && cardStornoRefused) answer = "-112201\t";
+      const cents = Math.round(Number(f[1] || 0) * 100);
+      if (f[0] === "" || (f[0] === "0" && cashCents < cents)) answer = "-111017\t";
+      else if ((f[0] === "1" && cardStornoRefused) || stornoPaymentRefused) answer = "-112201\t";
       else {
+        if (f[0] === "0") cashCents -= cents;
         open.payments.push({ amount: Number(f[1]), paymentType: f[0] === "1" ? "card" : "cash" });
         answer = "0\tD\t0.00\t";
       }
@@ -201,6 +213,8 @@ export async function startFakeErpNet() {
     base,
     paper,
     annulled,
+    cashIns,
+    till: () => cashCents,
     posts,
     reports,
     /** The next receipt is refused by the printer (nothing printed). */
@@ -216,6 +230,8 @@ export async function startFakeErpNet() {
     setStatusOk: (ok) => (statusOk = ok),
     /** A storno's card payment is refused, as the real FP-700MX does (-112201). */
     refuseCardStorno: (refuse) => (cardStornoRefused = refuse),
+    /** Every storno's payment is refused (-112201). */
+    refuseStornoPayment: (refuse) => (stornoPaymentRefused = refuse),
     clockSets,
     /** The printer's clock runs this many seconds ahead (negative: behind). */
     setClock: (seconds) => (clockOffset = seconds * 1000),
@@ -229,6 +245,9 @@ export async function startFakeErpNet() {
       open = null;
       annulled.length = 0;
       cardStornoRefused = false;
+      stornoPaymentRefused = false;
+      cashCents = 0;
+      cashIns.length = 0;
       number = 0;
       failNext = null;
       hold = false;

@@ -296,7 +296,9 @@ describe("fiscal receipts: refunds", () => {
       [sale.body.uniqueSaleNumber, sale.receiptNumber, sale.receiptDateTime, sale.fiscalMemorySerialNumber, "refund"],
     );
     assert.deepEqual(storno.body.items.filter((i) => !i.type).map((i) => [i.quantity, i.unitPrice]), [[1, S / 100]], "positive, as ErpNet.FP wants");
-    assert.deepEqual(storno.body.payments, [{ amount: S / 100, paymentType: "card" }], "back to the card, not cash from the till");
+    assert.deepEqual(storno.body.payments, [{ amount: S / 100, paymentType: "cash" }], "in cash, as Н-18 wants (the money goes back to the card through Stripe)");
+    assert.deepEqual(printer.cashIns, [S], "the till held nothing: exactly that much put in first");
+    assert.equal(printer.till(), 0, "and paid out again");
     assert.deepEqual([row(placed.order.id).till_cents, row(placed.order.id).till_void_cents], [C + 3 * S, S]);
 
     assert.equal((await cancel(admin, placed.order.id)).status, 200);
@@ -324,13 +326,13 @@ describe("fiscal receipts: refunds", () => {
 describe("fiscal receipts: a storno, command by command", () => {
   const stornoSteps = () => printer.posts.filter((p) => p.kind === "rawrequest").map((p) => p.taskId.split(".").pop());
 
-  it("goes as the printer's own commands: cancel what's open, open, comment, line, card payment, close, the time", async () => {
+  it("goes as the printer's own commands: cancel what's open, the till, cash in, open, comment, line, cash payment, close, the time", async () => {
     const admin = await setUp();
     const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
     await drain();
     assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
     await drain();
-    assert.deepEqual(stornoSteps(), ["1x", "1o", "1m0", "1i1", "1p", "1c", "1d"]);
+    assert.deepEqual(stornoSteps(), ["1x", "1k", "1ci", "1o", "1m0", "1i1", "1p", "1c", "1d"]);
     const [, storno] = docs();
     assert.equal(storno.status, "printed");
     assert.equal(storno.receipt_number, printer.paper[1].receiptNumber);
@@ -378,12 +380,12 @@ describe("fiscal receipts: a storno, command by command", () => {
 
   const annulledLog = () => JSON.parse(srv.sqlite("SELECT ref, amount_cents, detail FROM audit_log WHERE kind = 'receipt_annulled' ORDER BY id"));
 
-  it("refused (the card payment, as the real FP-700MX): cancelled, logged as annulled with its number, and not tried again by itself", async () => {
+  it("refused (its payment): cancelled, logged as annulled with its number, not tried again by itself; the cash put in is not put in twice", async () => {
     const admin = await setUp();
     const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
     await drain();
     assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
-    printer.refuseCardStorno(true);
+    printer.refuseStornoPayment(true);
     await drain();
     const [, storno] = docs();
     assert.equal(storno.status, "failed");
@@ -399,13 +401,15 @@ describe("fiscal receipts: a storno, command by command", () => {
     assert.equal(printer.annulled.length, 1, "no try by itself: each would print another");
     assert.equal(docs()[1].status, "failed");
 
-    printer.refuseCardStorno(false); // fixed
+    printer.refuseStornoPayment(false); // fixed
     const res = await admin.admin("/api/qr/admin/fiscal.php", { id: storno.id, action: "retry" });
     assert.equal(res.status, 200, res.text);
     await drain(bridge({ later: 7300 }));
     assert.equal(docs()[1].status, "printed");
     assert.equal(printer.paper.length, 2);
     assert.equal(annulledLog().length, 1);
+    assert.equal(printer.cashIns.length, 1, "the till still held it from the first try");
+    assert.equal(printer.till(), 0);
   });
 
   it("refused at the close: cancelled on the printer and logged as annulled", async () => {
@@ -426,7 +430,7 @@ describe("fiscal receipts: a storno, command by command", () => {
     const placed = await paid(4, [["tiramisu"], ["caesar", "chicken", 1]]);
     await drain();
     assert.equal((await voidLine(admin, placed.order.id, 0, 1, 1)).status, 200);
-    printer.refuseCardStorno(true);
+    printer.refuseStornoPayment(true);
     let dropped = false;
     const flaky = (url, init) => {
       if (!dropped && String(url).includes("report.php") && String(init?.body).includes('"annulled"')) {

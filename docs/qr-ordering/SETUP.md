@@ -451,8 +451,13 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
   receipt drops the payments and pays the storno in cash, which a Datecs
   refuses with no cash in the till (-111017). The bridge sends the printer's
   own commands through ErpNet.FP's `rawrequest` instead, with the card payment.
-  ⚠ On the real FP-700MX (13.11.2026) the card payment in a storno is refused
-  with -112201: asked Datecs what it needs. Sales print fine.
+  On the real FP-700MX (13.11.2026) a card payment in a storno is refused
+  (-112201): under Наредба Н-18 a storno is paid in cash only (Datecs). So the
+  bridge reads the till (0x46), puts in only what is missing („служебно
+  въведени“, never twice on a retry), and pays the storno in cash; the money
+  goes back to the card through Stripe. `storno_payment` in
+  `fiscal-settings.php` ('cash'; 'card' only for a printer that takes it).
+  ⚠ Iva to confirm the cash records this makes.
 - **A cancelled storno is a fiscal document.** A storno the printer opened and
   then cancelled prints as „АНУЛИРАН – НЕ СЕ ДЪЛЖИ ПЛАЩАНЕ“ under its own
   number and stays in the printer's journal. The bridge logs each one (event

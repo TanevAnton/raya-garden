@@ -43,6 +43,12 @@ return [
     // printed since the last one. A payment from then on belongs to the next
     // fiscal day. '' = never; staff print it from „За касата“.
     'auto_z' => '23:55',
+    // How a storno is paid on the printer. Наредба Н-18 (Datecs, 13.11.2026):
+    // a storno is paid in cash only. The till of the phone-payments printer
+    // never holds cash, so the bridge first puts the amount in („служебно
+    // въведени“), then the storno pays it out. The money itself goes back to
+    // the guest's card through Stripe. 'card' only if the printer takes it.
+    'storno_payment' => 'cash',
     'workplace_code' => '01',
     'workplace_name' => 'QR меню (плащане в телефона)',
 ];

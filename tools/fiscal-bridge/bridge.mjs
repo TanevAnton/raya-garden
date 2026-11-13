@@ -249,11 +249,15 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
 
   // ── a storno, command by command ──────────────────────────────────
   //
-  // ErpNet.FP's reversalreceipt drops the payments it is given (warning W302)
-  // and pays the storno in cash. A Datecs refuses that when there is no cash
-  // in the till (-111017), and our refunds go back to the card anyway. So a
-  // storno goes as the printer's own commands, through ErpNet.FP's rawrequest,
-  // exactly as ErpNet.FP would send them, with the card payment (code 1).
+  // Наредба Н-18: a storno is paid in cash only (Datecs, 13.11.2026; a card
+  // payment is refused, -112201). The till of this printer never holds cash,
+  // and a cash payment with none in it is refused too (-111017). So the bridge
+  // reads what the till holds and puts in only what is missing („служебно
+  // въведени“, so a retry never puts it in twice), then the storno pays it
+  // out. The money itself goes back to the guest's card through Stripe.
+  // ErpNet.FP's reversalreceipt can't do that (it drops the payments, W302),
+  // so a storno goes as the printer's own commands through its rawrequest,
+  // exactly as ErpNet.FP would send them.
   // Each command is a task of its own: <taskId>.<attempt><step>. Until the
   // close is sent nothing is in the fiscal memory, and a new attempt starts by
   // cancelling whatever was left open. Once it is sent, it is looked up, never
@@ -264,7 +268,14 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   // printer's journal. Each one is kept in our journal until the server has
   // logged it ('annulled'). A storno the printer refuses is not tried again by
   // itself ('final'): every try would print another.
-  const X = { abort: 0x3c, open: 0x2b, comment: 0x36, item: 0x31, total: 0x35, close: 0x38, datetime: 0x3e };
+  const X = { abort: 0x3c, open: 0x2b, comment: 0x36, item: 0x31, total: 0x35, close: 0x38, datetime: 0x3e, cash: 0x46 };
+  const PAID_MODE = { cash: "0", card: "1" };
+  /** The till's cash, from 0x46 "0<TAB>0<TAB>": in cents, or null. */
+  const tillCents = (response) => {
+    const sum = String(response).split("\t")[1] || "";
+    if (!/^-?\d+(\.\d+)?$/.test(sum)) return null;
+    return sum.includes(".") ? Math.round(Number(sum) * 100) : Number(sum);
+  };
   const field = (t) => String(t).replace(/[\t\r\n]+/g, " ");
   const money = (n) => Number(n).toFixed(2);
   /** "2026-11-13T16:51:34" → "13-11-26 16:51:34", the printer's way. */
@@ -297,7 +308,8 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
         : { step: `i${i}`, cmd: X.item, data: [field(it.text), it.taxGroup, money(it.unitPrice), it.quantity, "0", "0.00", "0", ""].join("\t") });
     });
     const total = receipt.payments.reduce((sum, p) => sum + p.amount, 0);
-    out.push({ step: "p", cmd: X.total, data: ["1", money(total), "1", ""].join("\t") });
+    const mode = PAID_MODE[receipt.payments[0]?.paymentType] ?? PAID_MODE.cash;
+    out.push({ step: "p", cmd: X.total, data: [mode, money(total), "1", ""].join("\t") });
     out.push({ step: "c", cmd: X.close, data: "" });
     return out;
   }
@@ -343,6 +355,34 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     }
   }
 
+  /**
+   * Enough cash in the till to pay the storno out: what is missing goes in
+   * („служебно въведени“). False when the printer refused (reported) or did
+   * not answer yet (next round).
+   */
+  async function cashForStorno(job, id, receipt) {
+    const need = Math.round(receipt.payments.reduce((sum, p) => sum + p.amount, 0) * 100);
+    const till = await command(id("k"), X.cash, "0\t0\t");
+    if (till.state) return false;
+    const has = till.ok ? tillCents(till.response) : null;
+    if (has === null) return refuseStorno(job, `the printer did not say what its till holds: ${till.code}`);
+    if (has >= need) return true;
+    const missing = need - has;
+    const put = await command(id("ci"), X.cash, ["0", money(missing / 100), ""].join("\t"));
+    if (put.state) return false;
+    if (!put.ok) return refuseStorno(job, `the printer refused to take ${money(missing / 100)} into its till: ${put.code}`);
+    log(`${job.code}: ${money(missing / 100)} put into the till for the storno (служебно въведени)`);
+    return true;
+  }
+
+  /** Refused before the storno opened: nothing to cancel, nothing annulled. */
+  async function refuseStorno(job, text) {
+    const result = { ok: false, final: true, messages: [{ type: "error", code: "", text }] };
+    journal.set(job.taskId, { result, closing: false });
+    await reportResult(job, result);
+    return false;
+  }
+
   async function printStorno(job, receipt) {
     await reportAnnulled(job);
     const attempt = (journal.get(job.taskId)?.attempt || 0) + 1;
@@ -350,6 +390,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     const id = (step) => `${job.taskId}.${attempt}${step}`;
     // A storno left open by an earlier attempt: nothing is in the fiscal memory yet.
     await cancelStorno(job, id("x"), "left open by an earlier attempt");
+    if ((receipt.payments[0]?.paymentType ?? "cash") === "cash" && !(await cashForStorno(job, id, receipt))) return;
     for (const c of stornoCommands(receipt)) {
       // Written down before the close goes: from then on it is looked up, never sent again.
       if (c.step === "c") journal.set(job.taskId, { closing: true });

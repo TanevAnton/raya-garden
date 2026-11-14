@@ -26,6 +26,9 @@ rayagarden.bg  ⇄  мостът (този компютър)  →  ErpNet.FP  �
 
 ## Настройка
 
+Мини компютърът в ресторанта (Prestigio, Ubuntu), от нулата и стъпка по
+стъпка: `docs/qr-ordering/MINI-PC-SETUP-BG.md`.
+
 **На Linux (напр. Ubuntu)** – с една команда, след като ErpNet.FP (файлът
 `linux-x64.zip` от страницата с версиите) вижда принтера (стъпка 1):
 

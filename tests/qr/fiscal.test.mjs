@@ -117,6 +117,22 @@ describe("fiscal receipts: no sale or payment the printer can't take (Annex 29 Ñ
     assert.deepEqual([later.body.open, later.body.fiscal.reason], [false, "offline"]);
   });
 
+  it("a printer switched on after ErpNet.FP started is found: the bridge asks it to look again, at most once a minute", async () => {
+    await setUp();
+    printer.lose();
+    const b = bridge();
+    const before = printer.detects();
+    await b.check();
+    assert.equal(printer.detects(), before + 1, "asked to look again");
+    assert.equal((await state()).open, true, "found, and phone payments go on");
+
+    printer.lose();
+    await b.check(); // the printer it knew is gone; a minute hasn't passed
+    await b.check();
+    assert.equal(printer.detects(), before + 1, "not asked again within the minute");
+    assert.equal((await state()).fiscal.reason, "printer");
+  });
+
   it("without receipts switched on, or on evenings paid to staff, nothing waits for the printer", async () => {
     srv.config({ fiscal_mode: null });
     await setUp();

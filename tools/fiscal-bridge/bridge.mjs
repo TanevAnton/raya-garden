@@ -40,11 +40,14 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const VERSION = "1.1.0";
+export const VERSION = "1.2.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CLOCK_EVERY_MS = 24 * 3600 * 1000; // the printer's clock is set at least daily (Наредба Н-18, Annex 29 т. 5) …
 const CLOCK_DRIFT_S = 30; // … and whenever it is this far off
+// ErpNet.FP looks for printers only when it starts: one switched on later (or
+// back after a power cut) stays unseen until it is asked to look again.
+const DETECT_EVERY_MS = 60 * 1000;
 
 /** A time as the printer keeps it: Sofia wall-clock, "2026-10-29T20:15:00". */
 export function sofiaLocal(ms) {
@@ -104,6 +107,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   const waitMs = config.waitMs ?? 90000;
   let printer = null; // ErpNet.FP's device info
   let clock = { syncedAt: 0, drift: null, error: "" }; // the printer's clock: last set, seconds off, why it couldn't be set
+  let detectedAt = 0; // when ErpNet.FP was last asked to look for the printer
 
   async function server(pathname, body) {
     const res = await fetch(`${config.server}${pathname}`, {
@@ -129,11 +133,27 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
   }
 
   /** The printer, and whether it is ready: sent to the server with every request for work. */
+  /** Asks ErpNet.FP to look for printers again, at most once a minute. */
+  async function detect() {
+    if (Date.now() - detectedAt < DETECT_EVERY_MS) return;
+    detectedAt = Date.now();
+    log("ErpNet.FP does not see the printer: asking it to look again");
+    await erpnet("/service/detect", { timeout: 60000 }).catch(() => {});
+  }
+
   async function printerState() {
     try {
       if (!printer) {
-        let id = config.printerId;
-        if (!id) id = Object.keys(await erpnet("/printers"))[0];
+        const find = async () => {
+          const list = await erpnet("/printers");
+          const id = config.printerId || Object.keys(list)[0];
+          return id && list[id] ? id : "";
+        };
+        let id = await find();
+        if (!id) {
+          await detect();
+          id = await find();
+        }
         if (!id) return { ok: false, message: "ErpNet.FP sees no fiscal printer" };
         printer = { id, ...(await erpnet(`/printers/${id}`)) };
       }

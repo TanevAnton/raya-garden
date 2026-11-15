@@ -48,6 +48,8 @@ export async function startFakeErpNet() {
   let hold = false; // tasks stay queued until release()
   const held = [];
   let statusOk = true;
+  let lost = false; // ErpNet.FP started while the printer was off: it sees none until /service/detect
+  let detects = 0;
   let clockOffset = 0; // ms the printer's clock is ahead
   let clockRefuses = false; // setting the time is refused (as some printers do before the Z report)
   const clockSets = []; // every time the bridge set the clock
@@ -157,6 +159,12 @@ export async function startFakeErpNet() {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const url = new URL(req.url, base);
+    if (req.method === "GET" && url.pathname === "/service/detect") {
+      detects++;
+      lost = false;
+      return json(res, 200, {});
+    }
+    if (lost && url.pathname.startsWith("/printers")) return json(res, url.pathname === "/printers" ? 200 : 404, {});
     if (req.method === "GET" && url.pathname === "/printers") return json(res, 200, { [PRINTER.id]: PRINTER });
     if (req.method === "GET" && url.pathname === "/printers/taskinfo") {
       const id = url.searchParams.get("id");
@@ -228,6 +236,9 @@ export async function startFakeErpNet() {
     /** ErpNet.FP restarted: every task's information is gone (what printed stays printed). */
     restart: () => tasks.clear(),
     setStatusOk: (ok) => (statusOk = ok),
+    /** ErpNet.FP came up before the printer: it sees no printer until asked to detect again. */
+    lose: () => (lost = true),
+    detects: () => detects,
     /** A storno's card payment is refused, as the real FP-700MX does (-112201). */
     refuseCardStorno: (refuse) => (cardStornoRefused = refuse),
     /** Every storno's payment is refused (-112201). */
@@ -237,6 +248,7 @@ export async function startFakeErpNet() {
     setClock: (seconds) => (clockOffset = seconds * 1000),
     refuseClock: (refuse) => (clockRefuses = refuse),
     reset: () => {
+      lost = false;
       paper.length = 0;
       posts.length = 0;
       reports.length = 0;

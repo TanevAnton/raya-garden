@@ -466,8 +466,11 @@ rayagarden.bg  ⇄  the bridge (a computer in the restaurant)  →  ErpNet.FP  �
   printer refuses is not retried by itself (each try prints another): it stays
   failed until staff press „Опитай пак“.
 - **ErpNet.FP over the network:** printer URI `bg.dt.x.isl.tcp://<ip>:4999`
-  (the printer's interface set to LAN). Its connect timeout is 200 ms; if the
-  first detection fails, add the printer again from ErpNet.FP's page.
+  (the printer's interface set to LAN). ErpNet.FP looks for printers only
+  when it starts, so a printer switched on later stays unseen: the bridge
+  (1.2.0) then asks it to look again (`GET /service/detect`), at most once a
+  minute. Tried on the mini PC 15.11.2026: started with the printer off, the
+  printer is found only after a detect.
 - **Task ids** carry the receipt's creation time, so a database started over
   or restored never reuses one ErpNet.FP still remembers (it would hand back
   the old receipt without printing).

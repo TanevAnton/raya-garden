@@ -11,7 +11,7 @@ import path from "node:path";
 import { startServer, client, sofia, newKey, orderBody } from "./server.mjs";
 import { startFakeStripe } from "./fake-stripe.mjs";
 import { startFakeErpNet, PRINTER } from "./fake-erpnet.mjs";
-import { createBridge } from "../../tools/fiscal-bridge/bridge.mjs";
+import { createBridge, fitText } from "../../tools/fiscal-bridge/bridge.mjs";
 
 const EVENING = { date: "2026-10-03", opens: "18:00", closes: "01:00" };
 const AT_20H = sofia("2026-10-03T20:00", 3);
@@ -214,7 +214,7 @@ describe("fiscal receipts: printing", () => {
       ["sale", 1, 1.5, 2],
     ]);
     assert.equal(r.body.items[0].text, `QR меню ${placed.order.code}`);
-    assert.ok(item("caesar").bg.startsWith(r.body.items[1].text.slice(0, 10)));
+    assert.ok(fitText(item("caesar").bg, 200).startsWith(r.body.items[1].text.slice(0, 10)), "the name, with plain quotes");
     assert.ok(r.body.items.every((i) => i.text.length <= (i.type === "comment" ? 40 : 22)), "cut to what the printer takes");
     assert.equal(r.body.items[3].text, "Бакшиш");
     const total = (2 * C + 3 * S + 150) / 100;
@@ -747,3 +747,20 @@ describe("the operations log", () => {
     assert.ok(csv.text.includes(`;receipt_printed;${placed.order.code};`));
   });
 });
+
+describe("the bridge's item text (as seen on the real FP-700MX, 15.11.2026)", () => {
+  it("quotes and dashes the printer can't print become plain ones", () => {
+    assert.equal(fitText("Салата „Цезар“ – класика…", 72), 'Салата "Цезар" - класика...');
+  });
+  it("a long name is cut in the name, so the variant stays", () => {
+    const text = "Салата „Цезар“ с хрупкави крутони, пармезан, печено пилешко филе и домашен дресинг · с пиле";
+    const fitted = fitText(text, 72);
+    assert.equal(fitted.length <= 72, true);
+    assert.match(fitted, /^Салата "Цезар" с хрупкави крутони, .* · с пиле$/);
+  });
+  it("short texts and comments are left as they are; a text with no variant is cut at the end", () => {
+    assert.equal(fitText("Тирамису · 150 г", 72), "Тирамису · 150 г");
+    assert.equal(fitText("а".repeat(80), 72), "а".repeat(72));
+  });
+});
+

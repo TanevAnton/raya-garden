@@ -40,7 +40,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const VERSION = "1.2.0";
+export const VERSION = "1.3.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CLOCK_EVERY_MS = 24 * 3600 * 1000; // the printer's clock is set at least daily (Наредба Н-18, Annex 29 т. 5) …
@@ -55,6 +55,27 @@ export function sofiaLocal(ms) {
     timeZone: "Europe/Sofia", year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
   }).format(new Date(ms)).replace(" ", "T");
+}
+
+/**
+ * A line as the printer can print it. The FP-700MX prints „ “ as backticks, so
+ * typographic quotes and dashes become plain ones. A line longer than the
+ * printer takes is cut in the dish's name, not at the end, so the variant
+ * after " · " (the size, „с пиле“) stays on the receipt.
+ */
+export function fitText(text, max) {
+  const plain = String(text)
+    .replace(/[„“”«»″]/g, '"')
+    .replace(/[‚‘’′]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (plain.length <= max) return plain;
+  const at = plain.lastIndexOf(" · ");
+  const detail = at > 0 ? plain.slice(at) : "";
+  if (detail && detail.length <= max - 10) return plain.slice(0, max - detail.length).trimEnd() + detail;
+  return plain.slice(0, max).trimEnd();
 }
 
 /** The other way round: a Sofia wall-clock time to milliseconds. */
@@ -461,7 +482,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
       ...job.receipt,
       uniqueSaleNumber: usn,
       items: job.receipt.items.map((it) =>
-        it.type === "comment" ? { ...it, text: it.text.slice(0, maxComment) } : { ...it, text: it.text.slice(0, max) },
+        it.type === "comment" ? { ...it, text: fitText(it.text, maxComment) } : { ...it, text: fitText(it.text, max) },
       ),
     };
   }

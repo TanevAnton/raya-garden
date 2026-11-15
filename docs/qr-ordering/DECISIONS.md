@@ -996,6 +996,29 @@ After the certification with Clock: the Z report prints by itself at 23:55
 - **Task ids carry the receipt's creation time**, so a database started over or
   restored never gets an old answer from ErpNet.FP.
 
+## The real printer, end to end, 15.11.2026
+
+Through the restaurant's mini PC (ErpNet.FP there, the bridge and a test
+server on a Mac), on the test fiscal memory 79055322. All on paper, photos
+kept:
+
+- receipts 18 (25.70, card) and 19 (5.90, card), each with its УНП and the
+  „QR меню R-…“ line; a duplicate; an X report;
+- **the first cash storno**: the bridge put in 5.90 („служебно въведени“,
+  slip 21), then storno 22 for receipt 18, 5.90 in cash, with the original's
+  number, date, ФП and УНП, at the first try;
+- the Z report (23) matched our records: card 31.60, storno 5.90, cash in
+  5.90, cash in the till 0.
+
+What it changed (bridge 1.3.0):
+
+- **„ “ printed as backticks.** Quotes and dashes the printer can't print are
+  sent as plain ones.
+- **A long name lost its variant.** The printer takes 72 characters a line,
+  cut at the end, where the variant („с пиле“) is. The name is cut instead.
+- **ErpNet.FP sees only the printers it found when it started** (bridge
+  1.2.0): the bridge asks it to look again, at most once a minute.
+
 ## Left out on purpose
 
 - **Kitchen printer or kitchen display.** The staff page is the one place.

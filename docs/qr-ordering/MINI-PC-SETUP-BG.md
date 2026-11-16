@@ -15,9 +15,12 @@ rayagarden.bg  ⇄  мостът  →  ErpNet.FP  →  Datecs FP-700MX (192.168.
 **Направено на 15.11.2026:** Ubuntu 24.04.5, потребител `raya`, адрес
 192.168.0.182, SSH с ключ от Mac-а (`ssh raya-kasa`). Стъпки 4–6 са в един
 скрипт: `sudo ./tools/fiscal-bridge/setup-mini-pc.sh` (обновления, без сън,
-часовник, Node.js 22, ErpNet.FP като услуга). Остава: BIOS „Power On“ след
-спиране на тока, резервиране на адреса на принтера в рутера, проверка с
-включен принтер.
+часовник, Node.js 22, ErpNet.FP като услуга). Проверено с включен принтер.
+
+**16.11.2026:** файловете на моста са в `~/fiscal-bridge` (не е инсталиран);
+`node bridge.mjs --check` вижда ErpNet.FP, принтера и часовника му. Остава:
+LAN кабел, BIOS „Power On“ след спиране на тока, следенето на адреса на
+принтера (cron, по-долу).
 
 ## Какво трябва
 
@@ -108,6 +111,17 @@ ping -c 3 192.168.0.175
 
 **В рутера** запазете адреса на принтера, за да не се сменя: DHCP reservation
 за MAC `68:aa:d2:2f:49:7f` → `192.168.0.175`.
+
+Ако рутерът не е достъпен (в хотела е MikroTik със затворено управление от
+мрежата), `printer-ip-watch.sh` следи на всеки 5 минути: ако принтерът е
+сменил адреса си, го намира по MAC адреса и рестартира ErpNet.FP с новия.
+Без `sudo`:
+
+```bash
+cp ~/fiscal-bridge/printer-ip-watch.sh /opt/erpnet-fp/ && (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/erpnet-fp/printer-ip-watch.sh >/dev/null 2>&1") | crontab -
+```
+
+Логът: `journalctl -t printer-ip-watch`.
 
 ## 5. Node.js 22
 

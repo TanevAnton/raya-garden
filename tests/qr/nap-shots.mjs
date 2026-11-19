@@ -26,11 +26,14 @@ mkdirSync(OUT, { recursive: true });
 // The fake printer answers as the declared one (ErpNet.FP on the mini PC, 15.11.2026), so the УНП and
 // the reports show the real ФУ's number.
 Object.assign(PRINTER, { id: "dt055322", serialNumber: "DA055322", fiscalMemorySerialNumber: "79055322", model: "FP-700MX", itemTextMaxLength: 72 });
-const stripe = await startFakeStripe({ webhookSecret: "whsec_shots" });
+const stripe = await startFakeStripe({ webhookSecret: "whsec_shots", extraKey: "rk_live_shots" });
 const printer = await startFakeErpNet();
 // As it will be declared: no tips, no orders paid to staff (DECISIONS.md, 19 and 29.10.2026).
-const srv = await startServer({ docroot: "dist", tips: false, staffOrders: false, stripe: { key: "rk_test_shots", webhookSecret: "whsec_shots", api: stripe.base, publicUrl: "self" } });
-srv.config({ fiscal_mode: "test", fiscal_bridge_token: KEY });
+const srv = await startServer({ docroot: "dist", tips: false, staffOrders: false, stripe: { key: "rk_live_shots", webhookSecret: "whsec_shots", api: stripe.base, publicUrl: "self" } });
+// The sales are made as live ones against the fake Stripe (its address is a test hook, so the
+// registered mode can't be on yet); before the first picture the registered mode goes on, so
+// the screens are the declared version's: no test mode anywhere (Annex 29 т. 20).
+srv.config({ fiscal_mode: "live", fiscal_bridge_token: KEY });
 stripe.setWebhook(`${srv.base}/api/qr/stripe-webhook.php`);
 const work = mkdtempSync(path.join(tmpdir(), "raya-shots-"));
 const bridge = () => createBridge({ server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "j.json"), waitMs: 3000 }, { log: () => {} });
@@ -93,16 +96,18 @@ try {
   await boss.admin("/api/qr/admin/settings.php", { date: today, opens: "00:00", closes: "23:59", tables: 12, disabledTables: [], paused: false, paymentMode: "online" });
   await bridge().check();
   const menu = srv.menu();
-  const sell = async (table, lines) => {
+  const sell = async (table, lines, name) => {
     const res = await client(srv.base).post("/api/qr/order.php", orderBody(menu, table, lines), { headers: { "Idempotency-Key": newKey() } });
-    await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5));
+    if (!res.body.checkoutUrl) throw new Error(`order refused: ${res.status} ${JSON.stringify(res.body)}`);
+    await stripe.pay(new URL(res.body.checkoutUrl).pathname.slice(5), { name, email: "gost@example.bg" });
     return res.body.order;
   };
-  const first = await sell(4, [["caesar", "chicken", 1], ["tiramisu"]]);
-  await sell(7, [["tiramisu"], ["caesar", "chicken", 2]]);
+  const first = await sell(4, [["caesar", "chicken", 1], ["tiramisu"]], "Георги Николов");
+  await sell(7, [["tiramisu"], ["caesar", "chicken", 2]], "Анна Христова");
   await drain();
   await boss.admin("/api/qr/admin/order.php", { id: first.id, action: "void", line: 1, qty: 1, have: 1, reason: "Изчерпан продукт" });
   await drain();
+  srv.config({ supto: "on" });
 
   // The guest's phone: the menu, and the payment.
   const phone = await browser.newPage();
@@ -143,9 +148,11 @@ try {
   await sleep(1500);
   await shot(mgr, "zhurnal-filtar-operator");
   await mgr.tab("Справки НАП");
-  await shot(mgr, "spravki-nap");
+  await mgr.setViewport({ width: 1920, height: 1000 }); // the tables are wide
+  await sleep(800);
+  await shot(mgr, "spravki-nap-18.1");
   const tables = await mgr.$$eval("select option", (os) => os.map((o) => [o.parentElement.name || "", o.value, o.textContent.trim()]));
-  for (const [, value, label] of tables.filter(([, v, l]) => /^18\.|nom_/.test(v) || /^18\./.test(l))) {
+  for (const [, value, label] of tables.filter(([, v, l]) => (/^18\.|nom_/.test(v) || /^18\./.test(l)) && v !== "18.1")) {
     await mgr.evaluate((value) => {
       const sel = [...document.querySelectorAll("select")].find((s) => [...s.options].some((o) => o.value === value));
       sel.value = value;
@@ -154,6 +161,7 @@ try {
     await sleep(1200);
     await shot(mgr, `spravka-${value.replace(/[^\w.]/g, "_")}-${label.slice(0, 20).replace(/[^\wа-яА-Я.]+/g, "_")}`);
   }
+  await mgr.setViewport({ width: 1366, height: 900 });
   await mgr.tab("Система");
   await shot(mgr, "sistema");
   await mgr.tab("История");
@@ -169,6 +177,9 @@ try {
   await mgr.tab("Система");
   await shot(mgr, "sistema-promenen-fail");
   rmSync(planted);
+  srv.sqlite("UPDATE integrity SET checked_at = 0"); // checked again: the band goes
+  await mgr.reload({ waitUntil: "networkidle0" });
+  await sleep(2000);
 
   // The printer not ready: the menu won't take orders, staff see the red band.
   printer.setStatusOk(false);
@@ -200,6 +211,8 @@ try {
   await clickText(aud, /^Приеми/).catch(() => {});
   await sleep(1500);
   await shot(aud, "proveryavasht-otkaz");
+  await aud.reload({ waitUntil: "networkidle0" }); // the refusal message closed
+  await sleep(1500);
   await aud.tab("Журнал").catch(() => {});
   await shot(aud, "proveryavasht-zhurnal");
   console.log(`${made.length} screenshots in ${OUT}`);

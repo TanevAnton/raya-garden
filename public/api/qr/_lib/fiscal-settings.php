@@ -35,10 +35,10 @@ return [
     // _lib/nap.php): prices include VAT, the tables split it out.
     'vat_rates' => [1 => 0, 2 => 20, 3 => 20, 4 => 9, 5 => 0, 6 => 0, 7 => 0, 8 => 0],
     // The site and the workplace, as declared to НАП (Annex 29 т. 18.9).
-    // ⚠ To fill in from the restaurant's registration: the site's code and address.
+    // ⚠ The site's code: to check against the printer's registration with НАП (Iva).
     'site_code' => '0001',
     'site_name' => 'Ресторант Park Hotel RAYA Garden',
-    'site_address' => '',
+    'site_address' => 'гр. Велико Търново, местност „Света гора“',
     // The day's Z report by itself, at this time (Europe/Sofia), if a receipt was
     // printed since the last one. A payment from then on belongs to the next
     // fiscal day. '' = never; staff print it from „За касата“.

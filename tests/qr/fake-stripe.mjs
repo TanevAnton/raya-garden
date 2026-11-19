@@ -38,7 +38,9 @@ export function sign(payload, secret, time = Math.floor(Date.now() / 1000)) {
   return `t=${time},v1=${v1}`;
 }
 
-export async function startFakeStripe({ webhookSecret }) {
+// Only test keys are accepted, so a real one can never end up here; `extraKey` adds one more,
+// exact key (the НАП screenshots use a made-up live-looking one: tests/qr/nap-shots.mjs).
+export async function startFakeStripe({ webhookSecret, extraKey = "" }) {
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const sessions = new Map();
@@ -114,7 +116,8 @@ export async function startFakeStripe({ webhookSecret }) {
     const params = parseForm(raw);
     const key = req.headers["idempotency-key"] || "";
     requests.push({ method: req.method, path: url.pathname, params, headers: req.headers });
-    if (!/^Bearer [sr]k_test_/.test(req.headers.authorization || "")) {
+    const auth = req.headers.authorization || "";
+    if (!/^Bearer [sr]k_test_/.test(auth) && !(extraKey && auth === `Bearer ${extraKey}`)) {
       return json(res, 401, { error: { type: "invalid_request_error", message: "bad key" } });
     }
     const delay = delays.findIndex(([prefix]) => url.pathname.startsWith(prefix));

@@ -8,13 +8,13 @@
 // The folder (default docs/qr-ordering/nap/shots, not in git) gets one PNG per
 // [Снимка: …] in the manual, numbered in its order. Receipts come from the
 // real printer, photographed: they are not here.
-import { mkdirSync, mkdtempSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, existsSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import puppeteer from "puppeteer";
 import { startServer, client, newKey, orderBody } from "./server.mjs";
 import { startFakeStripe } from "./fake-stripe.mjs";
-import { startFakeErpNet } from "./fake-erpnet.mjs";
+import { startFakeErpNet, PRINTER } from "./fake-erpnet.mjs";
 import { createBridge } from "../../tools/fiscal-bridge/bridge.mjs";
 
 const OUT = process.argv[2] || "docs/qr-ordering/nap/shots";
@@ -23,6 +23,9 @@ const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Sofia" }).for
 if (!existsSync("dist/menu/index.html")) throw new Error("run npm run build first");
 mkdirSync(OUT, { recursive: true });
 
+// The fake printer answers as the declared one (ErpNet.FP on the mini PC, 15.11.2026), so the УНП and
+// the reports show the real ФУ's number.
+Object.assign(PRINTER, { id: "dt055322", serialNumber: "DA055322", fiscalMemorySerialNumber: "79055322", model: "FP-700MX", itemTextMaxLength: 72 });
 const stripe = await startFakeStripe({ webhookSecret: "whsec_shots" });
 const printer = await startFakeErpNet();
 // As it will be declared: no tips, no orders paid to staff (DECISIONS.md, 19 and 29.10.2026).
@@ -114,12 +117,31 @@ try {
   await shot(mgr, "vhod");
   await mgr.signIn();
   await shot(mgr, "porachkite-s-unp");
+  // Taking a line off: the reason is asked for, and what happens to the money is said.
+  await mgr.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Откажи само/.test(b.getAttribute("aria-label") || ""))?.click());
+  await sleep(800);
+  await shot(mgr, "anulirane-na-red");
+  await mgr.keyboard.press("Escape");
+  await clickText(mgr, /^(Затвори|Назад|Отказ)$/).catch(() => {});
+  await mgr.reload({ waitUntil: "networkidle0" });
+  await sleep(1500);
+  await mgr.tab("Вечерта");
+  await shot(mgr, "vecherta");
   await mgr.tab("За касата");
   await shot(mgr, "za-kasata");
   await mgr.tab("Персонал");
   await shot(mgr, "personal");
   await mgr.tab("Журнал");
   await shot(mgr, "zhurnal");
+  // Filtered: one operator's actions.
+  await mgr.evaluate(() => {
+    const sel = document.querySelector("select[name=operator]");
+    const opt = [...sel.options].find((o) => /0002|Иван/.test(o.textContent));
+    sel.value = opt.value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await sleep(1500);
+  await shot(mgr, "zhurnal-filtar-operator");
   await mgr.tab("Справки НАП");
   await shot(mgr, "spravki-nap");
   const tables = await mgr.$$eval("select option", (os) => os.map((o) => [o.parentElement.name || "", o.value, o.textContent.trim()]));
@@ -136,6 +158,17 @@ try {
   await shot(mgr, "sistema");
   await mgr.tab("История");
   await shot(mgr, "istoriya");
+
+  // A file of the program changed on the (test) server: the red band, and „Система“.
+  const planted = path.join(srv.root, "api", "qr", "planted.php");
+  writeFileSync(planted, "<?php // not part of the version\n");
+  srv.sqlite("UPDATE integrity SET checked_at = 0"); // checked every 5 minutes: now, for the picture
+  await mgr.reload({ waitUntil: "networkidle0" });
+  await sleep(2500);
+  await shot(mgr, "lenta-promenen-fail");
+  await mgr.tab("Система");
+  await shot(mgr, "sistema-promenen-fail");
+  rmSync(planted);
 
   // The printer not ready: the menu won't take orders, staff see the red band.
   printer.setStatusOk(false);

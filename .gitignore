@@ -43,5 +43,5 @@ tools/fiscal-bridge/config.json
 tools/fiscal-bridge/journal.json*
 
 # НАП screenshots (tests/qr/nap-shots.mjs): made again for each declared version
-docs/qr-ordering/nap/shots/
+docs/qr-ordering/nap/shots*/
 docs/qr-ordering/nap/nap-screenshots-*.zip

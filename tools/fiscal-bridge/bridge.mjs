@@ -29,6 +29,9 @@
 //   ERPNET_URL       http://localhost:8001 (ErpNet.FP)
 //   PRINTER_ID       ErpNet.FP's printer id; the first printer found if empty
 //   JOURNAL          the journal's path (default: journal.json next to this file)
+//   ERPNET_RESTART   a command that restarts ErpNet.FP, run when it hasn't
+//                    seen the printer for 3 minutes (at most every 10); empty: never
+//                    (on the mini PC: pkill -x ErpNet.FP.Serve, systemd starts it again)
 //
 //   node bridge.mjs          run
 //   node bridge.mjs --check  can it see ErpNet.FP, the printer and the server? (claims nothing)
@@ -38,9 +41,10 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
 import path from "node:path";
 
-export const VERSION = "1.3.0";
+export const VERSION = "1.4.0";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const CLOCK_EVERY_MS = 24 * 3600 * 1000; // the printer's clock is set at least daily (Наредба Н-18, Annex 29 т. 5) …
@@ -48,6 +52,12 @@ const CLOCK_DRIFT_S = 30; // … and whenever it is this far off
 // ErpNet.FP looks for printers only when it starts: one switched on later (or
 // back after a power cut) stays unseen until it is asked to look again.
 const DETECT_EVERY_MS = 60 * 1000;
+// Sometimes looking again isn't enough: after the printer froze or was
+// reconnected, ErpNet.FP keeps its dead connection and never sees the printer
+// again until it is restarted (16 and 19.11.2026). So it is restarted after
+// this long without the printer, and not more often than every RESTART_EVERY_MS.
+const RESTART_AFTER_MS = 3 * 60 * 1000;
+const RESTART_EVERY_MS = 10 * 60 * 1000;
 
 /** A time as the printer keeps it: Sofia wall-clock, "2026-10-29T20:15:00". */
 export function sofiaLocal(ms) {
@@ -97,6 +107,7 @@ export function loadConfig(env = process.env) {
     erpnet: pick("ERPNET_URL").replace(/\/+$/, "") || "http://localhost:8001",
     printerId: pick("PRINTER_ID"),
     journal: pick("JOURNAL") || path.join(HERE, "journal.json"),
+    erpnetRestart: pick("ERPNET_RESTART"),
   };
 }
 
@@ -121,14 +132,22 @@ class Journal {
 /**
  * A bridge: step() does one round. config as loadConfig gives it, plus for
  * tests: waitMs (how long to wait for the printer), headers (extra request
- * headers to the server); options.fetch replaces fetch.
+ * headers to the server), restartAfterMs/restartEveryMs; options.fetch
+ * replaces fetch, options.restart replaces running config.erpnetRestart.
  */
-export function createBridge(config, { log = console.log, fetch = globalThis.fetch } = {}) {
+export function createBridge(config, { log = console.log, fetch = globalThis.fetch, restart } = {}) {
   const journal = new Journal(config.journal);
   const waitMs = config.waitMs ?? 90000;
   let printer = null; // ErpNet.FP's device info
   let clock = { syncedAt: 0, drift: null, error: "" }; // the printer's clock: last set, seconds off, why it couldn't be set
   let detectedAt = 0; // when ErpNet.FP was last asked to look for the printer
+  let lostSince = 0; // since when ErpNet.FP hasn't had the printer (0: it has it)
+  let restartedAt = 0; // when ErpNet.FP was last restarted for it
+  const restartAfter = config.restartAfterMs ?? RESTART_AFTER_MS;
+  const restartEvery = config.restartEveryMs ?? RESTART_EVERY_MS;
+  const runRestart = restart || (config.erpnetRestart
+    ? () => new Promise((resolve, reject) => execFile("/bin/sh", ["-c", config.erpnetRestart], { timeout: 30000 }, (e) => (e && e.code !== 1 ? reject(e) : resolve())))
+    : null);
 
   async function server(pathname, body) {
     const res = await fetch(`${config.server}${pathname}`, {
@@ -162,7 +181,33 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
     await erpnet("/service/detect", { timeout: 60000 }).catch(() => {});
   }
 
+  /**
+   * Restarts ErpNet.FP when it has been without the printer for too long.
+   * Only for a lost printer (none found, or ErpNet.FP not answering about it),
+   * never for one that answers with a problem of its own (paper, cover).
+   */
+  async function lostPrinter() {
+    const at = Date.now();
+    if (!lostSince) lostSince = at;
+    if (!runRestart || at - lostSince < restartAfter || (restartedAt && at - restartedAt < restartEvery)) return;
+    restartedAt = at;
+    log(`ErpNet.FP has not had the printer for ${Math.round((at - lostSince) / 1000)} s: restarting it`);
+    try {
+      await runRestart();
+    } catch (e) {
+      log(`ErpNet.FP could not be restarted: ${e.message}`);
+    }
+  }
+
   async function printerState() {
+    const state = await readPrinter();
+    if (state.lost) await lostPrinter();
+    else lostSince = 0;
+    delete state.lost;
+    return state;
+  }
+
+  async function readPrinter() {
     try {
       if (!printer) {
         const find = async () => {
@@ -175,7 +220,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
           await detect();
           id = await find();
         }
-        if (!id) return { ok: false, message: "ErpNet.FP sees no fiscal printer" };
+        if (!id) return { ok: false, lost: true, message: "ErpNet.FP sees no fiscal printer" };
         printer = { id, ...(await erpnet(`/printers/${id}`)) };
       }
       const status = await erpnet(`/printers/${printer.id}/status`);
@@ -188,7 +233,7 @@ export function createBridge(config, { log = console.log, fetch = globalThis.fet
       };
     } catch (e) {
       printer = null;
-      return { ok: false, message: `ErpNet.FP: ${e.message}` };
+      return { ok: false, lost: true, message: `ErpNet.FP: ${e.message}` };
     }
   }
 

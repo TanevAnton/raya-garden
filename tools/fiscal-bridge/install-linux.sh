@@ -49,6 +49,10 @@ SERVER="${SERVER:-https://rayagarden.bg}"
 ERPNET="$(ask ERPNET_URL "ErpNet.FP" "$(current ERPNET_URL || true)")"
 ERPNET="${ERPNET:-http://localhost:8001}"
 PRINTER="$(ask PRINTER_ID "Printer id (empty: the first one ErpNet.FP finds)" "$(current PRINTER_ID || true)")"
+# ErpNet.FP runs as a systemd service under the same user (MINI-PC-SETUP-BG.md),
+# so ending it is enough: systemd starts it again. Used when it loses the printer.
+RESTART="$(current ERPNET_RESTART || true)"
+RESTART="${RESTART:-pkill -x ErpNet.FP.Serve}"
 OLD_KEY="$(current RAYA_BRIDGE_KEY || true)"
 read -r -s -p "The bridge's key (QR_FISCAL_BRIDGE_TOKEN)${OLD_KEY:+ [keep the current one: Enter]}: " KEY
 echo
@@ -59,9 +63,10 @@ if (( ${#KEY} < 32 )); then
 fi
 
 umask 077
-RAYA_SERVER="$SERVER" ERPNET_URL="$ERPNET" PRINTER_ID="$PRINTER" RAYA_BRIDGE_KEY="$KEY" "$NODE" -e '
+RAYA_SERVER="$SERVER" ERPNET_URL="$ERPNET" PRINTER_ID="$PRINTER" RAYA_BRIDGE_KEY="$KEY" ERPNET_RESTART="$RESTART" "$NODE" -e '
   const c = { RAYA_SERVER: process.env.RAYA_SERVER, RAYA_BRIDGE_KEY: process.env.RAYA_BRIDGE_KEY,
-              ERPNET_URL: process.env.ERPNET_URL, PRINTER_ID: process.env.PRINTER_ID };
+              ERPNET_URL: process.env.ERPNET_URL, PRINTER_ID: process.env.PRINTER_ID,
+              ERPNET_RESTART: process.env.ERPNET_RESTART };
   require("fs").writeFileSync(process.argv[1], JSON.stringify(c, null, 2) + "\n");' "$CONFIG"
 chown "$RUN_AS" "$CONFIG"
 chmod 600 "$CONFIG"

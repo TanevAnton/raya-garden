@@ -50,6 +50,7 @@ export async function startFakeErpNet() {
   let statusOk = true;
   let lost = false; // ErpNet.FP started while the printer was off: it sees none until /service/detect
   let detects = 0;
+  let stuck = false; // ErpNet.FP holds a dead connection: looking again doesn't help, only a restart
   let clockOffset = 0; // ms the printer's clock is ahead
   let clockRefuses = false; // setting the time is refused (as some printers do before the Z report)
   const clockSets = []; // every time the bridge set the clock
@@ -161,7 +162,7 @@ export async function startFakeErpNet() {
     const url = new URL(req.url, base);
     if (req.method === "GET" && url.pathname === "/service/detect") {
       detects++;
-      lost = false;
+      if (!stuck) lost = false;
       return json(res, 200, {});
     }
     if (lost && url.pathname.startsWith("/printers")) return json(res, url.pathname === "/printers" ? 200 : 404, {});
@@ -234,10 +235,15 @@ export async function startFakeErpNet() {
       for (const [taskId, kind, body] of held.splice(0)) run(taskId, kind, body);
     },
     /** ErpNet.FP restarted: every task's information is gone (what printed stays printed). */
-    restart: () => tasks.clear(),
+    restart: () => {
+      tasks.clear();
+      lost = stuck = false;
+    },
     setStatusOk: (ok) => (statusOk = ok),
     /** ErpNet.FP came up before the printer: it sees no printer until asked to detect again. */
     lose: () => (lost = true),
+    /** The printer froze or was reconnected: ErpNet.FP won't find it again until restarted. */
+    stick: () => (lost = stuck = true),
     detects: () => detects,
     /** A storno's card payment is refused, as the real FP-700MX does (-112201). */
     refuseCardStorno: (refuse) => (cardStornoRefused = refuse),

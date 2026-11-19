@@ -75,12 +75,13 @@ const row = (id) => JSON.parse(srv.sqlite(`SELECT * FROM orders WHERE id = ${id}
 const voidLine = (admin, id, line, qty, have) => admin.admin("/api/qr/admin/order.php", { id, action: "void", line, qty, have, reason: "Изчерпан продукт" });
 const cancel = (admin, id) => admin.admin("/api/qr/admin/order.php", { id, action: "cancel", from: "new", reason: "Гостът си тръгна" });
 const now = () => Math.floor(Date.now() / 1000);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** A bridge, as in the restaurant; `later` moves the server's clock (leases run out). */
-const bridge = ({ later = 0, at = 0, fetch } = {}) =>
+const bridge = ({ later = 0, at = 0, fetch, restart, restartAfterMs, restartEveryMs } = {}) =>
   createBridge(
-    { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "journal.json"), waitMs: 1500, headers: later || at ? { "X-Test-Now": String(at || now() + later) } : {} },
-    { log: () => {}, ...(fetch ? { fetch } : {}) },
+    { server: srv.base, key: KEY, erpnet: printer.base, printerId: "", journal: path.join(work, "journal.json"), waitMs: 1500, restartAfterMs, restartEveryMs, headers: later || at ? { "X-Test-Now": String(at || now() + later) } : {} },
+    { log: () => {}, ...(fetch ? { fetch } : {}), ...(restart ? { restart } : {}) },
   );
 /** Rounds until nothing is left to claim. */
 async function drain(b = bridge(), rounds = 10) {
@@ -131,6 +132,40 @@ describe("fiscal receipts: no sale or payment the printer can't take (Annex 29 �
     await b.check();
     assert.equal(printer.detects(), before + 1, "not asked again within the minute");
     assert.equal((await state()).fiscal.reason, "printer");
+  });
+
+  it("ErpNet.FP that won't find the printer again is restarted: only after a while without it, and not over and over", async () => {
+    await setUp();
+    printer.stick();
+    let restarts = 0;
+    const restart = async () => {
+      restarts++;
+      printer.restart();
+    };
+    const b = bridge({ restart, restartAfterMs: 300, restartEveryMs: 60000 });
+    await b.check(); // lost just now: looking again doesn't help, too soon to restart
+    assert.equal(restarts, 0);
+    assert.equal((await state()).fiscal.reason, "printer");
+    await sleep(350);
+    await b.check(); // 300 ms without it: restarted
+    assert.equal(restarts, 1);
+    await b.check(); // the next round finds it
+    assert.equal((await state()).open, true, "phone payments go on");
+
+    printer.stick();
+    await b.check();
+    await sleep(350);
+    await b.check();
+    assert.equal(restarts, 1, "not restarted again within restartEveryMs");
+
+    // A printer that answers with a problem of its own (paper, cover) is not a reason to restart.
+    printer.restart();
+    printer.setStatusOk(false);
+    const c = bridge({ restart, restartAfterMs: 0, restartEveryMs: 0 });
+    await c.check();
+    await c.check();
+    assert.equal(restarts, 1);
+    printer.setStatusOk(true);
   });
 
   it("without receipts switched on, or on evenings paid to staff, nothing waits for the printer", async () => {
